@@ -1,6 +1,6 @@
 // Brings the loaded 2014 Cobalt model closer to the current Uzbek-built car (2020+):
 // paint colour choice, smoked headlamp housings, the MyLink touchscreen on the centre
-// stack and "COBALT" plates. Applied at load time because it needs canvas textures.
+// stack. Applied at load time because it needs canvas textures.
 import * as THREE from "three";
 
 export const COLORS = {
@@ -32,15 +32,6 @@ function screenTexture() {
     });
     g.fillStyle = "#9aa3ae"; g.font = "16px sans-serif"; g.textAlign = "left"; g.fillText("⌂  ♪  ✆", 26, h - 24);
     g.textAlign = "right"; g.fillText("24°   10:45", w - 26, h - 24);
-  });
-}
-
-function plateTexture() {
-  return canvasTex(520, 112, (g, w, h) => {
-    g.fillStyle = "#0d0e10"; g.fillRect(0, 0, w, h);
-    g.strokeStyle = "#c9ccd1"; g.lineWidth = 6; g.strokeRect(5, 5, w - 10, h - 10);
-    g.fillStyle = "#f2f3f5"; g.font = "bold 76px sans-serif"; g.textAlign = "center"; g.textBaseline = "middle";
-    g.fillText("COBALT", w / 2, h / 2 + 4);
   });
 }
 
@@ -113,12 +104,6 @@ export function dressCobalt(cv) {
     const back = new THREE.Mesh(new THREE.PlaneGeometry(0.255, 0.105), new THREE.MeshBasicMaterial({ color: 0x050607 })); back.position.z = -0.002; cl.add(back);
     const dial = new THREE.Mesh(new THREE.PlaneGeometry(0.24, 0.09), new THREE.MeshBasicMaterial({ map: cv.clusterTex, toneMapped: false })); cl.add(dial);
   }
-
-  // black "COBALT" plates front and rear, where the source has the plate holder screws
-  const plateMat = new THREE.MeshStandardMaterial({ map: plateTexture(), roughness: 0.5, metalness: 0.2 });
-  const front = new THREE.Mesh(new THREE.BoxGeometry(0.006, 0.112, 0.52), [0, 0, 0, 0, 0, 0].map((_, i) => i === 0 ? plateMat : new THREE.MeshStandardMaterial({ color: 0x0d0e10 })));
-  front.position.set(3.582, 0.45, 0); car.add(front);
-  const rear = front.clone(); rear.position.set(-0.882, 0.545, 0); rear.rotation.y = Math.PI; car.add(rear);
 
   // rectangular vents of the facelift dashboard over the round 2014 ones
   const slats = canvasTex(64, 64, (g, w, h) => {

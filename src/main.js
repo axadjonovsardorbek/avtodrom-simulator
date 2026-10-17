@@ -10,6 +10,7 @@ import { Hud } from "./ui/hud.js";
 import { carById } from "./cars/index.js";
 import { loadCarModel } from "./render/carLoader.js";
 import { dressCobalt, addPaint } from "./render/carDress.js";
+import { addPlates, DEFAULT_PLATE } from "./render/plates.js";
 import PHRASES from "./audio/phrases.json";
 import { Instructor, lineIds } from "./instructor/instructor.js";
 import { buildInstructor } from "./render/instructorFigure.js";
@@ -17,7 +18,7 @@ import { KidShow } from "./render/singerKid.js";
 import { buildDriver } from "./render/driverFigure.js";
 
 const coarse = matchMedia("(pointer: coarse)").matches;
-const settings = { transmission: "manual", quality: coarse ? "low" : "high", mouseSteer: false, muted: false, voice: true, car: "cobalt", instructor: "angry", color: "white" };
+const settings = { transmission: "manual", quality: coarse ? "low" : "high", mouseSteer: false, muted: false, voice: true, car: "cobalt", instructor: "angry", color: "white", plate: DEFAULT_PLATE };
 try { Object.assign(settings, JSON.parse(localStorage.getItem("avtodrom.settings") || "{}")); } catch (_) {}
 // the old "Ovoz" button muted on first press; start everyone unmuted once
 if (!settings.v2) { settings.muted = false; settings.v2 = true; }
@@ -26,6 +27,7 @@ const saveSettings = () => { try { localStorage.setItem("avtodrom.settings", JSO
 let session = null, mode = null, elementId = null, paused = true, ended = false;
 const app = document.getElementById("app");
 const hud = new Hud(app, { settings, start, resume, action: onAction, resultAction, useCar, showroom: openShowroom,
+  setPlate: t => { settings.plate = t; if (view.carView.setPlate) view.carView.setPlate(t); saveSettings(); },
   setColor: id => { settings.color = id; if (view.carView.setPaint) view.carView.setPaint(id); saveSettings(); } });
 const view = new View(hud.canvas);
 const audio = new CarAudio();
@@ -210,6 +212,8 @@ function useCar(id) {
     clearTimeout(slow);
     if (carModelId !== car.id) return;                  // another car was picked meanwhile
     if (car.id === "cobalt") dressCobalt(cv); else addPaint(cv);
+    // the Cobalt file has no plates of its own: put them on the plate holders
+    addPlates(cv, settings.plate, car.id === "cobalt" ? [{ pos: [3.582, 0.45, 0], back: false }, { pos: [-0.882, 0.545, 0], back: true }] : undefined);
     if (cv.setPaint) cv.setPaint(settings.color);
     view.setCarModel(cv, car);
   }).catch(e => { clearTimeout(slow); hud.toast(`${car.name} yuklanmadi`, "bad"); console.warn("car model not loaded, using the built-in one:", e.message); });
