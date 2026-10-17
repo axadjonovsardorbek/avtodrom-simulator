@@ -210,6 +210,7 @@ function useCar(id) {
   loadCarModel(car.model).then(cv => {
     clearTimeout(slow);
     if (carModelId !== car.id) return;                  // another car was picked meanwhile
+    audio.setProfile(car.sound);
     if (car.id === "cobalt") dressCobalt(cv); else addPaint(cv);
     // the Cobalt file has no plates of its own: put them on the plate holders
     addPlates(cv, settings.plate, car.id === "cobalt" ? [{ pos: [3.582, 0.45, 0], back: false }, { pos: [-0.882, 0.545, 0], back: true }] : undefined);

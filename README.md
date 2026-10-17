@@ -64,6 +64,10 @@ Havola orqali to'g'ridan-to'g'ri ochish: `#imtihon`, `#trening`, `#mashq-ilon` (
 
 Rul yoki gamepad (standart mapping): chap stik rul, RT gaz, LT tormoz, LB ilashish, A/B uzatma.
 
+## Avtodrom sxemasi
+
+Toshkent imtihon markazi sxemasi bo'yicha: o'rtada svetoforli chorraha, shimolda start, piyodalar o'tish joyi, estakada va 90° burilishlar, janubi-g'arbda ilon izi, janubi-sharqda boks, g'arb tomonda temir yo'l kesishmasi, shimoliy chetda tezlashish bo'lagi va avariya to'xtashi, sharq tomonda parallel parkovka (`src/world/tracks.js`, `buildFull`).
+
 ## Mashinalar
 
 Mashinalar ro'yxati `src/cars/index.js` da. Har bir mashina `public/models/` dagi `.glb` fayldan yuklanadi.

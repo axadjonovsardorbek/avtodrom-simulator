@@ -64,65 +64,71 @@ function checker(W, pose, s, halfW) {
 }
 
 // car: { length, rOh } of the car being driven (the parking box is sized to it)
+//
+// Layout follows the Tashkent exam centre scheme: the signalised intersection (5) in the
+// middle, the start, crossing, overpass and 90-degree turns above it, the serpentine in
+// the south-west, the turning boxes in the south-east, the railway crossing on the west
+// side and the acceleration strip along the north edge. North is -y.
 export function buildFull(car) {
   const W = new World("full"); W.car = car;
-  const A = 30, XL = 77.75, YB = 140, O = { x: 0, y: 0 };
+  const A = 30, XL = 96, YB = 140, YS = 75, O = { x: 0, y: 0 };   // YS: south edge road
   buildIntersection(W, A);
 
-  // Start pad and the start route inside the southern pocket
-  W.addPad([[52, 131], [68, 131], [68, 137.6], [52, 137.6]]);
-  W.addLine([[58.25, 131], [52, 131], [52, 137.6], [68, 137.6], [68, 131], [61.75, 131]], "edge");
-  W.addLine([[56, 132.5], [56, 137.6]], "paint"); W.addLine([[64, 132.5], [64, 137.6]], "paint");
-  W.start = { x: 60, y: 135.4, th: -90 * DEG };
-  const T = new Turtle(W, 60, 131, -90);
+  // Start pad and the start route in the northern pocket, heading south
+  W.addPad([[-52, -131], [-68, -131], [-68, -137.6], [-52, -137.6]]);
+  W.addLine([[-58.25, -131], [-52, -131], [-52, -137.6], [-68, -137.6], [-68, -131], [-61.75, -131]], "edge");
+  W.addLine([[-56, -132.5], [-56, -137.6]], "paint"); W.addLine([[-64, -132.5], [-64, -137.6]], "paint");
+  W.start = { x: -60, y: -135.4, th: 90 * DEG };
+  const T = new Turtle(W, -60, -131, 90);
   W.startLine = { pose: T.pose, s: 0 };
   W.addPaint([toWorld(T.pose, -0.3, -HL), toWorld(T.pose, 0, -HL), toWorld(T.pose, 0, HL), toWorld(T.pose, -0.3, HL)]);
-  W.texts.push({ x: 60, y: 129, th: -90 * DEG, text: "START", size: 1.1 });
+  W.texts.push({ x: -60, y: -129, th: 90 * DEG, text: "START", size: 1.1 });
   T.fwd(4);
   const tP = piyoda(W, T);
   T.fwd(3);
   const tE = estakada(W, T);
   T.fwd(1); T.arc(ARC, -90); T.fwd(4);
   const tB = burilish(W, T, -1);
-  T.fwdTo("x", ARC + HL); T.arc(ARC, 90); T.fwdTo("y", A); T.end();
+  T.fwdTo("x", -(ARC + HL)); T.arc(ARC, 90); T.fwdTo("y", -A); T.end();
 
-  // P1: south arm, straight north. Then the serpentine loop (north-east).
-  const c1 = chorraha(W, O, -90, "straight", A);
-  const T2 = new Turtle(W, HL, -A, -90);
-  T2.fwd(4); T2.arc(ARC, 90); T2.fwd(6);
+  // P1: north arm, straight south. Then the serpentine loop (south-west).
+  const c1 = chorraha(W, O, 90, "straight", A);
+  const T2 = new Turtle(W, -HL, A, 90);
+  T2.fwdTo("y", YS - ARC); T2.arc(ARC, 90); T2.fwd(6);
   const tI = ilon(W, T2);
-  T2.fwdTo("x", XL); T2.arc(ARC, 90); T2.fwdTo("y", -(HL + ARC)); T2.arc(ARC, 90); T2.fwdTo("x", A); T2.end();
+  T2.fwdTo("x", -XL); T2.arc(ARC, 90); T2.fwdTo("y", HL + ARC); T2.arc(ARC, 90); T2.fwdTo("x", -A); T2.end();
 
-  // P2: east arm, straight west. Then the box loop (north-west).
-  const c2 = chorraha(W, O, 180, "straight", A);
-  const T3 = new Turtle(W, -A, -HL, 180);
-  T3.fwdTo("x", -XL); T3.arc(ARC, 90); T3.fwd(2);
+  // P2: west arm, straight east. Then the box loop (south-east).
+  const c2 = chorraha(W, O, 0, "straight", A);
+  const T3 = new Turtle(W, A, HL, 0);
+  T3.fwdTo("x", XL); T3.arc(ARC, 90); T3.fwd(2);
   const tX = boks(W, T3);
-  T3.fwdTo("y", -(A + 4)); T3.arc(ARC, 90); T3.fwdTo("x", -(HL + ARC)); T3.arc(ARC, 90); T3.fwdTo("y", -A); T3.end();
+  T3.fwdTo("y", YS - ARC); T3.arc(ARC, 90); T3.fwdTo("x", HL + ARC); T3.arc(ARC, 90); T3.fwdTo("y", A); T3.end();
 
-  // P3: north arm, left turn to the east. Then the outer loop around everything.
-  const c3 = chorraha(W, O, 90, "left", A);
-  const T4 = new Turtle(W, A, HL, 0);
-  T4.fwdTo("x", XL); T4.arc(ARC, 90); T4.fwd(4);
+  // P3: south arm, left turn to the west. Then the outer loop: railway on the west side,
+  // acceleration strip and emergency stop along the north edge, parking on the east side.
+  const c3 = chorraha(W, O, -90, "left", A);
+  const T4 = new Turtle(W, -A, -HL, 180);
+  T4.fwdTo("x", -XL); T4.arc(ARC, 90); T4.fwd(4);
   const tR = temir(W, T4);
-  T4.fwdTo("y", YB - ARC); T4.arc(ARC, 90); T4.fwd(4);
+  T4.fwdTo("y", -(YB - ARC)); T4.arc(ARC, 90); T4.fwd(4);
   const tZ = tezlashish(W, T4);
   T4.fwd(2);
   const tA = avariya(W, T4);
-  T4.fwdTo("x", -XL); T4.arc(ARC, 90); T4.fwd(4);
+  T4.fwdTo("x", XL); T4.arc(ARC, 90); T4.fwd(4);
   const tK = parkovka(W, T4);
-  T4.fwdTo("y", HL + ARC); T4.arc(ARC, 90); T4.fwdTo("x", -A); T4.end();
+  T4.fwdTo("y", -(HL + ARC)); T4.arc(ARC, 90); T4.fwdTo("x", A); T4.end();
 
-  // P4: west arm, right turn to the south. Then the finish.
-  const c4 = chorraha(W, O, 0, "right", A);
-  const T5 = new Turtle(W, -HL, A, 90);
+  // P4: east arm, right turn to the north. Then the finish.
+  const c4 = chorraha(W, O, 180, "right", A);
+  const T5 = new Turtle(W, HL, -A, -90);
   const fp = T5.pose;
-  T5.fwdTo("y", 66); T5.end();
+  T5.fwdTo("y", -66); T5.end();
   W.finishLine = { pose: fp, s: 32, halfW: HL };
   checker(W, fp, 31, HL);
-  W.texts.push({ x: -HL, y: 64.5, th: 90 * DEG, text: "FINISH", size: 1.0 });
-  W.addPad([[-16, 66], [0, 66], [0, 84], [-16, 84]]);
-  W.addLine([[-3.5, 66], [-16, 66], [-16, 84], [0, 84], [0, 66]], "edge");
+  W.texts.push({ x: HL, y: -64.5, th: -90 * DEG, text: "FINISH", size: 1.0 });
+  W.addPad([[16, -66], [0, -66], [0, -84], [16, -84]]);
+  W.addLine([[3.5, -66], [16, -66], [16, -84], [0, -84], [0, -66]], "edge");
 
   W.tasks.push(tP, tE, tB, c1, tI, c2, tX, c3, tR, tZ, tA, tK, c4);
   return W.build();

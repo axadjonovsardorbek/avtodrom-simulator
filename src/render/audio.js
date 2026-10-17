@@ -37,19 +37,19 @@ export class CarAudio {
     this.eng = c.createOscillator(); this.eng.type = "sawtooth";
     this.eng2 = c.createOscillator(); this.eng2.type = "sawtooth";
     this.sub = c.createOscillator(); this.sub.type = "square";
-    const g1 = c.createGain(); g1.gain.value = 0.55;
-    const g2 = c.createGain(); g2.gain.value = 0.35;
-    const subG = c.createGain(); subG.gain.value = 0.3;
-    const shaper = c.createWaveShaper();
-    const curve = new Float32Array(1024);
-    for (let i = 0; i < 1024; i++) { const x = i / 512 - 1; curve[i] = Math.tanh(x * 2.6); }
-    shaper.curve = curve;
+    const g1 = this.g1 = c.createGain(), g2 = this.g2 = c.createGain(), subG = this.subG = c.createGain();
+    const shaper = this.shaper = c.createWaveShaper();
     this.engFilter = c.createBiquadFilter(); this.engFilter.type = "lowpass"; this.engFilter.Q.value = 1.4;
     this.engGain = c.createGain(); this.engGain.gain.value = 0;
     this.eng.connect(g1); this.eng2.connect(g2); this.sub.connect(subG);
     [g1, g2, subG].forEach(g => g.connect(shaper));
     shaper.connect(this.engFilter); this.engFilter.connect(this.engGain); this.engGain.connect(this.master);
     this.eng.start(); this.eng2.start(); this.sub.start();
+    // turbo whistle (rises with boost) for turbocharged engines
+    this.whistle = c.createOscillator(); this.whistle.type = "sine";
+    this.whistleGain = c.createGain(); this.whistleGain.gain.value = 0;
+    this.whistle.connect(this.whistleGain); this.whistleGain.connect(this.master); this.whistle.start();
+    this.setProfile(this.profile);
 
     // intake / road / wind beds
     this.intake = this.bed(this.white, "bandpass", 900, 1.2);
@@ -68,6 +68,16 @@ export class CarAudio {
     this.ambience();
     this.pickVoice();
     if (window.speechSynthesis) speechSynthesis.onvoiceschanged = () => this.pickVoice();
+  }
+
+  // engine character per car: harmonic mix, distortion, filter, turbo
+  setProfile(p) {
+    this.profile = p = p || { harm: [0.55, 0.35, 0.3], drive: 2.6, filter: [700, 2600], gain: 1, turbo: 0 };
+    if (!this.ctx) return;
+    [this.g1, this.g2, this.subG].forEach((g, i) => { g.gain.value = p.harm[i]; });
+    const curve = new Float32Array(1024);
+    for (let i = 0; i < 1024; i++) { const x = i / 512 - 1; curve[i] = Math.tanh(x * p.drive); }
+    this.shaper.curve = curve;
   }
 
   bed(buf, type, freq, q) {
@@ -211,6 +221,15 @@ export class CarAudio {
     };
   }
 
+  // the "pssh" of the turbo bypass valve when the throttle snaps shut
+  blowOff() {
+    const c = this.ctx, src = c.createBufferSource(), f = c.createBiquadFilter(), g = c.createGain(), t = c.currentTime;
+    src.buffer = this.white; f.type = "bandpass"; f.frequency.value = 2600; f.Q.value = 0.9;
+    g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.06, t + 0.02); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.35);
+    src.connect(f); f.connect(g); g.connect(this.master); src.start(t); src.stop(t + 0.4);
+    this.boost = 0;
+  }
+
   talking() {
     const c = this.ctx;
     if (c && c.currentTime >= (this.talkFrom ?? 0) && c.currentTime < (this.talkUntil ?? 0)) return true;
@@ -257,9 +276,17 @@ export class CarAudio {
     this.eng.frequency.setTargetAtTime(f, t, 0.02);
     this.eng2.frequency.setTargetAtTime(f * 2.004, t, 0.02);
     this.sub.frequency.setTargetAtTime(f / 2, t, 0.02);
-    this.engFilter.frequency.setTargetAtTime(700 + thr * 2600 + rpm * 0.3, t, 0.04);
+    const P = this.profile;
+    this.engFilter.frequency.setTargetAtTime(P.filter[0] + thr * P.filter[1] + rpm * 0.3, t, 0.04);
     const load = on ? 0.16 + thr * 0.16 + clamp(rpm / 6500, 0, 1) * 0.08 : (rpm > 50 ? 0.08 * rpm / 800 : 0);
-    this.engGain.gain.setTargetAtTime(load, t, 0.05);
+    this.engGain.gain.setTargetAtTime(load * P.gain, t, 0.05);
+    // boost builds with throttle above ~1800 rpm; the whistle follows it
+    const boost = P.turbo && on ? clamp(thr * (rpm - 1800) / 2500, 0, 1) : 0;
+    this.boost = (this.boost || 0) + (boost - (this.boost || 0)) * 0.08;
+    this.whistle.frequency.setTargetAtTime(2400 + this.boost * 3800, t, 0.05);
+    this.whistleGain.gain.setTargetAtTime(this.boost * 0.012, t, 0.06);
+    if (P.turbo && this.lastThr > 0.5 && thr < 0.15 && this.boost > 0.4) this.blowOff();
+    this.lastThr = thr;
     this.intake.g.gain.setTargetAtTime(on ? thr * clamp(rpm / 4000, 0.15, 1) * 0.12 : 0, t, 0.06);
     this.intake.f.frequency.setTargetAtTime(500 + rpm * 0.25, t, 0.06);
     const kmh = car.kmh;

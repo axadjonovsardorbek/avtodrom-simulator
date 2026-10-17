@@ -14,18 +14,21 @@ export const SPEC = {
   final: 4.1, gears: [0, 3.58, 2.02, 1.35, 0.98, 0.81], reverse: 3.31,
   idleRpm: 850, stallRpm: 380, maxRpm: 6300, Ie: 0.17,
   clutchCap: 280,                               // Nm, fully engaged
-  brakeDecel: 7.5, handbrakeDecel: 3.6, roll: 0.13, aero: 0.0004
+  brakeDecel: 7.5, handbrakeDecel: 3.6, roll: 0.13, aero: 0.0004,
+  torque: null,                                 // engine torque curve [[rpm, Nm]], default TORQUE below
+  autoForce: 4300,                              // automatic: peak drive force, N
+  steerRate: 2.6                                // front wheels follow the steering wheel, rad/s
 };
 export const FRONT = SPEC.wb + SPEC.fOh;
 export const REAR = -SPEC.rOh;
 export const HW = SPEC.width / 2;
 
 const TORQUE = [[0, 50], [1000, 104], [2000, 124], [3000, 134], [4000, 138], [5000, 131], [6000, 113], [6600, 0]];
-export function engineTorque(rpm) {
-  if (rpm <= 0) return TORQUE[0][1];
-  for (let i = 1; i < TORQUE.length; i++) {
-    if (rpm <= TORQUE[i][0]) {
-      const [r0, t0] = TORQUE[i - 1], [r1, t1] = TORQUE[i];
+export function engineTorque(rpm, curve = TORQUE) {
+  if (rpm <= 0) return curve[0][1];
+  for (let i = 1; i < curve.length; i++) {
+    if (rpm <= curve[i][0]) {
+      const [r0, t0] = curve[i - 1], [r1, t1] = curve[i];
       return t0 + (t1 - t0) * (rpm - r0) / (r1 - r0);
     }
   }
@@ -44,7 +47,7 @@ export class Vehicle {
     this.transmission = transmission;
     this.spec = { ...SPEC, ...spec };
     this.x = x; this.y = y; this.th = th;
-    this.v = 0; this.sw = 0; this.steer = 0;
+    this.v = 0; this.sw = 0; this.steer = 0; this.bodyPitch = 0; this.bodyRoll = 0;
     this.h = 0; this.pitch = 0; this.grade = 0;
     this.engineOn = false; this.rpm = 0;
     this.gear = transmission === "manual" ? "N" : "P";
@@ -102,7 +105,9 @@ export class Vehicle {
   // heightAt(x, y) -> ground height in meters
   step(dt, heightAt) {
     const s = this.spec;
-    this.steer = clamp(this.sw / s.wheelLock, -1, 1) * s.maxSteer;
+    // the front wheels follow the steering wheel through the rack (a little lag, not instant)
+    const want = clamp(this.sw / s.wheelLock, -1, 1) * s.maxSteer, ds = want - this.steer;
+    this.steer += Math.sign(ds) * Math.min(Math.abs(ds), s.steerRate * dt);
 
     // terrain under the axles
     const c = Math.cos(this.th), n = Math.sin(this.th);
@@ -117,6 +122,7 @@ export class Vehicle {
     else a = this.autoStep(dt, Fload);
 
     let v = this.v + a * dt;
+    const v0 = this.v;
     const dec = s.roll + this.brake * s.brakeDecel + (this.handbrake ? s.handbrakeDecel : 0) + (this.gear === "P" ? 50 : 0);
     if (Math.abs(v) <= dec * dt) v = 0; else v -= Math.sign(v) * dec * dt;
     this.v = v;
@@ -127,6 +133,14 @@ export class Vehicle {
     this.y += this.v * hz * Math.sin(this.th) * dt;
     this.wheelSpin += this.v / s.wheelR * dt;
     this.odo += Math.abs(this.v) * dt;
+
+    // body motion on the springs (visual): nose dives under braking, squats under
+    // power, and the body leans out of a turn. Damped spring towards the target.
+    const ax = (this.v - v0) / dt, ay = this.v * this.v / s.wb * Math.tan(this.steer);
+    const tPitch = clamp(ax * 0.0035, -0.026, 0.02), tRoll = clamp(-ay * 0.006, -0.035, 0.035);   // +pitch = nose up, +roll = roof to the right
+    const k = Math.min(1, dt * 7);
+    this.bodyPitch += (tPitch - this.bodyPitch) * k;
+    this.bodyRoll += (tRoll - this.bodyRoll) * k;
   }
 
   manualStep(dt, Fload) {
@@ -138,7 +152,7 @@ export class Vehicle {
     let Te = 0;
     if (this.engineOn) {
       const idleCtl = clamp((s.idleRpm - this.rpm) * 0.3, 0, 80);
-      Te = (this.rpm < s.maxRpm ? this.throttle * engineTorque(this.rpm) : 0) + idleCtl;
+      Te = (this.rpm < s.maxRpm ? this.throttle * engineTorque(this.rpm, s.torque || undefined) : 0) + idleCtl;
     }
     const Tf = this.engineOn ? 9 + 0.0035 * this.rpm : 18 + 0.004 * this.rpm;
 
@@ -170,7 +184,7 @@ export class Vehicle {
     let F = 0;
     if (this.engineOn && dir) {
       const vf = this.v * dir;
-      if (this.throttle > 0.03) F += dir * this.throttle * 4300 * clamp(1 - vf / 17, 0.15, 1);
+      if (this.throttle > 0.03) F += dir * this.throttle * s.autoForce * clamp(1 - vf / 17, 0.15, 1);
       else if (vf < 1.0) F += dir * 1100;          // creep
     }
     // gear and rpm for display only
