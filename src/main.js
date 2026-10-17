@@ -9,13 +9,14 @@ import { Controls } from "./ui/input.js";
 import { Hud } from "./ui/hud.js";
 import { carById } from "./cars/index.js";
 import { loadCarModel } from "./render/carLoader.js";
+import { dressCobalt } from "./render/carDress.js";
 import PHRASES from "./audio/phrases.json";
 import { Instructor, lineIds } from "./instructor/instructor.js";
 import { buildInstructor } from "./render/instructorFigure.js";
 import { KidShow } from "./render/singerKid.js";
 
 const coarse = matchMedia("(pointer: coarse)").matches;
-const settings = { transmission: "manual", quality: coarse ? "low" : "high", mouseSteer: false, muted: false, voice: true, car: "cobalt", instructor: "angry" };
+const settings = { transmission: "manual", quality: coarse ? "low" : "high", mouseSteer: false, muted: false, voice: true, car: "cobalt", instructor: "angry", color: "white" };
 try { Object.assign(settings, JSON.parse(localStorage.getItem("avtodrom.settings") || "{}")); } catch (_) {}
 // the old "Ovoz" button muted on first press; start everyone unmuted once
 if (!settings.v2) { settings.muted = false; settings.v2 = true; }
@@ -23,7 +24,8 @@ const saveSettings = () => { try { localStorage.setItem("avtodrom.settings", JSO
 
 let session = null, mode = null, elementId = null, paused = true, ended = false;
 const app = document.getElementById("app");
-const hud = new Hud(app, { settings, start, resume, action: onAction, resultAction, useCar, showroom: openShowroom });
+const hud = new Hud(app, { settings, start, resume, action: onAction, resultAction, useCar, showroom: openShowroom,
+  setColor: id => { settings.color = id; if (view.carView.setPaint) view.carView.setPaint(id); saveSettings(); } });
 const view = new View(hud.canvas);
 const audio = new CarAudio();
 const instructor = new Instructor(audio);
@@ -199,7 +201,11 @@ function useCar(id) {
   const car = carById(id);
   if (carModelId === car.id) return;
   carModelId = car.id;
-  loadCarModel(car.model).then(cv => view.setCarModel(cv, car)).catch(e => console.warn("car model not loaded, using the built-in one:", e.message));
+  loadCarModel(car.model).then(cv => {
+    if (car.id === "cobalt") dressCobalt(cv);
+    if (cv.setPaint) cv.setPaint(settings.color);
+    view.setCarModel(cv, car);
+  }).catch(e => console.warn("car model not loaded, using the built-in one:", e.message));
 }
 useCar(settings.car);
 
@@ -314,6 +320,7 @@ function frame(now) {
   requestAnimationFrame(frame);
 if (import.meta.env.DEV) {
   window.__sim = { view, audio, fig: instructorFig, instructor, kidShow, get session() { return session; } };
+  import("three").then(T => { window.__sim.THREE = T; });
   // used by tools/export-car.mjs: generated Cobalt -> binary glTF (base64)
   window.__exportCar = async () => {
     const [{ GLTFExporter }, { buildCar }] = await Promise.all([import("three/examples/jsm/exporters/GLTFExporter.js"), import("./render/carModel.js")]);

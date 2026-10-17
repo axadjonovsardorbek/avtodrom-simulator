@@ -96,6 +96,8 @@ export class Hud {
             <select id="optTrans"><option value="manual">Mexanik (ilashish bilan)</option><option value="auto">Avtomat</option></select></label>
           <label>Grafika
             <select id="optQuality"><option value="high">Yuqori</option><option value="low">Yengil (telefon)</option></select></label>
+          <label>Rangi
+            <select id="optColor"><option value="white">Oq</option><option value="blue">To'q ko'k</option><option value="graphite">Grafit</option></select></label>
           <label>Instruktor — Bobur aka
             <select id="optInstr"><option value="angry">Jahldor</option><option value="rude">Jahldor, so'kinadi (18+)</option><option value="calm">Yumshoq</option><option value="off">Yo'q</option></select></label>
           <label>Ovozli ko'rsatmalar
@@ -119,6 +121,8 @@ export class Hud {
     $("#optQuality", m).value = this.h.settings.quality;
     $("#optTrans", m).onchange = e => this.h.settings.transmission = e.target.value;
     $("#optQuality", m).onchange = e => this.h.settings.quality = e.target.value;
+    $("#optColor", m).value = this.h.settings.color || "white";
+    $("#optColor", m).onchange = e => this.h.setColor && this.h.setColor(e.target.value);
     $("#optInstr", m).value = this.h.settings.instructor || "angry";
     $("#optInstr", m).onchange = e => this.h.settings.instructor = e.target.value;
     $("#optVoice", m).value = this.h.settings.voice === false ? "off" : "on";

@@ -128,11 +128,12 @@ const finish = {
   dashLow: std("dash_low", 0x46494e, 0.8),
   piano: std("piano_black", 0x0b0c0e, 0.18, 0, { clearcoat: 1, clearcoatRoughness: 0.08 }),
   satin: std("satin_silver", 0x9fa3a8, 0.35, 0.75),     // vent rings, knobs, door handles
-  wheelHub: std("wheel_hub", 0x16171a, 0.45),
-  rim: std("wheel_rim_leather", 0x1b1c1f, 0.6),
+  wheelHub: std("wheel_hub", 0x33353a, 0.5),                // dark grey wheel as in the current car
+  rim: std("wheel_rim_leather", 0x2c2e32, 0.6),
+  icons: std("wheel_icons", 0xc4c7cc, 0.4),
   gold: std("bowtie_gold", 0xd7a531, 0.25, 1),
-  seat: std("seat_cloth", 0x4f5257, 1),
-  seatDark: std("seat_side", 0x303236, 0.95),
+  seat: std("seat_cloth", 0x3f4146, 1),
+  seatDark: std("seat_side", 0x26272b, 0.95),
   doorCard: std("door_card", 0x5c5f64, 0.85),
   carpet: std("carpet", 0x2c2d30, 1),
   headliner: std("headliner", 0xbdb8b0, 1),
@@ -143,7 +144,7 @@ const finish = {
 };
 // [node name pattern (dots and spaces removed), material it gets]
 const parts = [
-  [/^steering_ok_interior002/, finish.gold],
+  [/^steering_ok_interior002/, finish.icons],                  // button symbols on the spokes
   [/^steering_ok_interior001/, finish.wheelHub],
   [/^steering_ok_steering_ok0/, finish.rim],
   [/^painel_painel3/, finish.dashTop],
