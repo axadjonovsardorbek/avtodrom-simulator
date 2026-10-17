@@ -97,7 +97,7 @@ function resume() { if (session && !ended) { hud.hideMenu(); paused = false; } }
 
 // the user's own recordings for particular moments (public/audio/uz/clips/*.mp3)
 const CLIP_FOR = { stopFar: "clips/fayzulla" };      // stopped more than 1 m short of the stop line
-let balandFor = null;                                 // estakada task the "balandku" clip was played for
+let balandFor = null, fayzullaFor = null;   // tasks the "balandku" / "fayzulla" clips were played for
 function clipsBeforeElements() {
   const task = session.currentTask;
   if (!task || task.id !== "estakada" || balandFor === task) return;
@@ -110,9 +110,11 @@ function handleEvent(ev) {
   instructor.onEvent(ev);
   switch (ev.type) {
     case "penalty": hud.toast(`+${ev.pts} · ${ev.text}`, "bad"); hud.addLog(ev); audio.penalty();
-      if (CLIP_FOR[ev.code]) audio.prompt(CLIP_FOR[ev.code], null, true);
+      if (ev.code === "stopFar" && fayzullaFor === session.currentTask) { /* already played when the car stopped */ }
+      else if (CLIP_FOR[ev.code]) audio.prompt(CLIP_FOR[ev.code], null, true);
       else if (!instructor.on) audio.prompt("pen_" + ev.code, `Xato. ${ev.pts} ball`);
       break;
+    case "stopFarNow": fayzullaFor = session.currentTask; hud.toast("To'xtash chizig'idan 1 m dan uzoqda to'xtadingiz", "bad"); audio.prompt("clips/fayzulla", null, true); break;
     case "limit": hud.toast(`Jarima ${PASS_LIMIT} balldan oshdi${session.strict ? ": imtihon to'xtatildi" : ""}`, "bad"); audio.prompt("limit"); break;
     case "task": hud.toast(`Mashq: ${ev.task.name}`); if (mode !== "practice") audio.prompt("task_" + ev.task.id, ev.task.name); break;
     case "taskDone": if (ev.ok) { hud.toast(`${ev.task.short}: bajarildi`, "good"); audio.chime(); audio.prompt("done"); } break;

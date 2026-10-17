@@ -26,6 +26,8 @@ export function stopLineRule(ctx, key, lineS, required, missCode) {
   if (ctx.car.v === 0 && d >= 0 && d < 8) {
     if (!st.still) { st.still = true; st.stopStart = ctx.t; }
     st.stopD = d; st.standT = ctx.t - st.stopStart;
+    // tell the UI at once (the penalty itself is only decided when the line is crossed)
+    if (d > 1 && st.standT > 0.4 && !st.farSaid) { st.farSaid = true; ctx.emit("stopFarNow", { d }); }
   } else st.still = false;
   if (d < 0) {
     st.crossed = true;

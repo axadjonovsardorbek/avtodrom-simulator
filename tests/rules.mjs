@@ -48,13 +48,15 @@ const codes = s => s.log.map(e => e.code).join(",");
 }
 // railway: stop 3 m short, then go immediately
 {
-  const s = setup("temir"); let st = null;
+  const s = setup("temir"); let st = null, warnedWhileStanding = false;
+  s.on(ev => { if (ev.type === "stopFarNow" && s.car.v === 0 && !s.log.some(e => e.code === "stopFar")) warnedWhileStanding = true; });
   drive(s, 60, (fs, t) => {
     if (st == null && 12 - fs < 3 + s.car.v * s.car.v / 9) { if (s.car.v === 0) st = t; return { stop: true }; }
     if (st != null && t - st < 1) return { stop: true };
     return { v: 3 };
   });
   check("railway far + early start: #4 and #12", s.log.some(e => e.code === "stopFar") && s.log.some(e => e.code === "early3s"), codes(s));
+  check("stopped far: told at once, before the penalty", warnedWhileStanding);
 }
 // seat belt and speed
 {
