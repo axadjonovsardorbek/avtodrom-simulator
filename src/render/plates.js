@@ -1,56 +1,124 @@
-// Uzbek registration plates (520 x 112 mm): region code in its own box, the number,
-// the flag and "UZ" on the right, two screws. Text like "01 A 070 BJ" can be changed
-// from the menu; every plate on the car is redrawn.
+// Uzbek registration plates (520 x 112 mm): region code in its own box, the number in a
+// DIN-style condensed face, the flag and "UZ" on the right, two screws, a black plastic
+// holder behind. The characters are embossed (bump map). Each plate is laid flush on the
+// bumper: rays find the surface and its slope. The text ("01 A 070 BJ") is set in the menu.
 import * as THREE from "three";
 
 export const DEFAULT_PLATE = "01 A 070 BJ";
 const FONT = "'Barlow Condensed', 'Arial Narrow', sans-serif";
+const PW = 0.52, PH = 0.112;                 // plate size, m
+const CW = 2048, CH = Math.round(CW * PH / PW);
+const MM = CW / 520;                         // canvas px per mm
 
-function drawPlate(g, text) {
-  const W = 1040, H = 224;
-  const [region, ...rest] = String(text || DEFAULT_PLATE).trim().toUpperCase().split(/\s+/);
-  g.clearRect(0, 0, W, H);
-  // white plate with a black rounded border
-  g.fillStyle = "#fbfbf8"; g.strokeStyle = "#111"; g.lineWidth = 8;
-  const r = 22; g.beginPath(); g.roundRect(6, 6, W - 12, H - 12, r); g.fill(); g.stroke();
-  // region box
-  g.lineWidth = 6; g.beginPath(); g.moveTo(222, 14); g.lineTo(222, H - 14); g.stroke();
-  g.fillStyle = "#111"; g.textAlign = "center"; g.textBaseline = "middle";
-  g.font = `700 150px ${FONT}`;
-  g.fillText(region || "01", 128, H / 2 + 8);
-  g.fillText(rest.join(" ") || "A 070 BJ", 560, H / 2 + 8);
-  // flag (blue / white / green with thin red lines) and "UZ"
-  const fx = 880, fy = 38, fw = 92, sh = 15;
-  g.fillStyle = "#1eb2e8"; g.fillRect(fx, fy, fw, sh);
-  g.fillStyle = "#ce1126"; g.fillRect(fx, fy + sh, fw, 3);
-  g.fillStyle = "#ffffff"; g.fillRect(fx, fy + sh + 3, fw, sh);
-  g.fillStyle = "#ce1126"; g.fillRect(fx, fy + 2 * sh + 3, fw, 3);
-  g.fillStyle = "#1eb53a"; g.fillRect(fx, fy + 2 * sh + 6, fw, sh);
-  g.strokeStyle = "#999"; g.lineWidth = 1.5; g.strokeRect(fx, fy, fw, 3 * sh + 6);
-  g.fillStyle = "#1d8fc9"; g.font = `700 96px ${FONT}`; g.fillText("UZ", fx + fw / 2, 160);
-  // screws
-  g.fillStyle = "#222";
-  for (const x of [40, W - 40]) { g.beginPath(); g.arc(x, H / 2, 9, 0, Math.PI * 2); g.fill(); }
+function split(text) {
+  const [region = "01", ...rest] = String(text || DEFAULT_PLATE).trim().toUpperCase().split(/\s+/);
+  return [region.slice(0, 2), rest.join(" ") || "A 070 BJ"];
+}
+
+// fit text into a box: the face is condensed horizontally if it would not fit
+function fitText(g, s, cx, cy, maxW, h, weight) {
+  g.font = `${weight} ${h}px ${FONT}`;
+  const w = g.measureText(s).width, k = Math.min(1, maxW / w);
+  g.save(); g.translate(cx, cy); g.scale(k, 1); g.fillText(s, 0, 0); g.restore();
+}
+
+// paint the plate; `relief` draws the bump map instead (raised = light)
+function drawPlate(g, text, relief) {
+  const [region, number] = split(text);
+  const ink = relief ? "#fff" : "#151515", ground = relief ? "#5a5a5a" : "#f7f7f2";
+  g.clearRect(0, 0, CW, CH);
+  const r = 5 * MM, m = 1.2 * MM;
+  g.fillStyle = ground; g.beginPath(); g.roundRect(m, m, CW - 2 * m, CH - 2 * m, r); g.fill();
+  if (!relief) {                                       // faint retro-reflective sheen
+    const sh = g.createLinearGradient(0, 0, CW, CH);
+    sh.addColorStop(0, "rgba(255,255,255,0)"); sh.addColorStop(.45, "rgba(255,255,255,.35)"); sh.addColorStop(.55, "rgba(230,236,240,.2)"); sh.addColorStop(1, "rgba(255,255,255,0)");
+    g.fillStyle = sh; g.fill();
+  }
+  // pressed border and the region divider
+  g.strokeStyle = ink; g.lineWidth = 2.2 * MM;
+  g.beginPath(); g.roundRect(3 * MM, 3 * MM, CW - 6 * MM, CH - 6 * MM, 4 * MM); g.stroke();
+  const div = 98 * MM;
+  g.lineWidth = 2 * MM; g.beginPath(); g.moveTo(div, 3 * MM); g.lineTo(div, CH - 3 * MM); g.stroke();
+  // characters: region and number in the same face
+  g.fillStyle = ink; g.textAlign = "center"; g.textBaseline = "alphabetic";
+  const base = CH / 2 + 30 * MM, hgt = 86 * MM;
+  fitText(g, region, (8 * MM + div) / 2 + 4 * MM, base, 72 * MM, hgt, 600);
+  fitText(g, number.replace(/ /g, "  "), div + 175 * MM, base, 320 * MM, hgt, 600);
+  // flag (blue / red / white / red / green) with crescent, and "UZ"
+  const fx = 452 * MM, fy = 14 * MM, fw = 44 * MM, s = 8 * MM, rl = 1 * MM;
+  if (!relief) {
+    g.fillStyle = "#0099b5"; g.fillRect(fx, fy, fw, s);
+    g.fillStyle = "#ce1126"; g.fillRect(fx, fy + s, fw, rl);
+    g.fillStyle = "#ffffff"; g.fillRect(fx, fy + s + rl, fw, s);
+    g.fillStyle = "#ce1126"; g.fillRect(fx, fy + 2 * s + rl, fw, rl);
+    g.fillStyle = "#1eb53a"; g.fillRect(fx, fy + 2 * s + 2 * rl, fw, s);
+    g.fillStyle = "#fff"; g.beginPath(); g.arc(fx + 6 * MM, fy + s / 2, 3 * MM, 0, Math.PI * 2); g.fill();
+    g.fillStyle = "#0099b5"; g.beginPath(); g.arc(fx + 7.3 * MM, fy + s / 2, 2.7 * MM, 0, Math.PI * 2); g.fill();
+    g.strokeStyle = "rgba(0,0,0,.35)"; g.lineWidth = .5 * MM; g.strokeRect(fx, fy, fw, 3 * s + 2 * rl);
+  }
+  g.fillStyle = relief ? ink : "#0f8fb0";
+  fitText(g, "UZ", fx + fw / 2, CH - 16 * MM, fw, 46 * MM, 700);
+  // screw heads
+  for (const x of [9 * MM, CW - 9 * MM]) {
+    const gr = g.createRadialGradient(x - MM, CH / 2 - MM, 0, x, CH / 2, 3.4 * MM);
+    gr.addColorStop(0, relief ? "#fff" : "#e8eaec"); gr.addColorStop(1, relief ? "#999" : "#7d8186");
+    g.fillStyle = gr; g.beginPath(); g.arc(x, CH / 2, 3.4 * MM, 0, Math.PI * 2); g.fill();
+  }
 }
 
 export function plateMaterial(text) {
-  const c = document.createElement("canvas"); c.width = 1040; c.height = 224;
+  const mk = () => { const c = document.createElement("canvas"); c.width = CW; c.height = CH; return c; };
+  const c = mk(), b = mk();
   const tex = new THREE.CanvasTexture(c); tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = 8;
-  const mat = new THREE.MeshStandardMaterial({ map: tex, roughness: 0.45, metalness: 0.05 });
-  mat.userData.setText = t => { drawPlate(c.getContext("2d"), t); tex.needsUpdate = true; };
+  const bump = new THREE.CanvasTexture(b); bump.anisotropy = 8;
+  const mat = new THREE.MeshPhysicalMaterial({ map: tex, bumpMap: bump, bumpScale: 1.6, roughness: 0.35, metalness: 0.05, clearcoat: 0.5, clearcoatRoughness: 0.2, alphaTest: 0.5 });
+  mat.userData.setText = t => {
+    mat.userData.text = t;
+    drawPlate(c.getContext("2d"), t, false); drawPlate(b.getContext("2d"), t, true);
+    tex.needsUpdate = bump.needsUpdate = true;
+  };
   mat.userData.setText(text);
   // redraw once the plate font has arrived
-  if (document.fonts && document.fonts.load) document.fonts.load(`700 150px ${FONT}`).then(() => mat.userData.setText(mat.userData.text)).catch(() => {});
-  mat.userData.text = text;
+  if (document.fonts && document.fonts.load) document.fonts.load(`600 100px ${FONT}`).then(() => mat.userData.setText(mat.userData.text)).catch(() => {});
   return mat;
 }
 
-// a plate as a thin box whose +x face carries the picture; back = true turns it to face rearwards
-export function makePlate(mat, back) {
-  const edge = new THREE.MeshStandardMaterial({ color: 0x1a1b1d, roughness: 0.6 });
-  const m = new THREE.Mesh(new THREE.BoxGeometry(0.006, 0.112, 0.52), [mat, edge, edge, edge, edge, edge]);
-  m.name = "plate"; if (back) m.rotation.y = Math.PI;
-  return m;
+const holderMat = new THREE.MeshStandardMaterial({ color: 0x111214, roughness: 0.55 });
+// plate + holder, facing +x of its own group
+export function makePlate(mat) {
+  const g = new THREE.Group(); g.name = "plate";
+  const face = new THREE.Mesh(new THREE.PlaneGeometry(PW, PH), mat);
+  face.rotation.y = Math.PI / 2; face.position.x = 0.008; face.name = "plate";
+  const holder = new THREE.Mesh(new THREE.BoxGeometry(0.008, PH + 0.018, PW + 0.02), holderMat);
+  holder.position.x = 0.003; holder.name = "plate";
+  g.add(holder, face);
+  return g;
+}
+
+// Lay a plate flush on the body around the approximate point `pos` (car frame).
+function settle(car, meshes, pos, back) {
+  const dir = new THREE.Vector3(back ? 1 : -1, 0, 0), rc = new THREE.Raycaster();
+  const toCar = new THREE.Matrix4().copy(car.matrixWorld).invert();
+  const pts = [], normals = [];
+  for (const [dy, dz] of [[0, 0], [0.035, -0.2], [0.035, 0.2], [-0.035, -0.2], [-0.035, 0.2]]) {
+    const o = new THREE.Vector3(pos[0] - dir.x * 1.2, pos[1] + dy, pos[2] + dz).applyMatrix4(car.matrixWorld);
+    rc.set(o, dir.clone().transformDirection(car.matrixWorld)); rc.far = 2.4;
+    const h = rc.intersectObjects(meshes, false)[0];
+    if (!h) continue;
+    pts.push(h.point.clone().applyMatrix4(toCar));
+    if (h.face) normals.push(h.face.normal.clone().transformDirection(h.object.matrixWorld).transformDirection(toCar));
+  }
+  if (!pts.length) return { p: new THREE.Vector3(...pos), n: new THREE.Vector3(back ? -1 : 1, 0, 0) };
+  // the outermost hit is the bumper face (grille bars and recesses sit behind it)
+  const out = back ? Math.min(...pts.map(p => p.x)) : Math.max(...pts.map(p => p.x));
+  const p = new THREE.Vector3(out, pos[1], pos[2]);
+  // slope: average of the normals that face outwards, kept within ~20 degrees of upright
+  const n = normals.filter(v => v.x * (back ? -1 : 1) > 0.5).reduce((s, v) => s.add(v), new THREE.Vector3());
+  if (n.lengthSq() < 1e-6) n.set(back ? -1 : 1, 0, 0);
+  n.z = 0; n.normalize();
+  const maxTilt = 0.35;
+  if (Math.abs(n.y) > Math.sin(maxTilt)) { n.y = Math.sign(n.y) * Math.sin(maxTilt); n.x = Math.sign(n.x) * Math.cos(maxTilt); }
+  return { p, n };
 }
 
 // Adds plates to a loaded car. `spots` = [{ pos, back }] in the car frame; when omitted the
@@ -58,14 +126,13 @@ export function makePlate(mat, back) {
 export function addPlates(cv, text, spots) {
   const root = cv.root, car = root.name === "car" ? root : root.getObjectByName("car") || root;
   const mat = plateMaterial(text || DEFAULT_PLATE);
+  root.updateMatrixWorld(true);
+  const inv = car.matrixWorld.clone().invert();
   if (!spots) {
     spots = [];
-    car.updateMatrixWorld(true);
-    const inv = car.matrixWorld.clone().invert();
     root.traverse(o => {
       if (!o.isMesh || o.name === "plate" || !(/(?<!tem)plate/i.test(o.name) || [].concat(o.material).some(m => /(?<!tem)plate/i.test(m.name)))) return;
       // one mesh may hold both plates: split its vertices into a front and a rear cluster
-      o.updateWorldMatrix(true, false);
       const m = inv.clone().multiply(o.matrixWorld), pos = o.geometry.attributes.position, v = new THREE.Vector3();
       const front = new THREE.Box3(), rear = new THREE.Box3();
       for (let i = 0; i < pos.count; i++) { v.fromBufferAttribute(pos, i).applyMatrix4(m); (v.x > 1.4 ? front : rear).expandByPoint(v); }
@@ -73,10 +140,24 @@ export function addPlates(cv, text, spots) {
       for (const [b, back] of [[front, false], [rear, true]]) {
         if (b.isEmpty()) continue;
         const c = b.getCenter(new THREE.Vector3());
-        spots.push({ pos: [back ? b.min.x - 0.004 : b.max.x + 0.004, c.y, c.z], back });
+        spots.push({ pos: [c.x, c.y, c.z], back });
       }
     });
   }
-  for (const s of spots) { const p = makePlate(mat, s.back); p.position.set(...s.pos); car.add(p); }
-  cv.setPlate = t => { mat.userData.text = t; mat.userData.setText(t || DEFAULT_PLATE); };
+  // the body surface the plates sit on (no glass, no wheels)
+  const meshes = [];
+  root.traverse(o => {
+    if (!o.isMesh || o.name === "plate" || /glass/i.test([].concat(o.material)[0]?.name || "")) return;
+    for (let p = o.parent; p; p = p.parent) if (/^wheel_/.test(p.name)) return;
+    meshes.push(o);
+  });
+  for (const s of spots) {
+    const { p, n } = settle(car, meshes, s.pos, s.back);
+    const plate = makePlate(mat);
+    // face along n: turn round for the rear plate, then tilt with the bumper (stays upright, never upside down)
+    plate.rotation.set(0, n.x < 0 ? Math.PI : 0, Math.asin(THREE.MathUtils.clamp(n.y, -1, 1)), "YZX");
+    plate.position.copy(p).addScaledVector(n, 0.001);
+    car.add(plate);
+  }
+  cv.setPlate = t => mat.userData.setText(t || DEFAULT_PLATE);
 }
