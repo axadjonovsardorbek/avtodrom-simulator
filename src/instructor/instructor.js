@@ -19,7 +19,7 @@ const GESTURE = { good: "thumb", pass: "thumb", crash: "brace", hill: "brace", r
 
 // Mood "rude" (18+) plays only the user's own recordings, shuffled, on every mistake
 // (src/instructor/source/*.ogg -> public/audio/uz/ins/rude/<name>.mp3).
-const RUDE_CLIPS = ["chingiz_iye", "dadangmanmi", "dal", "davlataka", "haromi", "jamshid", "uka"];
+const RUDE_CLIPS = ["chingiz_iye", "dadangmanmi", "dal", "davlataka", "haromi", "jamshid", "uka", "bekzod1", "bekzod2", "chingiz_uka"];
 const NOT_MISTAKES = new Set(["hello", "good", "pass"]);
 const voiceMood = mood => mood === "rude" ? "angry" : mood;
 
