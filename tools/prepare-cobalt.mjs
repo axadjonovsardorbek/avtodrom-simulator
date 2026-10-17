@@ -119,6 +119,89 @@ car.traverse(o => {
 });
 console.log("materials kept as is:", Object.keys(named).filter(n => !swap[n]).join(", ") || "none");
 
+/* ---------- per-part finishes, matched to photos of a current Uzbek-built Cobalt ---------- */
+// The source paints whole groups with one black or one silver material. The real car has a
+// two-tone grey cabin, a black wheel with a gold bowtie, chrome grille and lamp reflectors.
+const std = (name, color, roughness, metalness = 0, extra = {}) => new THREE.MeshPhysicalMaterial({ name, color, roughness, metalness, ...extra });
+const finish = {
+  dashTop: std("dash_top", 0x6a6d72, 0.85),            // soft-touch upper dashboard
+  dashLow: std("dash_low", 0x46494e, 0.8),
+  piano: std("piano_black", 0x0b0c0e, 0.18, 0, { clearcoat: 1, clearcoatRoughness: 0.08 }),
+  satin: std("satin_silver", 0x9fa3a8, 0.35, 0.75),     // vent rings, knobs, door handles
+  wheelHub: std("wheel_hub", 0x16171a, 0.45),
+  rim: std("wheel_rim_leather", 0x1b1c1f, 0.6),
+  gold: std("bowtie_gold", 0xd7a531, 0.25, 1),
+  seat: std("seat_cloth", 0x4f5257, 1),
+  seatDark: std("seat_side", 0x303236, 0.95),
+  doorCard: std("door_card", 0x5c5f64, 0.85),
+  carpet: std("carpet", 0x2c2d30, 1),
+  headliner: std("headliner", 0xbdb8b0, 1),
+  pedal: std("pedal", 0x2a2b2d, 0.6, 0.3),
+  chrome: std("chrome", 0xeef0f2, 0.08, 1),
+  tailLens: new THREE.MeshPhysicalMaterial({ name: "lamp_tail_lens", color: 0x9a1410, roughness: 0.08, transparent: true, opacity: 0.55, clearcoat: 1, depthWrite: false }),
+  tint: new THREE.MeshPhysicalMaterial({ name: "glass_tint", color: 0x0d1217, roughness: 0.02, metalness: 0.1, transparent: true, opacity: 0.55, clearcoat: 1, side: THREE.DoubleSide, depthWrite: false })
+};
+// [node name pattern (dots and spaces removed), material it gets]
+const parts = [
+  [/^steering_ok_interior002/, finish.gold],
+  [/^steering_ok_interior001/, finish.wheelHub],
+  [/^steering_ok_steering_ok0/, finish.rim],
+  [/^painel_painel3/, finish.dashTop],
+  [/^painel_painel5/, finish.piano],
+  [/^painel_interior/, finish.dashLow],
+  [/^painel_painel1/, finish.satin],
+  [/^pedais_/, finish.pedal],
+  [/^bancos_bancos3/, finish.seat],
+  [/^bancos_interior0/, finish.seatDark],
+  [/^interior_interior0/, finish.carpet],
+  [/^interior_1/, finish.headliner],
+  [/^door_(lf|rf)_ok_door_rr_ok0/, finish.doorCard],
+  [/^door_(lr|rr)_ok_door_rr_ok0/, finish.doorCard],
+  [/^boot_ok_bump_front_ok2/, finish.gold],                       // rear bowtie
+  [/^bump_front_ok_escape|^fara_escape|^boot_ok_escape|^ascende_escape/, finish.chrome],
+  [/^lanterna_glass002/, finish.tailLens],                      // red outer lens of the tail lamps
+  [/^door_(lr|rr)_ok001_glass/, finish.tint]                    // rear door windows are tinted
+];
+car.traverse(o => {
+  if (!o.isMesh) return;
+  const n = o.name.replace(/[.\s]/g, "");
+  const hit = parts.find(([re]) => re.test(n));
+  if (!hit) return;
+  o.material = hit[1];
+});
+
+// the front bowtie is modelled into the black grille insert: move its triangles to their own mesh
+function splitOff(mesh, keep, material, name) {
+  mesh.updateWorldMatrix(true, false);
+  const g = mesh.geometry.index ? mesh.geometry.toNonIndexed() : mesh.geometry;
+  const pos = g.attributes.position, a = new THREE.Vector3(), b = new THREE.Vector3(), c = new THREE.Vector3();
+  const inTri = [], outTri = [];
+  for (let i = 0; i < pos.count; i += 3) {
+    a.fromBufferAttribute(pos, i).applyMatrix4(mesh.matrixWorld); b.fromBufferAttribute(pos, i + 1).applyMatrix4(mesh.matrixWorld); c.fromBufferAttribute(pos, i + 2).applyMatrix4(mesh.matrixWorld);
+    (keep(a.add(b).add(c).multiplyScalar(1 / 3)) ? inTri : outTri).push(i);
+  }
+  const pick = tris => { const out = new THREE.BufferGeometry();
+    for (const [k, at] of Object.entries(g.attributes)) {
+      const arr = new at.array.constructor(tris.length * 3 * at.itemSize);
+      tris.forEach((t, j) => arr.set(at.array.subarray(t * at.itemSize, (t + 3) * at.itemSize), j * 3 * at.itemSize));
+      out.setAttribute(k, new THREE.BufferAttribute(arr, at.itemSize, at.normalized));
+    }
+    return out; };
+  if (!inTri.length) return 0;
+  const part = new THREE.Mesh(pick(inTri), material); part.name = name;
+  part.position.copy(mesh.position); part.quaternion.copy(mesh.quaternion); part.scale.copy(mesh.scale);
+  mesh.parent.add(part); mesh.geometry = pick(outTri);
+  return inTri.length;
+}
+car.updateMatrixWorld(true);
+let grille = null;
+car.traverse(o => { if (o.isMesh && /^bump_front_ok_door_rr_ok0/.test(o.name.replace(/[.\s]/g, ""))) grille = o; });
+if (grille) {
+  const gb = box(grille);
+  const n = splitOff(grille, p => Math.abs(p.z) < 0.13 && p.y > 0.625 && p.y < 0.73 && p.x > gb.max.x - 0.035, finish.gold, "bowtie_front");
+  console.log("front bowtie triangles:", n);
+}
+
 /* ---------- groups the simulator looks for ---------- */
 const body = new THREE.Group(); body.name = "body";
 car.add(body); body.attach(model);

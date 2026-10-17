@@ -78,12 +78,19 @@ export class Controls {
     car.brake = ramp(car.brake, brk, 3.5, 6, dt);
     car.clutch = ramp(car.clutch, clu, 6, 0.75, dt);      // slow release lets you find the bite point
 
-    if (padSteer != null) car.sw = padSteer * 540;
-    else if (this.mouseSteer) car.sw = clamp((this.mouseX - 0.5) * 2 * 1.15, -1, 1) * 540;
-    else if (steerDir) car.sw = clamp(car.sw + steerDir * 430 * dt, -540, 540);
-    else {
-      // self-centring through the caster, only while rolling
-      const back = Math.min(Math.abs(car.sw), Math.abs(car.v) * 45 * dt);
+    // hands cannot spin the wheel instantly: every input chases its target at a human rate
+    const toward = (target, rate) => { const d = target - car.sw; car.sw += Math.sign(d) * Math.min(Math.abs(d), rate * dt); };
+    if (padSteer != null) toward(Math.sign(padSteer) * padSteer * padSteer * 540, 900);
+    else if (this.mouseSteer) toward(clamp((this.mouseX - 0.5) * 2 * 1.15, -1, 1) * 540, 900);
+    else if (steerDir) {
+      // a tap nudges the wheel, holding winds it faster (hand over hand); reversing direction is quick
+      this.steerHeld = Math.sign(car.sw) && Math.sign(car.sw) !== steerDir ? 0.6 : (this.steerHeld || 0) + dt;
+      const rate = 160 + Math.min(1, this.steerHeld / 0.6) * 380;
+      car.sw = clamp(car.sw + steerDir * rate * dt, -540, 540);
+    } else {
+      this.steerHeld = 0;
+      // let go and the caster brings the wheel back while rolling (not when standing still)
+      const back = Math.min(Math.abs(car.sw), Math.min(360, Math.abs(car.v) * 70) * dt);
       car.sw -= Math.sign(car.sw) * back;
     }
   }

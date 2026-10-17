@@ -7,7 +7,8 @@ import { rigCar } from "./carModel.js";
 async function fetchModel(url) {
   try {
     const r = await fetch(url);
-    if (r.ok) return await r.arrayBuffer();
+    // some hosts answer unknown paths with an HTML page: only accept real glTF binaries
+    if (r.ok) { const b = await r.arrayBuffer(); if (new TextDecoder().decode(new Uint8Array(b, 0, 4)) === "glTF") return b; }
   } catch (_) { /* fall through to the wrapped copy */ }
   const r = await fetch(url + ".json");
   if (!r.ok) throw new Error(`${url}: HTTP ${r.status}`);

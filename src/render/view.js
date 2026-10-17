@@ -54,7 +54,7 @@ export class View {
 
     this.cam = new THREE.PerspectiveCamera(60, 1, 0.05, 900);
     // soft cabin light so the interior is readable under the roof's shadow
-    this.cabinLight = new THREE.PointLight(0xfff2e2, 1.3, 2.6, 1.8);
+    this.cabinLight = new THREE.PointLight(0xfff2e2, 0.8, 2.6, 1.8);
     this.cabinLight.visible = false;
     s.add(this.cabinLight);
     this.carView = buildCar();

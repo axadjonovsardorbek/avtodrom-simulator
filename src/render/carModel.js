@@ -338,6 +338,8 @@ export function rigCar(root) {
   const body = root.getObjectByName("body"), interior = root.getObjectByName("interior");
   const pivots = find(/^wheel_pivot_F/), spins = find(/^wheel_spin_/);
   const steering = root.getObjectByName("steering_wheel");
+  // the wheel turns about its own column: keep the column's tilt and add the turn on top
+  const steerBase = steering && steering.quaternion.clone(), steerTurn = new THREE.Quaternion(), zAxis = new THREE.Vector3(0, 0, 1);
   const meshesOf = objs => objs.flatMap(o => { const m = []; o.traverse(c => { if (c.isMesh) m.push(c); }); return m; });
   const indL = meshesOf(find(/^ind_L/)), indR = meshesOf(find(/^ind_R/)), rev = meshesOf(find(/^lamp_reverse/));
   const hazard = meshesOf(find(/^hazard_button/));
@@ -372,7 +374,7 @@ export function rigCar(root) {
     update(car, now) {
       for (const p of pivots) p.rotation.y = -car.steer;
       for (const w of spins) w.rotation.z = -car.wheelSpin;
-      if (steering) steering.rotation.z = -car.sw * Math.PI / 180;
+      if (steering) steering.quaternion.copy(steerBase).multiply(steerTurn.setFromAxisAngle(zAxis, -car.sw * Math.PI / 180));
       const blink = Math.floor(now / 380) % 2 === 0;
       glow(indL, (car.hazard || car.sig === -1) && blink, 3);
       glow(indR, (car.hazard || car.sig === 1) && blink, 3);
