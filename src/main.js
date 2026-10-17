@@ -9,6 +9,7 @@ import { Controls } from "./ui/input.js";
 import { Hud } from "./ui/hud.js";
 import { carById } from "./cars/index.js";
 import { loadCarModel } from "./render/carLoader.js";
+import PHRASES from "./audio/phrases.json";
 
 const coarse = matchMedia("(pointer: coarse)").matches;
 const settings = { transmission: "manual", quality: coarse ? "low" : "high", mouseSteer: false, muted: false, voice: true, car: "cobalt" };
@@ -50,8 +51,9 @@ function start(m, el) {
   paused = false;
   bump.reset(); countdown = -1;
   audio.chime();
-  if (m === "practice") audio.say(`Mashq: ${ELEMENTS.find(e => e.id === el).name}`);
-  else audio.say("Start ishorasini kuting");
+  audio.preload(Object.keys(PHRASES.phrases));
+  if (m === "practice") audio.prompt("task_" + el, ELEMENTS.find(e => e.id === el).name);
+  else audio.prompt("wait_start", "Start ishorasini kuting");
 }
 
 // 360-degree showroom: the car parked, camera driven by mouse/touch
@@ -80,12 +82,12 @@ function resume() { if (session && !ended) { hud.hideMenu(); paused = false; } }
 
 function handleEvent(ev) {
   switch (ev.type) {
-    case "penalty": hud.toast(`+${ev.pts} · ${ev.text}`, "bad"); hud.addLog(ev); audio.penalty(); audio.say(`Xato. ${ev.pts} ball`); break;
-    case "limit": hud.toast(`Jarima ${PASS_LIMIT} balldan oshdi${session.strict ? ": imtihon to'xtatildi" : ""}`, "bad"); break;
-    case "task": hud.toast(`Mashq: ${ev.task.name}`); if (mode !== "practice") audio.say(ev.task.name); break;
-    case "taskDone": if (ev.ok) { hud.toast(`${ev.task.short}: bajarildi`, "good"); audio.chime(); } break;
-    case "stage": hud.toast("Bosqich bajarildi", "good"); audio.chime(); break;
-    case "alarm": hud.toast("TO'XTANG!", "bad"); audio.say("To'xtang!", true); break;
+    case "penalty": hud.toast(`+${ev.pts} · ${ev.text}`, "bad"); hud.addLog(ev); audio.penalty(); audio.prompt("pen_" + ev.code, `Xato. ${ev.pts} ball`); break;
+    case "limit": hud.toast(`Jarima ${PASS_LIMIT} balldan oshdi${session.strict ? ": imtihon to'xtatildi" : ""}`, "bad"); audio.prompt("limit"); break;
+    case "task": hud.toast(`Mashq: ${ev.task.name}`); if (mode !== "practice") audio.prompt("task_" + ev.task.id, ev.task.name); break;
+    case "taskDone": if (ev.ok) { hud.toast(`${ev.task.short}: bajarildi`, "good"); audio.chime(); audio.prompt("done"); } break;
+    case "stage": hud.toast("Bosqich bajarildi", "good"); audio.chime(); audio.prompt("stage"); break;
+    case "alarm": hud.toast("TO'XTANG!", "bad"); audio.prompt("stop", "To'xtang!", true); break;
     case "car":
       if (ev.kind === "stall") { hud.toast("Dvigatel o'chib qoldi", "bad"); audio.stall(); }
       else if (ev.kind === "engineStart") audio.starter();
@@ -96,7 +98,7 @@ function handleEvent(ev) {
       break;
     case "end":
       ended = true;
-      audio.say(mode === "practice" ? (ev.passed ? "Mashq bajarildi" : "Mashq bajarilmadi") : (ev.passed ? "Imtihondan o'tdingiz" : "Imtihondan o'tolmadingiz"), true);
+      audio.prompt(mode === "practice" ? (ev.passed ? "practice_pass" : "practice_fail") : (ev.passed ? "exam_pass" : "exam_fail"), null, true);
       setTimeout(() => {
         paused = true;
         const s = session, passed = ev.passed;
@@ -268,7 +270,7 @@ function frame(now) {
       bump.check(session);
       if (session.full && !session.started) {
         const n = session.clock < START_SIGNAL_AT ? Math.ceil(START_SIGNAL_AT - session.clock) : 0;
-        if (n !== countdown) { countdown = n; audio.countdown(n === 0); if (n === 0) audio.say("Start", true); }
+        if (n !== countdown) { countdown = n; audio.countdown(n === 0); if (n === 0) audio.prompt("start", "Start", true); }
       }
     }
   }

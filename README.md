@@ -12,6 +12,16 @@ npm test           # brauzersiz testlar: fizika, trassa, qoidalar
 npm run export:car # public/models/cobalt.glb ni kod modelidan qayta yaratish (Chrome kerak)
 ```
 
+## Ovozli ko'rsatmalar
+
+Ko'rsatmalar o'zbek tilida, `public/audio/uz/*.mp3` fayllarida (Microsoft neyron ovozi `uz-UZ-SardorNeural`).
+Matnlar `src/audio/phrases.json` da. Matnni o'zgartirsangiz, fayllarni qayta yozing (internet kerak):
+
+```bash
+python3 -m venv .venv && .venv/bin/pip install edge-tts
+.venv/bin/python tools/make_voice.py
+```
+
 Havola orqali to'g'ridan-to'g'ri ochish: `#imtihon`, `#trening`, `#mashq-ilon` (yoki boshqa element id).
 
 ## Rejimlar

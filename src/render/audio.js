@@ -150,7 +150,34 @@ export class CarAudio {
   }
   countdown(go) { this.tone({ freq: go ? 880 : 440, dur: go ? 0.6 : 0.18, type: "square", gain: 0.08 }); }
 
-  /* ---------- spoken prompts ---------- */
+  /* ---------- recorded Uzbek voice prompts (public/audio/uz/<id>.mp3) ---------- */
+  clip(id) {
+    if (!this.clips) this.clips = new Map();
+    if (!this.clips.has(id)) {
+      this.clips.set(id, fetch(`audio/uz/${id}.mp3`)
+        .then(r => { if (!r.ok) throw new Error(r.status); return r.arrayBuffer(); })
+        .then(b => this.ctx.decodeAudioData(b)));
+    }
+    return this.clips.get(id);
+  }
+  preload(ids) { if (this.ctx) ids.forEach(id => this.clip(id).catch(() => {})); }
+  // Speak a prompt; non-urgent prompts queue behind the current one, urgent ones cut in.
+  prompt(id, fallbackText, urgent = false) {
+    if (!this.voiceOn || this.muted || !this.ctx) return;
+    this.clip(id).then(buf => {
+      const c = this.ctx, now = c.currentTime;
+      if (urgent && this.cur) { try { this.cur.stop(); } catch (_) {} this.busyUntil = now; }
+      const at = Math.max(now, this.busyUntil || 0);
+      if (at - now > 5) return;                         // do not pile up stale prompts
+      const src = c.createBufferSource(), g = c.createGain();
+      src.buffer = buf; g.gain.value = 1.1;
+      src.connect(g); g.connect(this.master);
+      src.start(at);
+      this.cur = src; this.busyUntil = at + buf.duration + 0.15;
+    }).catch(() => { if (fallbackText) this.say(fallbackText, urgent); });
+  }
+
+  /* ---------- browser speech (fallback only) ---------- */
   pickVoice() {
     if (!window.speechSynthesis) return;
     const vs = speechSynthesis.getVoices();

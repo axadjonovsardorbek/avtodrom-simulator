@@ -3,7 +3,7 @@
 // (Cobalt: 4.48 long, 1.735 wide, 1.51 tall, 2.62 wheelbase).
 import * as THREE from "three";
 
-export const DIM = { rear: -1.0, front: 3.46, hw: 0.861, wb: 2.62, wheelR: 0.317, archR: 0.385 };
+export const DIM = { rear: -1.0, front: 3.456, hw: 0.861, wb: 2.62, wheelR: 0.317, archR: 0.39 };
 
 // C1 cubic Hermite spline through [x, y] points
 function spline(pts) {
@@ -21,42 +21,58 @@ function spline(pts) {
 }
 const smooth = t => { t = Math.min(1, Math.max(0, t)); return t * t * (3 - 2 * t); };
 
-// Profiles traced from a side photo of the 2020+ Cobalt (scaled to the real 1.514 m height):
-// top of the lower body: high trunk deck, beltline rising towards the rear, bonnet
-export const belt = spline([[-1.0, 1.0], [-0.96, 1.07], [-0.85, 1.115], [-0.6, 1.135], [-0.25, 1.145], [-0.1, 1.15], [0.3, 1.125],
-  [1.0, 1.09], [2.0, 1.05], [2.5, 1.04], [2.8, 1.01], [3.1, 0.96], [3.3, 0.905], [3.42, 0.86], [3.46, 0.8]]);
-// greenhouse top: long rear screen, roof, long raked windscreen (only between -0.1 and 2.5)
-export const roof = spline([[-0.1, 1.15], [0.1, 1.27], [0.35, 1.4], [0.62, 1.475], [0.9, 1.505], [1.15, 1.514], [1.4, 1.505],
-  [1.6, 1.475], [1.85, 1.38], [2.1, 1.25], [2.3, 1.14], [2.5, 1.04]]);
-export const GH = { x0: -0.1, x1: 2.5 };
-const bottomBase = spline([[-1.0, 0.46], [-0.85, 0.37], [-0.6, 0.35], [3.2, 0.33], [3.4, 0.36], [3.46, 0.42]]);
+// Profiles traced from a background-free side photo of the Cobalt, scaled by the
+// 2.62 m wheelbase and the 1.514 m height (rear overhang stretched to the real 1.0 m).
+// Top of the lower body: rounded bumper nose, high trunk deck, rising beltline, bonnet, sloping front face.
+export const belt = spline([[-1.0, 0.7], [-0.97, 0.9], [-0.93, 1.01], [-0.86, 1.13], [-0.79, 1.19], [-0.65, 1.203], [-0.5, 1.215],
+  [-0.4, 1.225], [-0.15, 1.19], [0.15, 1.15], [0.45, 1.12], [1.0, 1.088], [1.5, 1.062], [2.0, 1.04], [2.45, 1.055], [2.8, 0.995],
+  [3.1, 0.937], [3.3, 0.868], [3.36, 0.8], [3.4, 0.66], [3.42, 0.585], [3.445, 0.535], [3.456, 0.5]]);
+// greenhouse top: long rear screen, roof, long raked windscreen (only between GH.x0 and GH.x1)
+export const roof = spline([[-0.4, 1.225], [-0.2, 1.31], [0.0, 1.385], [0.2, 1.45], [0.35, 1.483], [0.6, 1.5], [1.0, 1.505],
+  [1.3, 1.493], [1.5, 1.47], [1.7, 1.435], [1.9, 1.365], [2.1, 1.25], [2.3, 1.13], [2.45, 1.055]]);
+export const GH = { x0: -0.4, x1: 2.45 };
+const bottomBase = spline([[-1.0, 0.51], [-0.96, 0.44], [-0.93, 0.4], [-0.86, 0.36], [-0.72, 0.34], [-0.55, 0.32], [0.5, 0.29],
+  [2.2, 0.29], [3.3, 0.25], [3.4, 0.27], [3.43, 0.31], [3.45, 0.4], [3.456, 0.47]]);
 export function bottom(x) {
   let b = bottomBase(x);
   for (const wc of [0, DIM.wb]) {
     const dx = x - wc;
-    if (Math.abs(dx) < DIM.archR) b = Math.max(b, 0.3 + Math.sqrt(DIM.archR * DIM.archR - dx * dx));
+    if (Math.abs(dx) < DIM.archR) b = Math.max(b, 0.31 + Math.sqrt(DIM.archR * DIM.archR - dx * dx));
   }
   return b;
 }
 // plan view: rounded nose (narrow), boxier tail
 export function plan(x) {
-  if (x > 2.95) { const t = (x - 2.95) / (DIM.front - 2.95), p = 2.2; return 0.78 + 0.22 * Math.pow(Math.max(0, 1 - Math.pow(t, p)), 1 / p); }
-  if (x < -0.6) { const t = (-0.6 - x) / (-0.6 - DIM.rear), p = 3; return 0.88 + 0.12 * Math.pow(Math.max(0, 1 - Math.pow(t, p)), 1 / p); }
+  if (x > 3.0) { const t = (x - 3.0) / (DIM.front - 3.0), p = 2.4; return 0.9 + 0.1 * Math.pow(Math.max(0, 1 - Math.pow(t, p)), 1 / p); }
+  if (x < -0.7) { const t = (-0.7 - x) / (-0.7 - DIM.rear), p = 3; return 0.9 + 0.1 * Math.pow(Math.max(0, 1 - Math.pow(t, p)), 1 / p); }
   return 1;
 }
 // side bulge over the body height (0 = sill, 1 = shoulder)
 // side bulge, with the shoulder crease (light catching ridge) that runs headlamp -> tail lamp
 export const sideShape = yr => 0.955 + 0.045 * smooth(yr / 0.55) - 0.07 * smooth((yr - 0.86) / 0.14)
-  + 0.013 * Math.exp(-(((yr - 0.7) / 0.045) ** 2)) - 0.006 * smooth((yr - 0.72) / 0.05);
+  + 0.012 * Math.exp(-(((yr - 0.55) / 0.04) ** 2)) - 0.006 * smooth((yr - 0.57) / 0.05);
 export const halfWidth = x => DIM.hw * plan(x);
 export function sideZ(x, y) {
-  const b = bottom(x), t = belt(x) - 0.045;
-  return halfWidth(x) * sideShape((y - b) / (t - b));
+  const b = bottom(x), t = belt(x) - topR(x);
+  return halfWidth(x) * sideShape(Math.min(1, Math.max(0, (y - b) / Math.max(1e-3, t - b))));
+}
+// corner radius at the top of the side, smaller where the body gets thin at the ends
+const topR = x => Math.min(0.045, Math.max(0.004, (belt(x) - bottom(x)) * 0.3));
+// how far forward / back the body reaches at height y (front and rear faces are curved)
+export function faceX(y, dir) {
+  let lo = dir > 0 ? 2.9 : DIM.rear, hi = dir > 0 ? DIM.front : -0.5;
+  const inside = x => y >= bottom(x) - 1e-4 && y <= belt(x) + 1e-4;
+  for (let i = 0; i < 40; i++) {
+    const mid = (lo + hi) / 2;
+    if (dir > 0) { if (inside(mid)) lo = mid; else hi = mid; }
+    else { if (inside(mid)) hi = mid; else lo = mid; }
+  }
+  return dir > 0 ? lo : hi;
 }
 
 /* ---------- sections ---------- */
 function lowerSection(x) {
-  const hw = halfWidth(x), bot = bottom(x), bel = belt(x), r = 0.045, yTop = bel - r;
+  const hw = halfWidth(x), bot = bottom(x), bel = belt(x), r = topR(x), yTop = bel - r;
   const pts = [];
   for (let i = 0; i <= 12; i++) { const yr = i / 12; pts.push([bot + (yTop - bot) * yr, hw * sideShape(yr)]); }
   const zs = hw * sideShape(1) - r;
@@ -217,6 +233,24 @@ export function capPatch(x, pts, dir) {
   const g = new THREE.ShapeGeometry(sh);
   g.rotateY(dir > 0 ? Math.PI / 2 : -Math.PI / 2);
   g.translate(x, 0, 0);
+  g.computeVertexNormals();
+  return g;
+}
+
+// Patch lying on the curved front (dir 1) or rear (dir -1) face; pts as [z, y].
+export function facePatch(pts, dir, off = 0.004) {
+  const sh = new THREE.Shape(pts.map(([z, y]) => new THREE.Vector2(z, y)));
+  const g = new THREE.ShapeGeometry(sh, 8);
+  const p = g.attributes.position;
+  for (let i = 0; i < p.count; i++) {
+    const z = p.getX(i), y = p.getY(i);
+    // the face also curves back towards the corners of the car
+    const back = 0.12 * Math.max(0, Math.abs(z) - 0.5) ** 2 / 0.05;
+    p.setXYZ(i, faceX(y, dir) + dir * (off - back), y, z);
+  }
+  // make the faces point outwards
+  const ix = g.index.array;
+  if (dir > 0) for (let i = 0; i < ix.length; i += 3) { const t = ix[i + 1]; ix[i + 1] = ix[i + 2]; ix[i + 2] = t; }
   g.computeVertexNormals();
   return g;
 }
