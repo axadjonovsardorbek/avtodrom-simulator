@@ -1,0 +1,199 @@
+// Synthesised sound: engine, mechanical clicks and clunks, road and wind noise,
+// exam-system signals and spoken prompts. Everything is generated with Web Audio.
+
+const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
+
+export class CarAudio {
+  constructor() {
+    this.ctx = null;
+    this.muted = false;
+    this.voiceOn = true;
+    this.lastBlink = false;
+    this.lastSay = 0;
+    this.voice = null;
+  }
+
+  start() {
+    if (this.ctx) { this.ctx.resume(); return; }
+    const AC = window.AudioContext || window.webkitAudioContext;
+    if (!AC) return;
+    const c = this.ctx = new AC();
+    const comp = c.createDynamicsCompressor();
+    comp.threshold.value = -14; comp.ratio.value = 4;
+    this.master = c.createGain(); this.master.gain.value = this.muted ? 0 : 0.9;
+    this.master.connect(comp); comp.connect(c.destination);
+
+    // noise buffers
+    const len = c.sampleRate * 2;
+    this.white = c.createBuffer(1, len, c.sampleRate);
+    this.brown = c.createBuffer(1, len, c.sampleRate);
+    const w = this.white.getChannelData(0), b = this.brown.getChannelData(0);
+    let last = 0;
+    for (let i = 0; i < len; i++) { w[i] = Math.random() * 2 - 1; last = (last + 0.02 * w[i]) / 1.02; b[i] = last * 3.5; }
+
+    // engine: harmonic-rich firing note + half-order rumble, soft-clipped and filtered
+    const real = new Float32Array([0, 1, 0.62, 0.48, 0.3, 0.24, 0.16, 0.12, 0.08, 0.06, 0.04]);
+    const wave = c.createPeriodicWave(real, new Float32Array(real.length));
+    this.eng = c.createOscillator(); this.eng.setPeriodicWave(wave);
+    this.sub = c.createOscillator(); this.sub.type = "triangle";
+    const subG = c.createGain(); subG.gain.value = 0.5;
+    const shaper = c.createWaveShaper();
+    const curve = new Float32Array(1024);
+    for (let i = 0; i < 1024; i++) { const x = i / 512 - 1; curve[i] = Math.tanh(x * 2.2); }
+    shaper.curve = curve;
+    this.engFilter = c.createBiquadFilter(); this.engFilter.type = "lowpass"; this.engFilter.Q.value = 2.5;
+    this.engGain = c.createGain(); this.engGain.gain.value = 0;
+    this.eng.connect(shaper); this.sub.connect(subG); subG.connect(shaper);
+    shaper.connect(this.engFilter); this.engFilter.connect(this.engGain); this.engGain.connect(this.master);
+    this.eng.start(); this.sub.start();
+
+    // intake / road / wind beds
+    this.intake = this.bed(this.white, "bandpass", 900, 1.2);
+    this.road = this.bed(this.brown, "lowpass", 380, 0.7);
+    this.wind = this.bed(this.white, "highpass", 1600, 0.5);
+
+    // tyre squeal and the in-car alarm beeper
+    this.squeal = c.createOscillator(); this.squeal.type = "sawtooth"; this.squeal.frequency.value = 980;
+    const sqF = c.createBiquadFilter(); sqF.type = "bandpass"; sqF.frequency.value = 1100; sqF.Q.value = 8;
+    this.squealGain = c.createGain(); this.squealGain.gain.value = 0;
+    this.squeal.connect(sqF); sqF.connect(this.squealGain); this.squealGain.connect(this.master); this.squeal.start();
+    this.beep = c.createOscillator(); this.beep.type = "square"; this.beep.frequency.value = 1180;
+    this.beepGain = c.createGain(); this.beepGain.gain.value = 0;
+    this.beep.connect(this.beepGain); this.beepGain.connect(this.master); this.beep.start();
+
+    this.ambience();
+    this.pickVoice();
+    if (window.speechSynthesis) speechSynthesis.onvoiceschanged = () => this.pickVoice();
+  }
+
+  bed(buf, type, freq, q) {
+    const c = this.ctx, src = c.createBufferSource();
+    src.buffer = buf; src.loop = true;
+    const f = c.createBiquadFilter(); f.type = type; f.frequency.value = freq; f.Q.value = q;
+    const g = c.createGain(); g.gain.value = 0;
+    src.connect(f); f.connect(g); g.connect(this.master); src.start();
+    return { f, g };
+  }
+
+  setMuted(m) { this.muted = m; if (this.master) this.master.gain.value = m ? 0 : 0.9; if (m && window.speechSynthesis) speechSynthesis.cancel(); }
+
+  /* ---------- one-shot helpers ---------- */
+  burst({ freq = 1000, q = 1, type = "bandpass", gain = 0.2, dur = 0.08, when = 0, buf = null }) {
+    if (!this.ctx || this.muted) return;
+    const c = this.ctx, t = c.currentTime + when;
+    const src = c.createBufferSource(); src.buffer = buf || this.white;
+    const f = c.createBiquadFilter(); f.type = type; f.frequency.value = freq; f.Q.value = q;
+    const g = c.createGain();
+    g.gain.setValueAtTime(gain, t); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    src.connect(f); f.connect(g); g.connect(this.master);
+    src.start(t, Math.random()); src.stop(t + dur + 0.02);
+  }
+  tone({ freq = 440, to = null, dur = 0.2, type = "sine", gain = 0.15, when = 0, attack = 0.005 }) {
+    if (!this.ctx || this.muted) return;
+    const c = this.ctx, t = c.currentTime + when;
+    const o = c.createOscillator(), g = c.createGain();
+    o.type = type; o.frequency.setValueAtTime(freq, t);
+    if (to) o.frequency.exponentialRampToValueAtTime(to, t + dur);
+    g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(gain, t + attack); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    o.connect(g); g.connect(this.master); o.start(t); o.stop(t + dur + 0.02);
+  }
+
+  /* ---------- car sounds ---------- */
+  click(hi) { this.burst({ freq: hi ? 3200 : 2200, q: 6, gain: 0.25, dur: 0.025 }); }
+  starter() {
+    for (let i = 0; i < 9; i++) {
+      this.burst({ freq: 180, q: 1.5, gain: 0.35, dur: 0.07, when: i * 0.085, buf: this.brown });
+      this.tone({ freq: 95, to: 70, dur: 0.07, type: "sawtooth", gain: 0.05, when: i * 0.085 });
+    }
+  }
+  stall() {
+    for (let i = 0; i < 4; i++) this.burst({ freq: 140 - i * 15, q: 2, gain: 0.4 - i * 0.07, dur: 0.12, when: i * 0.14, buf: this.brown });
+  }
+  engineOff() { this.burst({ freq: 900, q: 3, gain: 0.12, dur: 0.04 }); }
+  shift() {
+    this.burst({ freq: 260, q: 2, gain: 0.35, dur: 0.07, buf: this.brown });
+    this.burst({ freq: 1800, q: 5, gain: 0.08, dur: 0.03, when: 0.02 });
+  }
+  grind() {
+    this.burst({ freq: 2600, q: 4, gain: 0.3, dur: 0.4 });
+    this.tone({ freq: 2100, to: 1700, dur: 0.38, type: "sawtooth", gain: 0.05 });
+  }
+  handbrake(on) {
+    if (on) for (let i = 0; i < 6; i++) this.burst({ freq: 2600 + i * 120, q: 7, gain: 0.18, dur: 0.02, when: i * 0.045 });
+    else { this.burst({ freq: 1900, q: 5, gain: 0.15, dur: 0.03 }); this.burst({ freq: 300, q: 2, gain: 0.25, dur: 0.08, when: 0.04, buf: this.brown }); }
+  }
+  belt(on) {
+    this.burst({ freq: 3000, q: 6, gain: 0.25, dur: 0.02 });
+    if (on) this.burst({ freq: 2400, q: 6, gain: 0.28, dur: 0.03, when: 0.07 });
+  }
+  thump(strength = 1) { this.burst({ freq: 110, q: 1.2, gain: 0.5 * strength, dur: 0.16, buf: this.brown }); }
+
+  /* ---------- exam system ---------- */
+  penalty() {
+    this.tone({ freq: 620, dur: 0.22, type: "square", gain: 0.09 });
+    this.tone({ freq: 440, dur: 0.38, type: "square", gain: 0.09, when: 0.24 });
+  }
+  chime() {
+    this.tone({ freq: 660, dur: 0.25, gain: 0.14 });
+    this.tone({ freq: 990, dur: 0.45, gain: 0.14, when: 0.16 });
+  }
+  countdown(go) { this.tone({ freq: go ? 880 : 440, dur: go ? 0.6 : 0.18, type: "square", gain: 0.08 }); }
+
+  /* ---------- spoken prompts ---------- */
+  pickVoice() {
+    if (!window.speechSynthesis) return;
+    const vs = speechSynthesis.getVoices();
+    // Uzbek if installed; otherwise Turkish reads Uzbek Latin text most naturally
+    this.voice = vs.find(v => /^uz/i.test(v.lang)) || vs.find(v => /^tr/i.test(v.lang)) || vs.find(v => /^kk|^ky|^az/i.test(v.lang)) || null;
+  }
+  say(text, urgent = false) {
+    if (!this.voiceOn || this.muted || !window.speechSynthesis) return;
+    const now = performance.now();
+    if (!urgent && now - this.lastSay < 700) return;
+    this.lastSay = now;
+    if (urgent) speechSynthesis.cancel();
+    const u = new SpeechSynthesisUtterance(text);
+    if (this.voice) { u.voice = this.voice; u.lang = this.voice.lang; } else u.lang = "uz-UZ";
+    u.rate = 1.0; u.volume = 0.9;
+    speechSynthesis.speak(u);
+  }
+
+  /* ---------- ambience ---------- */
+  ambience() {
+    const chirp = () => {
+      if (this.ctx && !this.muted && Math.random() < 0.7) {
+        const f = 2600 + Math.random() * 1600, n = 2 + Math.floor(Math.random() * 3);
+        for (let i = 0; i < n; i++) this.tone({ freq: f, to: f * (1.15 + Math.random() * 0.3), dur: 0.09, gain: 0.018, when: i * 0.13 });
+      }
+      this.ambT = setTimeout(chirp, 3000 + Math.random() * 7000);
+    };
+    chirp();
+  }
+
+  /* ---------- per-frame ---------- */
+  update(car, env, now) {
+    if (!this.ctx) return;
+    const t = this.ctx.currentTime;
+    const rpm = car.rpm, thr = car.throttle, on = car.engineOn;
+    const f = Math.max(6, rpm / 30);                       // 4-cylinder firing frequency
+    this.eng.frequency.setTargetAtTime(f, t, 0.02);
+    this.sub.frequency.setTargetAtTime(f / 2, t, 0.02);
+    this.engFilter.frequency.setTargetAtTime(260 + thr * 1600 + rpm * 0.18, t, 0.04);
+    const load = on ? 0.06 + thr * 0.08 + clamp(rpm / 6500, 0, 1) * 0.05 : (rpm > 50 ? 0.03 * rpm / 800 : 0);
+    this.engGain.gain.setTargetAtTime(load, t, 0.05);
+    this.intake.g.gain.setTargetAtTime(on ? thr * clamp(rpm / 4000, 0.15, 1) * 0.12 : 0, t, 0.06);
+    this.intake.f.frequency.setTargetAtTime(500 + rpm * 0.25, t, 0.06);
+    const kmh = car.kmh;
+    this.road.g.gain.setTargetAtTime(clamp(kmh / 45, 0, 1) * 0.22, t, 0.1);
+    this.wind.g.gain.setTargetAtTime(clamp((kmh / 60) ** 2, 0, 1) * 0.06, t, 0.15);
+    const skid = car.brake > 0.75 && Math.abs(car.v) > 3.5 ? 0.035 : 0;
+    this.squealGain.gain.setTargetAtTime(skid, t, 0.04);
+    this.squeal.frequency.setTargetAtTime(950 + Math.sin(now / 37) * 60, t, 0.02);
+
+    const blink = Math.floor(now / 380) % 2 === 0;
+    if ((car.sig || car.hazard) && blink !== this.lastBlink) this.click(blink);
+    this.lastBlink = blink;
+    const beep = env.alarm && Math.floor(now / 230) % 2 === 0;
+    this.beepGain.gain.setTargetAtTime(beep ? 0.07 : 0, t, 0.01);
+  }
+}

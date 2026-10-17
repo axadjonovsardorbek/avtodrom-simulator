@@ -1,0 +1,33 @@
+import puppeteer from "puppeteer-core";
+const OUT = process.argv[2];
+const browser = await puppeteer.launch({ executablePath: "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome", headless: "new",
+  args: ["--use-angle=swiftshader", "--enable-unsafe-swiftshader", "--ignore-gpu-blocklist", "--autoplay-policy=no-user-gesture-required"] });
+const page = await browser.newPage();
+await page.setViewport({ width: 1280, height: 800 });
+const errs = [];
+page.on("console", m => { if (["error", "warning"].includes(m.type())) errs.push(m.type() + ": " + m.text()); });
+page.on("pageerror", e => errs.push("pageerror: " + e.message));
+const wait = ms => new Promise(r => setTimeout(r, ms));
+await page.goto("http://localhost:5179/", { waitUntil: "networkidle0" });
+await wait(2500);
+await page.screenshot({ path: OUT + "/1-menu.png" });
+await page.goto("http://localhost:5179/#trening", { waitUntil: "networkidle0" });
+await page.reload({ waitUntil: "networkidle0" });
+await wait(4000);
+await page.screenshot({ path: OUT + "/2-cockpit.png" });
+const key = async (k, ms = 60) => { await page.keyboard.down(k); await wait(ms); await page.keyboard.up(k); await wait(80); };
+await key("KeyK"); await key("KeyQ");
+await page.keyboard.down("ShiftLeft"); await wait(300);
+await key("KeyI"); await key("Digit1"); await key("Space");
+await page.keyboard.down("KeyW"); await wait(500);
+await page.keyboard.up("ShiftLeft");   // clutch returns slowly
+await wait(2500);
+await page.keyboard.up("KeyW");
+await wait(1500);
+await page.screenshot({ path: OUT + "/3-driving.png" });
+await key("KeyC"); await wait(1200);
+await page.screenshot({ path: OUT + "/4-chase.png" });
+const state = await page.evaluate(() => document.querySelector("#kmh").textContent + " km/h, gear " + document.querySelector("#gear").textContent + ", pts " + document.querySelector("#pts").textContent + " | " + document.querySelector("#taskTitle").textContent + " | " + document.querySelector("#taskText").textContent);
+console.log("STATE", state);
+console.log("ERRORS", errs.length, errs.slice(0, 10).join("\n"));
+await browser.close();

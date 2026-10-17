@@ -1,0 +1,20 @@
+{
+  "name": "avtodrom-simulator",
+  "private": true,
+  "version": "0.3.0",
+  "description": "B toifa avtodrom amaliy imtihoniga tayyorlanish uchun 3D simulyator",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "test": "node tests/run.js"
+  },
+  "dependencies": {
+    "three": "0.170.0"
+  },
+  "devDependencies": {
+    "puppeteer-core": "^23.11.1",
+    "vite": "6.0.7"
+  }
+}

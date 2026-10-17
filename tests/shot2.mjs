@@ -1,0 +1,15 @@
+import puppeteer from "puppeteer-core";
+const OUT = process.argv[2], HASH = process.argv[3] || "trening", TAG = process.argv[4] || "x";
+const browser = await puppeteer.launch({ executablePath: "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome", headless: "new", args: ["--use-angle=swiftshader", "--enable-unsafe-swiftshader", "--ignore-gpu-blocklist"] });
+const page = await browser.newPage();
+await page.setViewport({ width: 1280, height: 800 });
+const errs = []; page.on("pageerror", e => errs.push(e.message)); page.on("console", m => m.type() === "error" && errs.push(m.text()));
+await page.evaluateOnNewDocument(() => localStorage.clear());
+await page.goto("http://localhost:5179/#" + HASH, { waitUntil: "networkidle0" });
+const wait = ms => new Promise(r => setTimeout(r, ms));
+await wait(3500);
+await page.screenshot({ path: `${OUT}/${TAG}-cockpit.png` });
+await page.keyboard.press("KeyC"); await page.keyboard.press("KeyC"); await wait(1200);
+await page.screenshot({ path: `${OUT}/${TAG}-top.png` });
+console.log("errors:", errs.join(" | ") || "none");
+await browser.close();
