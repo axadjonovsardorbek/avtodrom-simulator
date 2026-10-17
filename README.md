@@ -43,6 +43,10 @@ Havola orqali to'g'ridan-to'g'ri ochish: `#imtihon`, `#trening`, `#mashq-ilon` (
 
 Trening va alohida mashqlarda poligonni kengaytirish mumkin (menyuda "Poligon"): **Keng** (boshlovchi, 1,5 marta), **O'rtacha** (1,25), **Haqiqiy o'lcham**. Kengayadigan joylar tor mashqlar: 90° burilish koridori, ilon izi koridori, boks (koridor, boks eni va chuqurligi) va parallel parkovka qutisi. Imtihon har doim haqiqiy o'lchamda. Kodda: `W.k` (`src/world/elements.js`).
 
+## Odamlar
+
+Instruktor, haydovchi va qo'shiq aytadigan bola Mixamo personajlari (`public/models/people/`). Mixamo'dan FBX (With Skin) yuklab, qayta tayyorlash: `npm run prepare:people -- ~/Downloads` (Blender kerak). Kiyim ranglari rasmlarga moslangan (`src/render/people.js`).
+
 ## Telefonda
 
 Telefon va planshetda ekranda tugmalar chiqadi (gorizontal holatda): chapda rul o'qlari, o'rtada burilish va avariya chiroqlari, kamar, dvigatel, qo'l tormozi, o'ngda uzatma, ilashish (mexanikada), tormoz va gaz pedallari. Mashq boshlanganda to'liq ekranga o'tadi; telefon tik turganda yotqizish so'raladi. Kompyuterda sinash uchun: manzil oxiriga `?mobile` qo'shing.

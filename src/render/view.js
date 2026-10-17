@@ -36,6 +36,7 @@ export class View {
     r.toneMapping = THREE.ACESFilmicToneMapping;
     r.toneMappingExposure = 1.05;
     r.outputColorSpace = THREE.SRGBColorSpace;
+    r.localClippingEnabled = true;            // the driver figure is cut away near the camera
 
     const s = this.scene = new THREE.Scene();
     s.background = new THREE.Color(0xa9c6e2);

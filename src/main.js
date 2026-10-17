@@ -16,6 +16,7 @@ import { Instructor, lineIds } from "./instructor/instructor.js";
 import { buildInstructor } from "./render/instructorFigure.js";
 import { KidShow } from "./render/singerKid.js";
 import { buildDriver } from "./render/driverFigure.js";
+import { loadPeople, realInstructor, realDriver, realKid } from "./render/people.js";
 
 const coarse = matchMedia("(pointer: coarse)").matches;
 const settings = { transmission: "manual", quality: coarse ? "low" : "high", mouseSteer: false, muted: false, voice: true, car: "cobalt", instructor: "angry", color: "white", plate: DEFAULT_PLATE, size: "real" };
@@ -34,11 +35,22 @@ const view = new View(hud.canvas);
 const audio = new CarAudio();
 const instructor = new Instructor(audio);
 instructor.mood = settings.instructor;
-const instructorFig = buildInstructor();
+let instructorFig = buildInstructor();
 view.setInstructor(instructorFig.root);
 view.setInstructorVisible(instructor.on);
 const kidShow = new KidShow(view.scene, audio);
 view.setDriver(buildDriver());
+// the realistic people replace the hand-built stand-ins once their files have loaded
+loadPeople().then(P => {
+  const old = instructorFig.root;
+  instructorFig = realInstructor(P.instructor);
+  if (old.parent) old.parent.remove(old);
+  view.setInstructor(instructorFig.root); view.setInstructorVisible(instructor.on);
+  const oldD = view.driver && view.driver.root; if (oldD && oldD.parent) oldD.parent.remove(oldD);
+  view.setDriver(realDriver(P.driver));
+  kidShow.setKid(realKid(P.kid));
+  if (import.meta.env.DEV) window.__sim.fig = instructorFig;
+}).catch(e => console.warn("people not loaded, keeping the simple figures:", e.message));
 const controls = new Controls(hud.canvas, onAction);
 controls.bindTouch(document.getElementById("touchpad"));
 controls.mouseSteer = settings.mouseSteer;
@@ -314,7 +326,7 @@ let countdown = -1;
 let last = performance.now(), acc = 0, lastHud = 0;
 const H = 1 / 240;
 function frame(now) {
-  const dt = Math.min(0.1, (now - last) / 1000); last = now;
+  const dt = Math.max(0, Math.min(0.1, (now - last) / 1000)); last = now;   // the first frame can be stamped before `last`
   if (session) {
     if (!paused && session.state === "running") {
       controls.apply(session.car, dt);

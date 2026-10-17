@@ -11,7 +11,11 @@ Dastur kodi: MIT (`LICENSE`). Quyidagi fayllar o'z litsenziyasida qoladi.
 
 Hamma modellar o'zgartirilgan (`tools/prepare-cobalt.mjs`, `tools/prepare-malibu-premier.mjs`).
 
-Kod bilan yasalgan zaxira Cobalt, instruktor, haydovchi va bola figuralari dastur kodining bir qismi (MIT).
+## Odamlar
+
+`public/models/people/*.glb` (instruktor, haydovchi, bola): personajlar va harakatlar [Mixamo](https://www.mixamo.com) (Adobe), Mixamo shartlari asosida loyihada ishlatilgan. `tools/prepare-people.mjs` ularni birlashtiradi, kiyim ranglarini o'zgartiradi va siqadi (asl `.fbx` fayllar repoda yo'q).
+
+Kod bilan yasalgan zaxira Cobalt, instruktor, haydovchi va bola figuralari dastur kodining bir qismi (MIT); Mixamo fayllari yuklanmasa ular ishlatiladi.
 
 Ko'rib chiqilib ishlatilmagan modellar: "2019 Chevrolet Malibu LS Sedan" (Ddiaz Design, CC BY-NC-SA 4.0),
 "Chevrolet Malibu Premier 2022" (Type_S, CC BY 4.0) va "Malibu XL 2023" (Uzbek 3D).

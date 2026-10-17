@@ -129,6 +129,12 @@ export class KidShow {
     scene.add(this.kid.root);
     this.reset(null);
   }
+  setKid(kid) {
+    const old = this.kid.root, parent = old.parent;
+    kid.root.visible = old.visible; kid.root.position.copy(old.position); kid.root.rotation.copy(old.rotation);
+    if (parent) { parent.remove(old); parent.add(kid.root); }
+    this.kid = kid;
+  }
   reset(session, enabled = false) {
     this.session = session; this.enabled = enabled;
     this.state = "away"; this.used = false; this.still = 0;

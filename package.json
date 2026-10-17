@@ -11,7 +11,8 @@
     "test": "node tests/run.js",
     "export:procedural": "node tools/export-car.mjs",
     "prepare:cobalt": "node tools/prepare-cobalt.mjs",
-    "prepare:malibu-premier": "node tools/prepare-malibu-premier.mjs"
+    "prepare:malibu-premier": "node tools/prepare-malibu-premier.mjs",
+    "prepare:people": "node tools/prepare-people.mjs"
   },
   "dependencies": {
     "three": "0.170.0"
