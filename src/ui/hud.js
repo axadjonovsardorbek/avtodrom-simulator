@@ -96,7 +96,7 @@ export class Hud {
             <select id="optTrans"><option value="manual">Mexanik (ilashish bilan)</option><option value="auto">Avtomat</option></select></label>
           <label>Grafika
             <select id="optQuality"><option value="high">Yuqori</option><option value="low">Yengil (telefon)</option></select></label>
-          <label>Instruktor
+          <label>Instruktor — Bobur aka
             <select id="optInstr"><option value="angry">Jahldor</option><option value="rude">Jahldor, so'kinadi (18+)</option><option value="calm">Yumshoq</option><option value="off">Yo'q</option></select></label>
           <label>Ovozli ko'rsatmalar
             <select id="optVoice"><option value="on">Yoqilgan</option><option value="off">O'chirilgan</option></select></label>

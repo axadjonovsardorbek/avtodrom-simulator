@@ -25,7 +25,7 @@ python3 -m venv .venv && .venv/bin/pip install edge-tts
 
 ## Instruktor
 
-Yo'lovchi o'rindig'ida instruktor o'tiradi (`src/render/instructorFigure.js`). U xatolarni aytadi,
+Yo'lovchi o'rindig'ida instruktor Bobur aka o'tiradi (`src/render/instructorFigure.js`). U xatolarni aytadi,
 kerak bo'lsa qo'lini silkitadi, yaxshi bajarilgan mashqda bosh barmog'ini ko'taradi.
 Menyuda "Instruktor" tanlanadi:
 
