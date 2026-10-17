@@ -67,10 +67,14 @@ Rul yoki gamepad (standart mapping): chap stik rul, RT gaz, LT tormoz, LB ilashi
 ## Mashinalar
 
 Mashinalar ro'yxati `src/cars/index.js` da. Har bir mashina `public/models/` dagi `.glb` fayldan yuklanadi.
-Hozircha bitta mashina bor: Chevrolet Cobalt (`cobalt.glb`).
+Mashinalar: Chevrolet Cobalt (`cobalt.glb`) va Chevrolet Malibu 2 (`malibu.glb`). Menyuda mashina va kuzov rangi tanlanadi.
 
 3D model: ["Chevrolet Cobalt LTZ 2014"](https://sketchfab.com/3d-models/chevrolet-cobalt-ltz-2014-f91cbef731444f939e263041400216ca), muallif [Q.SARDOR](https://sketchfab.com/qsardor57913), litsenziya [CC BY 4.0](http://creativecommons.org/licenses/by/4.0/).
 O'zgartirishlar (`tools/prepare-cobalt.mjs`): takrorlangan g'ildiraklar olib tashlangan, o'lcham va o'qlar moslangan, g'ildiraklar va rul harakatlanadigan qilingan, materiallar sozlangan, burilish chiroqlari qo'shilgan, uchburchaklar soni kamaytirilib siqilgan (33 MB dan 1,8 MB ga).
+
+Malibu modeli: ["2019 Chevrolet Malibu LS Sedan"](https://sketchfab.com/3d-models/2019-chevrolet-malibu-ls-sedan-c689df3e4b6a4df1b0b409309d00a728), muallif [Ddiaz Design](https://sketchfab.com/ddiaz-design), litsenziya [CC BY-NC-SA 4.0](http://creativecommons.org/licenses/by-nc-sa/4.0/): faqat notijorat maqsadda, o'zgartirilgan nusxa ham shu litsenziya ostida.
+O'zgartirishlar (`tools/prepare-malibu.mjs`): o'qlar va o'lcham moslangan, rul paneldan kesib ajratilgan, g'ildiraklar va rul harakatlanadigan qilingan, chiroq materiallari nomlangan, burilish chiroqlari qo'shilgan, teksturalar WebP ga o'tkazilgan, siqilgan (48 MB dan 10 MB ga).
+Yana ikkita Malibu fayli ko'rib chiqildi: 2022 Premier (CC BY 4.0) saloni juda oddiy, 2023 XL faylida litsenziya ma'lumoti yo'q, shuning uchun ishlatilmadi.
 
 Model yuklanmasa, kod bilan yasalgan zaxira model ishlatiladi (`src/render/cobaltBody.js`, `src/render/carModel.js`; `npm run export:procedural` uni faylga chiqaradi).
 
@@ -84,9 +88,11 @@ Yangi mashina qo'shish:
    - burilish chiroqlari: `ind_L_*`, `ind_R_*`;
    - orqaga yurish chirog'i: `lamp_reverse_*`;
    - materiallar: `lamp_head*`, `lamp_tail`.
-3. `src/cars/index.js` ga `{ id, name, model }` qatorini qo'shing. Menyuda paydo bo'ladi.
+3. `src/cars/index.js` ga `{ id, name, model, dims, eye, seat, mirrors, spec }` qatorini qo'shing. Menyuda paydo bo'ladi.
 
-Fizika parametrlari hozircha barcha mashinalar uchun bir xil (`src/sim/vehicle.js` dagi `SPEC`).
+Fizika parametrlari `src/sim/vehicle.js` dagi `SPEC` dan olinadi, mashinaning `spec` maydoni ularni almashtiradi (o'lcham, massa). Parallel to'xtash qutisi mashina uzunligiga moslanadi (uzunlik + 2,3 m).
+
+Rulda haydovchi o'tiradi (`src/render/driverFigure.js`): qo'llari rulni ushlab turadi va rul bilan birga buriladi, kabinadan faqat qo'llari ko'rinadi.
 
 ## Tuzilishi
 

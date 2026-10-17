@@ -44,6 +44,16 @@ function plateTexture() {
   });
 }
 
+// colour choice for any car whose body paint material is called "paint"
+export function addPaint(cv) {
+  const paints = [];
+  cv.root.traverse(o => { if (o.isMesh) for (const m of [].concat(o.material)) if (m.name === "paint" && !paints.includes(m)) paints.push(m); });
+  cv.setPaint = id => {
+    const c = COLORS[id] || COLORS.white;
+    for (const p of paints) { p.color.setHex(c.color); p.metalness = c.metalness; p.roughness = c.roughness; if (p.map) p.map = null; p.needsUpdate = true; }
+  };
+}
+
 export function dressCobalt(cv) {
   const root = cv.root;
   const car = root.name === "car" ? root : root.getObjectByName("car");

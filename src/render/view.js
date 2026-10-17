@@ -102,6 +102,7 @@ export class View {
     this.scene.add(cv.root);
     cv.setCockpit(this.mode === "cockpit");
     if (this.instructor) this.setInstructor(this.instructor);
+    if (this.driver) { this.driver.reset(); this.placeDriver(); }
   }
 
   // the instructor rides in the passenger seat of whatever car is shown
@@ -111,6 +112,17 @@ export class View {
     this.carView.root.add(fig);
   }
   setInstructorVisible(on) { if (this.instructor) this.instructor.visible = on; }
+
+  // the learner at the wheel; hands follow the steering wheel
+  setDriver(d) { this.driver = d; this.placeDriver(); }
+  placeDriver() {
+    if (!this.driver) return;
+    const [ex, ey, ez] = this.eye || [1.38, 1.15, -0.3];
+    this.driver.root.position.set(ex + 0.13, ey - 0.69, ez);
+    this.carView.root.add(this.driver.root);
+    this.driver.wheel = this.carView.root.getObjectByName("steering_wheel");
+    this.driver.root.children.length && this.driver.setCockpit(this.mode === "cockpit");
+  }
 
   setWorld(W, quality = "high") {
     if (this.worldGroup) {
@@ -141,6 +153,7 @@ export class View {
   setMode(mode) {
     this.mode = mode;
     this.carView.setCockpit(mode === "cockpit" || mode === "interiorRear");
+    if (this.driver) this.driver.setCockpit(mode === "cockpit");
     this.cam.up.set(0, 1, 0);
     this.chasePos = null;
   }
@@ -151,6 +164,7 @@ export class View {
     root.rotation.y = -car.th; root.rotation.z = car.pitch;
     root.updateMatrixWorld(true);
     this.carView.update(car, now);
+    if (this.driver) this.driver.update(dt, this.driver.wheel, car);
     this.cabinLight.visible = this.mode === "cockpit" || this.mode === "interiorRear";
     if (this.cabinLight.visible) this.cabinLight.position.copy(root.localToWorld(new THREE.Vector3(1.2, 1.12, 0)));
     updateWorldMeshes(this.W, this.dyn, session.clock, now);

@@ -1,6 +1,6 @@
 // One driving run: owns the vehicle, applies the exam rules, walks through
 // the world's tasks in order and records penalties.
-import { Vehicle, FRONT, REAR } from "./vehicle.js";
+import { Vehicle } from "./vehicle.js";
 import { PEN, PASS_LIMIT, SPEED_TOL } from "./penalties.js";
 import { toLocal, polyTouchesSeg, polyNearPoint } from "./geom.js";
 
@@ -9,12 +9,12 @@ export const START_SIGNAL_AT = 3;   // seconds after load the "Start" signal is 
 export class Session {
   // mode: "exam" (stops when the limit is exceeded), "training" (full route, keeps going),
   // "practice" (single element)
-  constructor(world, { mode = "training", transmission = "manual" } = {}) {
+  constructor(world, { mode = "training", transmission = "manual", spec } = {}) {
     this.W = world;
     this.mode = mode;
     this.strict = mode === "exam";
     this.full = !!world.startLine;
-    this.car = new Vehicle(world.start, transmission);
+    this.car = new Vehicle(world.start, transmission, spec);
     Object.assign(this.car, { sig: 0, hazard: false, belt: false });
     this.clock = 0;          // since load
     this.t = 0;              // since the car first moved
@@ -65,7 +65,7 @@ export class Session {
     const P = car.corners();
     const [cs, cl] = toLocal(pose, car.x, car.y);
     const [fs, fl] = toLocal(pose, ...car.frontPoint());
-    const rb = [car.x + Math.cos(car.th) * REAR, car.y + Math.sin(car.th) * REAR];
+    const rb = [car.x + Math.cos(car.th) * car.rear, car.y + Math.sin(car.th) * car.rear];
     const [rs] = toLocal(pose, rb[0], rb[1]);
     const a = this.active && this.active.task === task ? this.active : null;
     return {

@@ -63,8 +63,9 @@ function checker(W, pose, s, halfW) {
     }
 }
 
-export function buildFull() {
-  const W = new World("full");
+// car: { length, rOh } of the car being driven (the parking box is sized to it)
+export function buildFull(car) {
+  const W = new World("full"); W.car = car;
   const A = 30, XL = 77.75, YB = 140, O = { x: 0, y: 0 };
   buildIntersection(W, A);
 
@@ -129,8 +130,8 @@ export function buildFull() {
 
 const ELEMENT_FN = { piyoda, estakada, burilish, ilon, boks, parkovka, temir, tezlashish, avariya };
 
-export function buildPractice(id) {
-  const W = new World(id);
+export function buildPractice(id, car) {
+  const W = new World(id); W.car = car;
   if (id.startsWith("chorraha")) {
     const A = 40;
     buildIntersection(W, A, true);

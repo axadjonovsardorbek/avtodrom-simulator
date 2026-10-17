@@ -39,8 +39,10 @@ export function clutchEngage(pedal) {
 }
 
 export class Vehicle {
-  constructor({ x, y, th }, transmission = "manual") {
+  // spec: per-car overrides of SPEC (dimensions, mass, ...)
+  constructor({ x, y, th }, transmission = "manual", spec = {}) {
     this.transmission = transmission;
+    this.spec = { ...SPEC, ...spec };
     this.x = x; this.y = y; this.th = th;
     this.v = 0; this.sw = 0; this.steer = 0;
     this.h = 0; this.pitch = 0; this.grade = 0;
@@ -73,7 +75,7 @@ export class Vehicle {
       this.emit("hint", { text: "Dvigatelni o't oldirish uchun P yoki N holatiga qo'ying" });
       return false;
     }
-    this.engineOn = true; this.rpm = SPEC.idleRpm + 250;
+    this.engineOn = true; this.rpm = this.spec.idleRpm + 250;
     this.emit("engineStart");
     return true;
   }
@@ -99,7 +101,7 @@ export class Vehicle {
 
   // heightAt(x, y) -> ground height in meters
   step(dt, heightAt) {
-    const s = SPEC;
+    const s = this.spec;
     this.steer = clamp(this.sw / s.wheelLock, -1, 1) * s.maxSteer;
 
     // terrain under the axles
@@ -128,7 +130,7 @@ export class Vehicle {
   }
 
   manualStep(dt, Fload) {
-    const s = SPEC;
+    const s = this.spec;
     const ratio = this.gear === "R" ? -s.reverse * s.final : this.gear === "N" ? 0 : s.gears[this.gear] * s.final;
     let we = this.rpm * RPM2W;
     const wc = this.v / s.wheelR * ratio;
@@ -163,7 +165,7 @@ export class Vehicle {
   }
 
   autoStep(dt, Fload) {
-    const s = SPEC;
+    const s = this.spec;
     const dir = this.gear === "D" ? 1 : this.gear === "R" ? -1 : 0;
     let F = 0;
     if (this.engineOn && dir) {
@@ -182,10 +184,12 @@ export class Vehicle {
     return (F - Fload) / s.mass;
   }
 
+  get front() { return this.spec.wb + this.spec.fOh; }
+  get rear() { return -this.spec.rOh; }
   corners() {
-    const c = Math.cos(this.th), n = Math.sin(this.th);
+    const c = Math.cos(this.th), n = Math.sin(this.th), F = this.front, R = this.rear, hw = this.spec.width / 2;
     const p = (a, b) => [this.x + c * a - n * b, this.y + n * a + c * b];
-    return [p(FRONT, -HW), p(FRONT, HW), p(REAR, HW), p(REAR, -HW)];
+    return [p(F, -hw), p(F, hw), p(R, hw), p(R, -hw)];
   }
-  frontPoint() { return [this.x + Math.cos(this.th) * FRONT, this.y + Math.sin(this.th) * FRONT]; }
+  frontPoint() { return [this.x + Math.cos(this.th) * this.front, this.y + Math.sin(this.th) * this.front]; }
 }

@@ -9,11 +9,12 @@ import { Controls } from "./ui/input.js";
 import { Hud } from "./ui/hud.js";
 import { carById } from "./cars/index.js";
 import { loadCarModel } from "./render/carLoader.js";
-import { dressCobalt } from "./render/carDress.js";
+import { dressCobalt, addPaint } from "./render/carDress.js";
 import PHRASES from "./audio/phrases.json";
 import { Instructor, lineIds } from "./instructor/instructor.js";
 import { buildInstructor } from "./render/instructorFigure.js";
 import { KidShow } from "./render/singerKid.js";
+import { buildDriver } from "./render/driverFigure.js";
 
 const coarse = matchMedia("(pointer: coarse)").matches;
 const settings = { transmission: "manual", quality: coarse ? "low" : "high", mouseSteer: false, muted: false, voice: true, car: "cobalt", instructor: "angry", color: "white" };
@@ -34,6 +35,7 @@ const instructorFig = buildInstructor();
 view.setInstructor(instructorFig.root);
 view.setInstructorVisible(instructor.on);
 const kidShow = new KidShow(view.scene, audio);
+view.setDriver(buildDriver());
 const controls = new Controls(hud.canvas, onAction);
 controls.bindTouch(document.getElementById("touchpad"));
 controls.mouseSteer = settings.mouseSteer;
@@ -52,8 +54,8 @@ function start(m, el) {
   audio.start(); audio.setMuted(settings.muted); audio.voiceOn = settings.voice;
   saveSettings();
   mode = m; elementId = el || null; ended = false;
-  const W = m === "practice" ? buildPractice(el) : buildFull();
-  session = new Session(W, { mode: m, transmission: settings.transmission });
+  const W = m === "practice" ? buildPractice(el, carDims()) : buildFull(carDims());
+  session = new Session(W, { mode: m, transmission: settings.transmission, spec: carById(settings.car).spec });
   view.setWorld(W, settings.quality);
   view.setMode(settings.camera || "cockpit");
   hud.reset(session, m === "practice" ? ELEMENTS.find(e => e.id === el).name : TITLES[m]);
@@ -76,8 +78,8 @@ function start(m, el) {
 let inShowroom = false;
 function openShowroom() {
   audio.start(); audio.setMuted(settings.muted);
-  const W = buildPractice("tezlashish");
-  session = new Session(W, { mode: "practice", transmission: settings.transmission });
+  const W = buildPractice("tezlashish", carDims());
+  session = new Session(W, { mode: "practice", transmission: settings.transmission, spec: carById(settings.car).spec });
   view.setWorld(W, settings.quality);
   view.orbit = { az: 2.5, el: 0.2, dist: 7.5 }; view.drag = { yaw: 0, pitch: 0 };
   view.setMode("orbit");
@@ -195,22 +197,26 @@ function onAction(a) {
   }
 }
 
+function carDims() { const d = carById(settings.car).dims; return { length: d.length, rOh: d.rOh }; }
 // car model: generated Cobalt right away, then the .glb file once it has loaded
 let carModelId = null;
 function useCar(id) {
   const car = carById(id);
   if (carModelId === car.id) return;
   carModelId = car.id;
+  const slow = setTimeout(() => hud.toast(`${car.name} yuklanmoqda…`), 600);
   loadCarModel(car.model).then(cv => {
-    if (car.id === "cobalt") dressCobalt(cv);
+    clearTimeout(slow);
+    if (carModelId !== car.id) return;                  // another car was picked meanwhile
+    if (car.id === "cobalt") dressCobalt(cv); else addPaint(cv);
     if (cv.setPaint) cv.setPaint(settings.color);
     view.setCarModel(cv, car);
-  }).catch(e => console.warn("car model not loaded, using the built-in one:", e.message));
+  }).catch(e => { clearTimeout(slow); hud.toast(`${car.name} yuklanmadi`, "bad"); console.warn("car model not loaded, using the built-in one:", e.message); });
 }
 useCar(settings.car);
 
 // a preview of the autodrome behind the menu
-session = new Session(buildFull(), { mode: "training", transmission: settings.transmission });
+session = new Session(buildFull(carDims()), { mode: "training", transmission: settings.transmission, spec: carById(settings.car).spec });
 view.setWorld(session.W, settings.quality);
 view.setMode("chase");
 hud.reset(session, "Simulyator");
