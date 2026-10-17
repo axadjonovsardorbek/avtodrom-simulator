@@ -73,7 +73,9 @@ export class Instructor {
   onEvent(ev) {
     if (!this.on) return;
     switch (ev.type) {
-      case "penalty": this.say(PEN[ev.code] || "generic", { cooldown: 3 }); break;
+      case "penalty":
+        if (ev.code === "stopFar") break;              // main.js plays the user's own clip for this one
+        this.say(PEN[ev.code] || "generic", { cooldown: 3 }); break;
       case "taskDone": if (ev.ok) this.say("good", { cooldown: 4 }); break;
       case "limit": this.say("limit", { urgent: true }); break;
       case "end": this.say(ev.passed ? "pass" : "fail", { urgent: true, cooldown: 0 }); break;

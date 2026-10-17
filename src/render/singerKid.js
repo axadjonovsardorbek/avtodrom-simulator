@@ -6,22 +6,42 @@ import { toWorld, toLocal, inPoly } from "../sim/geom.js";
 
 const SONG = "sedayanoch.mp3", SONG_FROM = 3;
 
-function stripes() {
-  const c = document.createElement("canvas"); c.width = 16; c.height = 128;
+// cream / yellow / brown bands like the photo; `print` adds the chest print at the
+// front of a capsule (u = 0.25 faces +x)
+function stripes(print = false) {
+  const c = document.createElement("canvas"); c.width = 1024; c.height = 512;
   const g = c.getContext("2d");
-  const bands = ["#f1ead6", "#e9b828", "#4a3b31", "#f1ead6", "#e9b828", "#4a3b31", "#f1ead6", "#e9b828"];
-  bands.forEach((col, i) => { g.fillStyle = col; g.fillRect(0, i * 16, 16, 16); });
-  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace;
-  t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(1, 2.2);
+  const bands = ["#efe7d2", "#e8b62a", "#4a3b31"], h = 512 / 15;
+  for (let i = 0; i < 15; i++) { g.fillStyle = bands[i % 3]; g.fillRect(0, i * h, 1024, h + 1); }
+  if (print) {
+    // capsule u = 0.25 faces forward; v runs bottom to top (canvas top = top of the chest)
+    const x = 256, y = 200;
+    g.fillStyle = "#4a3b31"; g.fillRect(x - 80, y - 22, 160, 44);
+    g.fillStyle = "#f4f1ea"; g.textAlign = "center"; g.font = "bold 22px sans-serif";
+    g.fillText("DORAEMON", x - 12, y + 2); g.font = "15px sans-serif"; g.fillText("マスコット", x - 12, y + 19);
+    g.fillStyle = "#2f86d6"; g.beginPath(); g.arc(x + 60, y - 2, 16, 0, Math.PI * 2); g.fill();   // the blue cat badge
+    g.fillStyle = "#ffffff"; g.beginPath(); g.arc(x + 60, y + 2, 11, 0, Math.PI * 2); g.fill();
+    g.fillStyle = "#d8262a"; g.beginPath(); g.arc(x + 60, y - 3, 3, 0, Math.PI * 2); g.fill();
+  }
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4;
+  t.wrapS = THREE.RepeatWrapping; t.wrapT = THREE.ClampToEdgeWrapping;
   return t;
 }
-const cap = (r, len, mat) => new THREE.Mesh(new THREE.CapsuleGeometry(r, len, 6, 12), mat);
+// capsule whose texture v follows the height evenly (the stock one squeezes it into the caps)
+const cap = (r, len, mat) => {
+  const g = new THREE.CapsuleGeometry(r, len, 6, 16), p = g.attributes.position, uv = g.attributes.uv, h = len / 2 + r;
+  for (let i = 0; i < p.count; i++) uv.setY(i, (p.getY(i) + h) / (2 * h));
+  return new THREE.Mesh(g, mat);
+};
 const ball = (r, mat, pos, scale) => { const m = new THREE.Mesh(new THREE.SphereGeometry(r, 18, 12), mat); m.position.set(...pos); if (scale) m.scale.set(...scale); return m; };
 
 // a boy about 1.15 m tall; x forward, y up, origin between the feet
 export function buildKid() {
   const M = {
     hoodie: new THREE.MeshStandardMaterial({ map: stripes(), roughness: 0.95 }),
+    chest: new THREE.MeshStandardMaterial({ map: stripes(true), roughness: 0.95 }),
+    brow: new THREE.MeshStandardMaterial({ color: 0x2a1d15, roughness: 0.9 }),
+    shine: new THREE.MeshBasicMaterial({ color: 0xffffff }),
     cream: new THREE.MeshStandardMaterial({ color: 0xf1ead6, roughness: 0.95 }),
     pants: new THREE.MeshStandardMaterial({ color: 0x6f7378, roughness: 0.95 }),
     shoe: new THREE.MeshStandardMaterial({ color: 0x2b2b2e, roughness: 0.7 }),
@@ -40,27 +60,38 @@ export function buildKid() {
     const shoe = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.06, 0.08), M.shoe); shoe.position.set(0.03, -0.47, 0); hip.add(shoe);
     return hip;
   });
-  const torso = cap(0.15, 0.22, M.hoodie); torso.position.y = 0.72; torso.scale.set(0.8, 1, 1); body.add(torso);
-  const pocket = new THREE.Mesh(new THREE.BoxGeometry(0.02, 0.08, 0.16), M.hoodie); pocket.position.set(0.12, 0.62, 0); body.add(pocket);
-  const badge = ball(0.025, M.badge, [0.125, 0.78, 0.07], [0.4, 1, 1]); body.add(badge);   // the cartoon cat on the chest
-  const hood = new THREE.Mesh(new THREE.TorusGeometry(0.085, 0.034, 10, 20), M.cream);
-  hood.position.set(-0.02, 0.92, 0); hood.rotation.set(Math.PI / 2, 0.35, 0); body.add(hood);
+  const torso = cap(0.15, 0.22, M.chest); torso.position.y = 0.72; torso.scale.set(0.8, 1, 1); body.add(torso);
+  const pocket = new THREE.Mesh(new THREE.BoxGeometry(0.012, 0.06, 0.15), M.hoodie); pocket.position.set(0.118, 0.6, 0); body.add(pocket);
+  // the cream hood lies on the shoulders behind the neck, with the drawstrings in front
+  const hood = new THREE.Mesh(new THREE.TorusGeometry(0.085, 0.036, 10, 20), M.cream);
+  hood.position.set(-0.01, 0.92, 0); hood.rotation.set(Math.PI / 2, 0.3, 0); body.add(hood);
+  const hoodBack = ball(0.09, M.cream, [-0.08, 0.95, 0], [0.6, 0.7, 1.1]); body.add(hoodBack);
   for (const s of [-1, 1]) { const st = cap(0.006, 0.12, M.cream); st.position.set(0.1, 0.84, s * 0.035); body.add(st); }
   const arms = [-1, 1].map(s => {
     const sh = new THREE.Group(); sh.position.set(0, 0.86, s * 0.17); body.add(sh);
     const up = cap(0.045, 0.16, M.hoodie); up.position.y = -0.1; sh.add(up);
     const el = new THREE.Group(); el.position.y = -0.21; sh.add(el);
     const fo = cap(0.04, 0.13, M.hoodie); fo.position.y = -0.08; el.add(fo);
+    const cuff = cap(0.042, 0.02, M.cream); cuff.position.y = -0.155; el.add(cuff);
     el.add(ball(0.038, M.skin, [0, -0.19, 0]));
     return { sh, el };
   });
   const head = new THREE.Group(); head.position.set(0, 1.0, 0); body.add(head);
   head.add(ball(0.12, M.skin, [0, 0.08, 0], [0.95, 1.05, 0.95]));
   head.add(ball(0.125, M.hair, [-0.015, 0.12, 0], [1, 0.95, 1.02]));            // short messy hair
-  const fringe = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.05, 0.2), M.hair); fringe.position.set(0.085, 0.17, 0); fringe.rotation.z = -0.5; head.add(fringe);
+  // ragged fringe down to the brows
+  for (let i = 0; i < 7; i++) {
+    const z = (i - 3) * 0.028, tuft = new THREE.Mesh(new THREE.ConeGeometry(0.022, 0.07, 6), M.hair);
+    tuft.position.set(0.098 - Math.abs(z) * 0.25, 0.145 + (i % 2) * 0.01, z); tuft.rotation.set(z * 2, 0, -2.4 + (i % 3) * 0.15);
+    head.add(tuft);
+  }
   for (const s of [-1, 1]) {
-    head.add(ball(0.022, M.white, [0.1, 0.095, s * 0.04], [0.6, 0.8, 1]));
-    head.add(ball(0.013, M.eye, [0.113, 0.095, s * 0.04]));
+    // big dark eyes with a highlight, thin brows
+    head.add(ball(0.022, M.white, [0.1, 0.095, s * 0.042], [0.6, 0.85, 1.05]));
+    head.add(ball(0.0145, M.eye, [0.112, 0.095, s * 0.042]));
+    head.add(ball(0.003, M.shine, [0.1255, 0.1, s * 0.038]));
+    const brow = new THREE.Mesh(new THREE.BoxGeometry(0.008, 0.007, 0.035), M.brow);
+    brow.position.set(0.113, 0.128, s * 0.043); brow.rotation.x = s * 0.15; head.add(brow);
     head.add(ball(0.025, M.skin, [0, 0.085, s * 0.115], [0.5, 1, 0.5]));        // ears
   }
   head.add(ball(0.018, M.skin, [0.118, 0.065, 0]));                              // nose

@@ -60,7 +60,8 @@ function start(m, el) {
   paused = false;
   bump.reset(); countdown = -1;
   audio.chime();
-  audio.preload(Object.keys(PHRASES.phrases));
+  audio.preload(Object.keys(PHRASES.phrases).concat(["clips/fayzulla", "clips/balandku"]));
+  balandFor = null;
   instructor.mood = settings.instructor; instructor.reset();
   kidShow.reset(session, m === "training");
   view.setInstructorVisible(instructor.on);
@@ -94,10 +95,24 @@ function showroomAction(a) {
 
 function resume() { if (session && !ended) { hud.hideMenu(); paused = false; } }
 
+// the user's own recordings for particular moments (public/audio/uz/clips/*.mp3)
+const CLIP_FOR = { stopFar: "clips/fayzulla" };      // stopped more than 1 m short of the stop line
+let balandFor = null;                                 // estakada task the "balandku" clip was played for
+function clipsBeforeElements() {
+  const task = session.currentTask;
+  if (!task || task.id !== "estakada" || balandFor === task) return;
+  const [s] = toLocal(task.pose, session.car.x, session.car.y);
+  // just before the ramp starts (10 m into the element), while driving towards it
+  if (s > 1 && s < 8 && session.car.v > 0.3) { balandFor = task; audio.prompt("clips/balandku", null, true); }
+}
+
 function handleEvent(ev) {
   instructor.onEvent(ev);
   switch (ev.type) {
-    case "penalty": hud.toast(`+${ev.pts} · ${ev.text}`, "bad"); hud.addLog(ev); audio.penalty(); if (!instructor.on) audio.prompt("pen_" + ev.code, `Xato. ${ev.pts} ball`); break;
+    case "penalty": hud.toast(`+${ev.pts} · ${ev.text}`, "bad"); hud.addLog(ev); audio.penalty();
+      if (CLIP_FOR[ev.code]) audio.prompt(CLIP_FOR[ev.code], null, true);
+      else if (!instructor.on) audio.prompt("pen_" + ev.code, `Xato. ${ev.pts} ball`);
+      break;
     case "limit": hud.toast(`Jarima ${PASS_LIMIT} balldan oshdi${session.strict ? ": imtihon to'xtatildi" : ""}`, "bad"); audio.prompt("limit"); break;
     case "task": hud.toast(`Mashq: ${ev.task.name}`); if (mode !== "practice") audio.prompt("task_" + ev.task.id, ev.task.name); break;
     case "taskDone": if (ev.ok) { hud.toast(`${ev.task.short}: bajarildi`, "good"); audio.chime(); audio.prompt("done"); } break;
@@ -281,6 +296,7 @@ function frame(now) {
     else if (ended) instructor.t += dt;
     instructorFig.update(dt, instructor.pose());
     if (!paused) kidShow.update(dt); else kidShow.stopSong(0.2);
+    if (!paused && session.state === "running") clipsBeforeElements();
     view.update(session, dt, now);
     view.render();
     if (now - lastHud > 60) { hud.update(session, view, now); lastHud = now; }
