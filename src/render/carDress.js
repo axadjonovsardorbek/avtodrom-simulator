@@ -66,17 +66,38 @@ export function dressCobalt(cv) {
   const satin = new THREE.MeshStandardMaterial({ color: 0x9da1a7, roughness: 0.3, metalness: 0.85 });
   const darkGrey = new THREE.MeshStandardMaterial({ color: 0x2b2d31, roughness: 0.7 });
   const face = (x, y, z, tilt) => { const g = new THREE.Group(); g.position.set(x, y, z); g.rotation.set(-tilt, -Math.PI / 2, 0, "YXZ"); car.add(g); return g; };
+  // fit a plane to the dashboard surface between heights y0..y1 at lateral z (rays from the
+  // cabin forwards), so the new parts sit just proud of it whatever the model's shape
+  car.updateMatrixWorld(true);
+  const dash = []; car.traverse(o => { if (o.isMesh && o.visible && /^painel/.test(o.name)) dash.push(o); });
+  const onDash = (y0, y1, z, yc, fallback) => {
+    const rc = new THREE.Raycaster(), pts = [];
+    for (let y = y0; y <= y1 + 1e-6; y += 0.02) {
+      rc.set(car.localToWorld(new THREE.Vector3(1.5, y, z)), new THREE.Vector3(1, 0, 0).transformDirection(car.matrixWorld));
+      const h = rc.intersectObjects(dash, false)[0];
+      if (h) pts.push(car.worldToLocal(h.point.clone()));
+    }
+    if (pts.length < 3) return face(...fallback);
+    // least squares x = a + b y, then use the front-most (cabin-side) offset so nothing pokes through
+    const n = pts.length, my = pts.reduce((t, p) => t + p.y, 0) / n, mx = pts.reduce((t, p) => t + p.x, 0) / n;
+    const b = pts.reduce((t, p) => t + (p.y - my) * (p.x - mx), 0) / (pts.reduce((t, p) => t + (p.y - my) ** 2, 0) || 1);
+    const a0 = Math.min(...pts.map(p => p.x - b * p.y));
+    return face(a0 + b * yc - 0.006, yc, z, Math.atan(b));
+  };
   // one tilted piano-black panel (as in the current car): the two centre vents on top,
   // the lock / hazard / ESC buttons, then the screen in a satin bezel
   // the 2014 round centre vents and their satin rings stay hidden behind the new panel
   car.traverse(o => { if (o.isMesh && /^painel_painel1/.test(o.name)) o.visible = false; });
-  const stack = face(2.15, 0.728, 0.04, 0.5);
-  const trap = new THREE.Shape([[-0.135, 0.13], [0.135, 0.13], [0.118, -0.13], [-0.118, -0.13]].map(([x, y]) => new THREE.Vector2(x, y)));
-  const panel = new THREE.Mesh(new THREE.ExtrudeGeometry(trap, { depth: 0.018, bevelEnabled: true, bevelSize: 0.004, bevelThickness: 0.003, bevelSegments: 2 }), piano);
-  panel.position.z = -0.006; stack.add(panel);
+  // laid on the dashboard surface (x 2.225 at y 0.80 down to 2.13 at y 0.60), just proud of it
+  const stack = onDash(0.6, 0.82, 0.04, 0.735, [2.19, 0.735, 0.04, 0.44]);
+  const trap = new THREE.Shape([[-0.13, 0.135], [0.13, 0.135], [0.116, -0.135], [-0.116, -0.135]].map(([x, y]) => new THREE.Vector2(x, y)));
+  // a solid block that reaches back into the dashboard, so no gap shows round its edges
+  const sideMat = new THREE.MeshStandardMaterial({ color: 0x3c3f44, roughness: 0.7 });
+  const panel = new THREE.Mesh(new THREE.ExtrudeGeometry(trap, { depth: 0.16, bevelEnabled: true, bevelSize: 0.004, bevelThickness: 0.003, bevelSegments: 2 }), [piano, sideMat]);
+  panel.position.z = -0.148; stack.add(panel);
   for (const sx of [-1, 1]) {                                             // satin side trims
-    const e = new THREE.Mesh(new THREE.BoxGeometry(0.006, 0.262, 0.006), satin);
-    e.position.set(sx * 0.1265, 0, 0.014); e.rotation.z = sx * 0.065; stack.add(e);
+    const e = new THREE.Mesh(new THREE.BoxGeometry(0.006, 0.272, 0.006), satin);
+    e.position.set(sx * 0.123, 0, 0.014); e.rotation.z = sx * 0.065; stack.add(e);
   }
   const slatsTex = canvasTex(64, 64, (g, w, h) => {
     g.fillStyle = "#08090b"; g.fillRect(0, 0, w, h);
@@ -84,23 +105,23 @@ export function dressCobalt(cv) {
   });
   const slatMat = new THREE.MeshStandardMaterial({ map: slatsTex, roughness: 0.6 });
   for (const vx of [-0.058, 0.058]) {
-    const v = new THREE.Mesh(new THREE.PlaneGeometry(0.096, 0.046), slatMat); v.position.set(vx, 0.082, 0.0125); stack.add(v);
-    const tab = new THREE.Mesh(new THREE.BoxGeometry(0.016, 0.007, 0.008), satin); tab.position.set(vx, 0.055, 0.016); stack.add(tab);
+    const v = new THREE.Mesh(new THREE.PlaneGeometry(0.094, 0.044), slatMat); v.position.set(vx, 0.09, 0.0125); stack.add(v);
+    const tab = new THREE.Mesh(new THREE.BoxGeometry(0.016, 0.007, 0.008), satin); tab.position.set(vx, 0.065, 0.016); stack.add(tab);
   }
   for (const bx of [-0.07, 0.07]) {
-    const b = new THREE.Mesh(new THREE.BoxGeometry(0.044, 0.014, 0.005), darkGrey); b.position.set(bx, 0.036, 0.014); stack.add(b);
+    const b = new THREE.Mesh(new THREE.BoxGeometry(0.044, 0.014, 0.005), darkGrey); b.position.set(bx, 0.042, 0.014); stack.add(b);
   }
   const hazard = new THREE.Mesh(new THREE.CylinderGeometry(0.008, 0.008, 0.005, 3), new THREE.MeshStandardMaterial({ color: 0xd8262a, roughness: 0.4, emissive: 0x400000 }));
-  hazard.rotation.x = Math.PI / 2; hazard.position.set(0, 0.036, 0.015); stack.add(hazard);
-  const bezel = new THREE.Mesh(new THREE.BoxGeometry(0.184, 0.104, 0.004), satin); bezel.position.set(-0.008, -0.045, 0.0125); stack.add(bezel);
-  const glassBlack = new THREE.Mesh(new THREE.PlaneGeometry(0.176, 0.096), piano); glassBlack.position.set(-0.008, -0.045, 0.0148); stack.add(glassBlack);
-  const screen = new THREE.Mesh(new THREE.PlaneGeometry(0.158, 0.088), new THREE.MeshBasicMaterial({ map: screenTexture(), toneMapped: false }));
-  screen.position.set(-0.008, -0.045, 0.0152); stack.add(screen);
+  hazard.rotation.x = Math.PI / 2; hazard.position.set(0, 0.042, 0.015); stack.add(hazard);
+  const bezel = new THREE.Mesh(new THREE.BoxGeometry(0.176, 0.1, 0.004), satin); bezel.position.set(-0.008, -0.04, 0.0125); stack.add(bezel);
+  const glassBlack = new THREE.Mesh(new THREE.PlaneGeometry(0.168, 0.092), piano); glassBlack.position.set(-0.008, -0.04, 0.0148); stack.add(glassBlack);
+  const screen = new THREE.Mesh(new THREE.PlaneGeometry(0.152, 0.084), new THREE.MeshBasicMaterial({ map: screenTexture(), toneMapped: false }));
+  screen.position.set(-0.008, -0.04, 0.0152); stack.add(screen);
   // volume knob and the two track buttons at the right of the screen
-  const vol = new THREE.Mesh(new THREE.CylinderGeometry(0.009, 0.009, 0.01, 20), satin); vol.rotation.x = Math.PI / 2; vol.position.set(0.1, -0.012, 0.017); stack.add(vol);
-  for (const by of [-0.045, -0.068]) { const b = new THREE.Mesh(new THREE.BoxGeometry(0.014, 0.016, 0.004), darkGrey); b.position.set(0.1, by, 0.014); stack.add(b); }
+  const vol = new THREE.Mesh(new THREE.CylinderGeometry(0.009, 0.009, 0.01, 20), satin); vol.rotation.x = Math.PI / 2; vol.position.set(0.096, -0.008, 0.017); stack.add(vol);
+  for (const by of [-0.04, -0.062]) { const b = new THREE.Mesh(new THREE.BoxGeometry(0.014, 0.016, 0.004), darkGrey); b.position.set(0.096, by, 0.014); stack.add(b); }
 
-  const climate = face(2.082, 0.57, 0.04, 0.3);
+  const climate = onDash(0.5, 0.6, 0.04, 0.555, [2.1, 0.555, 0.04, 0.3]);
   const cpanel = new THREE.Mesh(new THREE.BoxGeometry(0.24, 0.07, 0.016), darkGrey); climate.add(cpanel);
   const ringTex = (col) => canvasTex(64, 64, (g, w) => {
     const grd = g.createLinearGradient(0, 0, w, 0); grd.addColorStop(0, "#2f7bff"); grd.addColorStop(1, "#ff3b30");

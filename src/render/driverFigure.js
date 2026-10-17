@@ -95,13 +95,14 @@ export function buildDriver() {
 
   // arms: rebuilt between the shoulder, elbow and wrist every frame
   const arms = [-1, 1].map(s => {
-    const upper = cap(0.058, M.jacket), fore = cap(0.05, M.jacket), cuff = new THREE.Mesh(new THREE.TorusGeometry(0.044, 0.014, 8, 16), M.rib);
+    const upper = cap(0.058, M.jacket), fore = new THREE.Mesh(new THREE.CylinderGeometry(0.036, 0.045, 1, 18), M.jacket), cuff = new THREE.Mesh(new THREE.TorusGeometry(0.036, 0.011, 8, 16), M.rib);
     const hand = new THREE.Group(); hand.add(ball(0.045, M.skin, [0, 0, 0], [0.8, 1, 0.75]));
     for (let f = 0; f < 4; f++) hand.add(limb([0.03, 0.02, (f - 1.5) * 0.017], [0.045, -0.025, (f - 1.5) * 0.019], 0.011, M.skin));   // fingers curled round the rim
     hand.add(limb([0.0, 0.025, -s * 0.03], [0.05, 0.03, -s * 0.03], 0.013, M.skin));
     const watch = s < 0 ? new THREE.Mesh(new THREE.TorusGeometry(0.04, 0.008, 8, 16), M.watch) : null;
-    const elbowBall = ball(0.056, M.jacket, [0, 0, 0]);
-    body.add(upper, elbowBall); root.add(fore, cuff, hand); if (watch) root.add(watch);
+    // the elbow end of the sleeve stays visible from the driver's seat, so it is closed with a ball
+    const elbowBall = ball(0.047, M.jacket, [0, 0, 0]);
+    body.add(upper); root.add(fore, cuff, hand, elbowBall); if (watch) root.add(watch);
     return { s, upper, fore, cuff, hand, watch, elbowBall, grip: null, elbow: new THREE.Vector3() };
   });
   root.traverse(o => { if (o.isMesh) o.castShadow = true; });
