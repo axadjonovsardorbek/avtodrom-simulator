@@ -7,9 +7,10 @@ Dastur kodi: MIT (`LICENSE`). Quyidagi fayllar o'z litsenziyasida qoladi.
 | Fayl | Asl model | Muallif | Litsenziya |
 |---|---|---|---|
 | `public/models/cobalt.glb` | [Chevrolet Cobalt LTZ 2014](https://sketchfab.com/3d-models/chevrolet-cobalt-ltz-2014-f91cbef731444f939e263041400216ca) | [Q.SARDOR](https://sketchfab.com/qsardor57913) | [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/) |
+| `public/models/malibu-premier.glb` | [2021 Chevrolet Malibu 2LZ Premier](https://sketchfab.com/3d-models/2021-chevrolet-malibu-2lz-premier-c1e8e127ce114b14a166e93100642424) | [twr422](https://sketchfab.com/twr422) | [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/) |
 | `public/models/malibu.glb` | Chevrolet Malibu XL 2023 | Uzbek 3D | Muallif ruxsati bilan (loyiha egasi olgan); boshqa joyda ishlatish uchun muallifdan alohida ruxsat kerak |
 
-Ikkala model ham o'zgartirilgan (`tools/prepare-cobalt.mjs`, `tools/prepare-malibu-xl.mjs`).
+Hamma modellar o'zgartirilgan (`tools/prepare-cobalt.mjs`, `tools/prepare-malibu-xl.mjs`, `tools/prepare-malibu-premier.mjs`).
 
 Kod bilan yasalgan zaxira Cobalt, instruktor, haydovchi va bola figuralari dastur kodining bir qismi (MIT).
 

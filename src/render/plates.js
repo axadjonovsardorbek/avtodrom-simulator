@@ -54,7 +54,7 @@ export function makePlate(mat, back) {
 }
 
 // Adds plates to a loaded car. `spots` = [{ pos, back }] in the car frame; when omitted the
-// model's own plate meshes (names containing "Plate") are hidden and replaced in place.
+// model's own plate meshes (mesh or material names containing "plate") are hidden and replaced in place.
 export function addPlates(cv, text, spots) {
   const root = cv.root, car = root.name === "car" ? root : root.getObjectByName("car") || root;
   const mat = plateMaterial(text || DEFAULT_PLATE);
@@ -63,10 +63,18 @@ export function addPlates(cv, text, spots) {
     car.updateMatrixWorld(true);
     const inv = car.matrixWorld.clone().invert();
     root.traverse(o => {
-      if (!o.isMesh || !/Plate/.test(o.name) || o.name === "plate") return;
-      const b = new THREE.Box3().setFromObject(o).applyMatrix4(inv), c = b.getCenter(new THREE.Vector3());
+      if (!o.isMesh || o.name === "plate" || !(/(?<!tem)plate/i.test(o.name) || [].concat(o.material).some(m => /(?<!tem)plate/i.test(m.name)))) return;
+      // one mesh may hold both plates: split its vertices into a front and a rear cluster
+      o.updateWorldMatrix(true, false);
+      const m = inv.clone().multiply(o.matrixWorld), pos = o.geometry.attributes.position, v = new THREE.Vector3();
+      const front = new THREE.Box3(), rear = new THREE.Box3();
+      for (let i = 0; i < pos.count; i++) { v.fromBufferAttribute(pos, i).applyMatrix4(m); (v.x > 1.4 ? front : rear).expandByPoint(v); }
       o.visible = false;
-      spots.push({ pos: [c.x + (c.x > 1 ? 0.004 : -0.004), c.y, c.z], back: c.x < 1 });
+      for (const [b, back] of [[front, false], [rear, true]]) {
+        if (b.isEmpty()) continue;
+        const c = b.getCenter(new THREE.Vector3());
+        spots.push({ pos: [back ? b.min.x - 0.004 : b.max.x + 0.004, c.y, c.z], back });
+      }
     });
   }
   for (const s of spots) { const p = makePlate(mat, s.back); p.position.set(...s.pos); car.add(p); }

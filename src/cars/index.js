@@ -4,6 +4,7 @@
 // spec: physics overrides of src/sim/vehicle.js SPEC (dimensions come from tools/prepare-*.mjs).
 import COBALT from "./cobalt-dims.json";
 import MALIBU from "./malibu-dims.json";
+import PREMIER from "./malibu-premier-dims.json";
 export const CARS = [
   {
     id: "cobalt", name: "Chevrolet Cobalt", model: "models/cobalt.glb",
@@ -19,6 +20,14 @@ export const CARS = [
     dims: MALIBU, eye: [1.29, 1.15, -0.386], seat: [1.42, 0.45, 0.386],
     mirrors: { center: [1.85, 1.3, 0], left: [2.05, 1.03, -0.98], right: [2.05, 1.03, 0.98] },
     spec: { mass: 1500, wb: MALIBU.wheelbase, rOh: MALIBU.rOh, fOh: MALIBU.fOh, width: 1.854, track: MALIBU.track, wheelR: MALIBU.wheelR }
+  },
+  {
+    id: "malibu-premier", name: "Chevrolet Malibu 2 Premier", model: "models/malibu-premier.glb",
+    credit: "3D model: \"2021 Chevrolet Malibu 2LZ Premier\" by twr422 (Sketchfab), CC BY 4.0, modified",
+    creditUrl: "https://sketchfab.com/3d-models/2021-chevrolet-malibu-2lz-premier-c1e8e127ce114b14a166e93100642424",
+    dims: PREMIER, eye: [1.37, 1.18, -0.389], seat: [1.5, 0.47, 0.389],
+    mirrors: { center: [1.92, 1.32, 0], left: [2.3, 1.06, -1.0], right: [2.3, 1.06, 1.0] },
+    spec: { mass: 1500, wb: PREMIER.wheelbase, rOh: PREMIER.rOh, fOh: PREMIER.fOh, width: 1.854, track: PREMIER.track, wheelR: PREMIER.wheelR }
   }
 ];
 export const carById = id => CARS.find(c => c.id === id) || CARS[0];
