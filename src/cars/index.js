@@ -14,10 +14,10 @@ export const CARS = [
   },
   {
     id: "malibu", name: "Chevrolet Malibu 2", model: "models/malibu.glb",
-    credit: "3D model: \"2019 Chevrolet Malibu LS Sedan\" by Ddiaz Design (Sketchfab), CC BY-NC-SA 4.0, modified",
-    creditUrl: "https://sketchfab.com/3d-models/2019-chevrolet-malibu-ls-sedan-c689df3e4b6a4df1b0b409309d00a728",
-    dims: MALIBU, eye: [1.36, 1.17, -0.377], seat: [1.5, 0.45, 0.377],
-    mirrors: { center: [1.92, 1.3, 0], left: [2.3, 1.05, -1.0], right: [2.3, 1.05, 1.0] },
+    credit: "3D model: \"Chevrolet Malibu XL 2023\" (Uzbek 3D), used with the author's permission, modified",
+    creditUrl: "",
+    dims: MALIBU, eye: [1.29, 1.15, -0.386], seat: [1.42, 0.45, 0.386],
+    mirrors: { center: [1.85, 1.3, 0], left: [2.05, 1.03, -0.98], right: [2.05, 1.03, 0.98] },
     spec: { mass: 1500, wb: MALIBU.wheelbase, rOh: MALIBU.rOh, fOh: MALIBU.fOh, width: 1.854, track: MALIBU.track, wheelR: MALIBU.wheelR }
   }
 ];

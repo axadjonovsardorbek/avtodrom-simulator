@@ -10,7 +10,8 @@
     "preview": "vite preview",
     "test": "node tests/run.js",
     "export:procedural": "node tools/export-car.mjs",
-    "prepare:cobalt": "node tools/prepare-cobalt.mjs"
+    "prepare:cobalt": "node tools/prepare-cobalt.mjs",
+    "prepare:malibu": "node tools/prepare-malibu-xl.mjs"
   },
   "dependencies": {
     "three": "0.170.0"

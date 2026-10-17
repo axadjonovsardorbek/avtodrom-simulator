@@ -112,7 +112,7 @@ export class Hud {
         <h2>Alohida mashq <small>(raqam: xaritadagi element)</small></h2>
         <div class="els">${els}</div>
         ${state && state.canResume ? `<button class="btn" id="resume">Davom ettirish</button>` : ""}
-        <p class="credit">${CARS.map(c => c.credit ? `<a href="${c.creditUrl}" target="_blank" rel="noopener">${c.credit}</a>` : "").join("<br>")}</p>
+        <p class="credit">${CARS.map(c => !c.credit ? "" : c.creditUrl ? `<a href="${c.creditUrl}" target="_blank" rel="noopener">${c.credit}</a>` : `<span>${c.credit}</span>`).join("<br>")}</p>
       </div>`;
     m.hidden = false;
     $("#optCar", m).value = this.h.settings.car || CARS[0].id;
