@@ -3,7 +3,6 @@
 // eye: driver's eye point; seat: passenger hip point (instructor); mirrors: rear-view mirror camera points (car frame, meters).
 // spec: physics overrides of src/sim/vehicle.js SPEC (dimensions come from tools/prepare-*.mjs).
 import COBALT from "./cobalt-dims.json";
-import MALIBU from "./malibu-dims.json";
 import PREMIER from "./malibu-premier-dims.json";
 
 // 1.5 turbo of the Malibu: flat torque from low revs
@@ -21,15 +20,6 @@ export const CARS = [
     sound: NA
   },
   {
-    id: "malibu", name: "Chevrolet Malibu 2", model: "models/malibu.glb",
-    credit: "3D model: \"Chevrolet Malibu XL 2023\" (Uzbek 3D), used with the author's permission, modified",
-    creditUrl: "",
-    dims: MALIBU, eye: [1.29, 1.15, -0.386], seat: [1.42, 0.45, 0.386],
-    mirrors: { center: [1.85, 1.3, 0], left: [2.05, 1.03, -0.98], right: [2.05, 1.03, 0.98] },
-    spec: { mass: 1500, wb: MALIBU.wheelbase, rOh: MALIBU.rOh, fOh: MALIBU.fOh, width: 1.854, track: MALIBU.track, wheelR: MALIBU.wheelR, torque: TURBO, clutchCap: 400, autoForce: 5600 },
-    sound: TURBO_SOUND
-  },
-  {
     id: "malibu-premier", name: "Chevrolet Malibu 2 Premier", model: "models/malibu-premier.glb",
     credit: "3D model: \"2021 Chevrolet Malibu 2LZ Premier\" by twr422 (Sketchfab), CC BY 4.0, modified",
     creditUrl: "https://sketchfab.com/3d-models/2021-chevrolet-malibu-2lz-premier-c1e8e127ce114b14a166e93100642424",
@@ -39,4 +29,5 @@ export const CARS = [
     sound: TURBO_SOUND
   }
 ];
-export const carById = id => CARS.find(c => c.id === id) || CARS[0];
+// "malibu" was the Malibu XL model, now replaced by the Premier
+export const carById = id => CARS.find(c => c.id === (id === "malibu" ? "malibu-premier" : id)) || CARS[0];

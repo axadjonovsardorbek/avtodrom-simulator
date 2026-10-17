@@ -79,13 +79,10 @@ Toshkent imtihon markazi sxemasi bo'yicha: o'rtada svetoforli chorraha, shimolda
 ## Mashinalar
 
 Mashinalar ro'yxati `src/cars/index.js` da. Har bir mashina `public/models/` dagi `.glb` fayldan yuklanadi.
-Mashinalar: Chevrolet Cobalt (`cobalt.glb`), Chevrolet Malibu 2 (`malibu.glb`, qora salon) va Chevrolet Malibu 2 Premier (`malibu-premier.glb`, oq salon). Menyuda mashina va kuzov rangi tanlanadi.
+Mashinalar: Chevrolet Cobalt (`cobalt.glb`) va Chevrolet Malibu 2 Premier (`malibu-premier.glb`). Menyuda mashina va kuzov rangi tanlanadi.
 
 3D model: ["Chevrolet Cobalt LTZ 2014"](https://sketchfab.com/3d-models/chevrolet-cobalt-ltz-2014-f91cbef731444f939e263041400216ca), muallif [Q.SARDOR](https://sketchfab.com/qsardor57913), litsenziya [CC BY 4.0](http://creativecommons.org/licenses/by/4.0/).
 O'zgartirishlar (`tools/prepare-cobalt.mjs`): takrorlangan g'ildiraklar olib tashlangan, o'lcham va o'qlar moslangan, g'ildiraklar va rul harakatlanadigan qilingan, materiallar sozlangan, burilish chiroqlari qo'shilgan, uchburchaklar soni kamaytirilib siqilgan (33 MB dan 1,8 MB ga).
-
-Malibu modeli: "Chevrolet Malibu XL 2023" (Uzbek 3D), muallif ruxsati bilan ishlatilgan (loyiha egasi ruxsat olgan, `CREDITS.md`).
-O'zgartirishlar (`tools/prepare-malibu-xl.mjs`): o'qlar va o'lcham haqiqiy mashinaga moslangan (4,933 m), g'ildiraklar va rul harakatlanadigan qilingan, chiroq grafikasi yonadigan qilingan, burilish chiroqlari qo'shilgan, teksturalar WebP ga o'tkazilgan, siqilgan (3,3 MB).
 
 Malibu Premier modeli: ["2021 Chevrolet Malibu 2LZ Premier"](https://sketchfab.com/3d-models/2021-chevrolet-malibu-2lz-premier-c1e8e127ce114b14a166e93100642424), muallif [twr422](https://sketchfab.com/twr422), litsenziya [CC BY 4.0](http://creativecommons.org/licenses/by/4.0/). O'zgartirishlar (`tools/prepare-malibu-premier.mjs`): g'ildirak qismlari yig'ilib harakatlanadigan qilingan, rul paneldan kesib ajratilgan, chiroqlar, burilish chiroqlari, siqish (37 MB dan 6,8 MB ga).
 

@@ -22,6 +22,7 @@ const settings = { transmission: "manual", quality: coarse ? "low" : "high", mou
 try { Object.assign(settings, JSON.parse(localStorage.getItem("avtodrom.settings") || "{}")); } catch (_) {}
 // the old "Ovoz" button muted on first press; start everyone unmuted once
 if (!settings.v2) { settings.muted = false; settings.v2 = true; }
+if (settings.car === "malibu") settings.car = "malibu-premier";       // the Malibu XL was removed
 const saveSettings = () => { try { localStorage.setItem("avtodrom.settings", JSON.stringify(settings)); } catch (_) {} };
 
 let session = null, mode = null, elementId = null, paused = true, ended = false;
