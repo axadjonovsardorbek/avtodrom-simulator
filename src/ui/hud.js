@@ -119,6 +119,8 @@ export class Hud {
             <select id="optQuality"><option value="high">Yuqori</option><option value="low">Yengil (telefon)</option></select></label>
           <label>Rangi
             <select id="optColor"><option value="white">Oq</option><option value="blue">To'q ko'k</option><option value="graphite">Grafit</option></select></label>
+          <label>Poligon (trening, mashq)
+            <select id="optSize"><option value="wide">Keng — boshlovchi</option><option value="mid">O'rtacha</option><option value="real">Haqiqiy o'lcham</option></select></label>
           <label>Davlat raqami
             <input id="optPlate" maxlength="14" spellcheck="false" autocomplete="off"></label>
           <label>Instruktor — Bobur aka
@@ -129,7 +131,7 @@ export class Hud {
         <button class="showbtn" id="showroomBtn"><b>Mashinani 360° ko'rish</b><small>Tashqi ko'rinish va salon: sichqoncha yoki barmoq bilan aylantiring</small></button>
         <h2>To'liq avtodrom</h2>
         <div class="modes">
-          <button class="big primary" data-mode="exam"><b>Imtihon</b><small>13 mashq ketma-ket. Jarima ${PASS_LIMIT} balldan oshsa, imtihondan o'tolmaysiz va imtihon to'xtatiladi.</small></button>
+          <button class="big primary" data-mode="exam"><b>Imtihon</b><small>13 mashq ketma-ket, poligon haqiqiy o'lchamda. Jarima ${PASS_LIMIT} balldan oshsa, imtihondan o'tolmaysiz va imtihon to'xtatiladi.</small></button>
           <button class="big" data-mode="training"><b>Trening</b><small>Xuddi shu marshrut, xato qilsangiz ham davom etasiz.</small></button>
         </div>
         <h2>Alohida mashq <small>(raqam: xaritadagi element)</small></h2>
@@ -146,6 +148,8 @@ export class Hud {
     $("#optQuality", m).onchange = e => this.h.settings.quality = e.target.value;
     $("#optColor", m).value = this.h.settings.color || "white";
     $("#optColor", m).onchange = e => this.h.setColor && this.h.setColor(e.target.value);
+    $("#optSize", m).value = this.h.settings.size || "real";
+    $("#optSize", m).onchange = e => this.h.settings.size = e.target.value;
     $("#optPlate", m).value = this.h.settings.plate || "01 A 070 BJ";
     $("#optPlate", m).oninput = e => this.h.setPlate && this.h.setPlate(e.target.value.toUpperCase());
     $("#optInstr", m).value = this.h.settings.instructor || "angry";

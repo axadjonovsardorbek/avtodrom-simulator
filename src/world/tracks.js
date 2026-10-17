@@ -70,7 +70,7 @@ function checker(W, pose, s, halfW) {
 // the south-west, the turning boxes in the south-east, the railway crossing on the west
 // side and the acceleration strip along the north edge. North is -y.
 export function buildFull(car) {
-  const W = new World("full"); W.car = car;
+  const W = new World("full"); W.car = car; W.k = (car && car.k) || 1;
   const A = 30, XL = 96, YB = 140, YS = 75, O = { x: 0, y: 0 };   // YS: south edge road
   buildIntersection(W, A);
 
@@ -137,7 +137,7 @@ export function buildFull(car) {
 const ELEMENT_FN = { piyoda, estakada, burilish, ilon, boks, parkovka, temir, tezlashish, avariya };
 
 export function buildPractice(id, car) {
-  const W = new World(id); W.car = car;
+  const W = new World(id); W.car = car; W.k = (car && car.k) || 1;
   if (id.startsWith("chorraha")) {
     const A = 40;
     buildIntersection(W, A, true);

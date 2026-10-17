@@ -123,9 +123,12 @@ export function estakada(W, T) {
 }
 
 /* 3. 90 gradus burchak ostida burilishlar (nazorat chiziqli koridor) */
+// W.k: training size of the tight elements (1 = real exam size, 1.5 = wide for beginners)
+const K = W => W.k || 1;
+
 export function burilish(W, T, first = 1) {
   const pose = T.pose, mid = 12;
-  T.setStyle({ width: 5, kind: "ctrl" });
+  T.setStyle({ width: 5 * K(W), kind: "ctrl" });
   T.fwd(7); T.corner(90 * first); T.fwd(mid); T.corner(-90 * first); T.fwd(7);
   T.setStyle({ width: LANE, kind: "edge" });
   const endL = mid * first;
@@ -134,18 +137,18 @@ export function burilish(W, T, first = 1) {
     active: ctx => ctx.fs > -0.3 && Math.abs(ctx.fl) < 3,
     stages: [{
       text: `Koridorda ikki marta 90° ga buriling (${first > 0 ? "o'ngga, keyin chapga" : "chapga, keyin o'ngga"}). Nazorat chiziqlariga tegmang, 2 daqiqadan oshirmang.`,
-      done: ctx => ctx.PL.every(([s, l]) => s > 14.3 && Math.abs(l - endL) < 3)
+      done: ctx => ctx.PL.every(([s, l]) => s > 14.3 && Math.abs(l - endL) < 3 * K(W))
     }]
   });
 }
 
 /* 5. Ilon izi */
 export function ilon(W, T) {
-  const pose = T.pose, L = 48;
-  T.setStyle({ width: LANE, kind: "ctrl" });
+  const pose = T.pose, L = 48, hw = LANE * K(W) / 2;
+  T.setStyle({ width: 2 * hw, kind: "ctrl" });
   T.wiggle(L, 2.8);
   T.setStyle({ width: LANE, kind: "edge" });
-  for (const s of [0, L]) for (const l of [-HL - 0.6, HL + 0.6]) W.cones.push({ ...at(pose, s, l), hit: false });
+  for (const s of [0, L]) for (const l of [-hw - 0.6, hw + 0.6]) W.cones.push({ ...at(pose, s, l), hit: false });
   return task({
     id: "ilon", mapNo: 5, name: "Ilon izi", short: "Ilon izi", pose, timeLimit: 120,
     stages: [{
@@ -157,17 +160,19 @@ export function ilon(W, T) {
 
 /* 6. Tor joyda qayrilib olish uchun boksga kirish */
 export function boks(W, T) {
-  const pose = T.pose, A = 6, Lc = 20, bx0 = 11, bx1 = 13.8, bd = 5.6, reg = 3.5 + bd - 1.6;
-  T.gapR(A, A + 7);
-  T.fwd(A + 7 + 9);
-  const [cx, cy] = toWorld(pose, A + 3.5, HL);
+  // cw: corridor half width; the box widens and deepens with the training size
+  const k = K(W), cw = 3.5 * k;
+  const pose = T.pose, A = 6, Lc = 20, bx0 = 11, bx1 = bx0 + 2.8 + (k - 1) * 2.5, bd = 5.6 + (k - 1) * 2, reg = cw + bd - 1.6;
+  T.gapR(A, A + 2 * cw);
+  T.fwd(A + 2 * cw + 9);
+  const [cx, cy] = toWorld(pose, A + cw, HL);
   const cp = { x: cx, y: cy, th: pose.th + Math.PI / 2 };   // corridor frame
-  W.addPad(rect(cp, 0, Lc, -3.5, 3.5));
-  W.addPad(rect(cp, bx0, bx1, 3.4, 3.5 + bd));
-  W.addLine(W2(cp, [[0, -3.5], [Lc, -3.5], [Lc, 3.5], [bx1, 3.5], [bx1, 3.5 + bd], [bx0, 3.5 + bd], [bx0, 3.5], [0, 3.5]]), "ctrl");
+  W.addPad(rect(cp, 0, Lc, -cw, cw));
+  W.addPad(rect(cp, bx0, bx1, cw - 0.1, cw + bd));
+  W.addLine(W2(cp, [[0, -cw], [Lc, -cw], [Lc, cw], [bx1, cw], [bx1, cw + bd], [bx0, cw + bd], [bx0, cw], [0, cw]]), "ctrl");
   W.addPaint(rect(cp, bx0 + 0.15, bx1 - 0.15, reg - 0.06, reg + 0.06), "yellow");
   const CL = ctx => ctx.P.map(([x, y]) => toLocal(cp, x, y));
-  const inB = q => inBox(q, bx0, bx1, 3.5, 3.5 + bd);
+  const inB = q => inBox(q, bx0, bx1, cw, cw + bd);
   return task({
     id: "boks", mapNo: 6, name: "Tor joyda qayrilib olish uchun boksga kirish", short: "Boks", pose, allowReverse: true,
     active: ctx => ctx.fs > A - 1 && Math.abs(ctx.fl) < 6,
@@ -175,7 +180,7 @@ export function boks(W, T) {
       text: "O'ngga burilib koridorga kiring va boksdan o'tib to'xtang. O'ng chiroqni yoqing, orqaga yurib boksga kiring: orqa g'ildiraklar sariq chiziqqa yetsin. To'xtang.",
       update(ctx) {
         const C = CL(ctx), f = ctx.f;
-        if (!f.entered && C.some(([s, l]) => s > bx0 && s < bx1 && l > 3.6)) {
+        if (!f.entered && C.some(([s, l]) => s > bx0 && s < bx1 && l > cw + 0.1)) {
           f.entered = true;
           if (ctx.car.v > 0.05) ctx.pen("notDone");
           if (ctx.sig !== 1) ctx.pen("turnSignal");
@@ -197,7 +202,7 @@ export function boks(W, T) {
       update(ctx) {
         if (!ctx.f.moved && Math.abs(ctx.car.v) > 0.05) { ctx.f.moved = true; if (ctx.sig !== -1) ctx.pen("turnSignal"); }
       },
-      done: ctx => ctx.PL.every(([s, l]) => s > A + 8.5 && Math.abs(l) < HL + 0.4)
+      done: ctx => ctx.PL.every(([s, l]) => s > A + 2 * cw + 1.5 && Math.abs(l) < HL + 0.4)
     }]
   });
 }
@@ -206,7 +211,8 @@ export function boks(W, T) {
 export function parkovka(W, T) {
   // the box is the car's length plus 2.3 m (6.8 m for the Cobalt); the yellow line sits where its rear axle should be
   const car = W.car || { length: 4.479, rOh: 0.9 };
-  const pose = T.pose, b0 = 9, b1 = b0 + car.length + 2.32, bw = 2.5, wide = 2.5, reg = b0 + car.rOh + 0.65;
+  const k = K(W);
+  const pose = T.pose, b0 = 9, b1 = b0 + car.length + 2.32 + (k - 1) * 4, bw = 2.5 * k, wide = 2.5, reg = b0 + car.rOh + 0.65;
   T.gapR(b0, b1);
   T.gapL(0, 30);
   T.fwd(30);

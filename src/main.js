@@ -18,7 +18,7 @@ import { KidShow } from "./render/singerKid.js";
 import { buildDriver } from "./render/driverFigure.js";
 
 const coarse = matchMedia("(pointer: coarse)").matches;
-const settings = { transmission: "manual", quality: coarse ? "low" : "high", mouseSteer: false, muted: false, voice: true, car: "cobalt", instructor: "angry", color: "white", plate: DEFAULT_PLATE };
+const settings = { transmission: "manual", quality: coarse ? "low" : "high", mouseSteer: false, muted: false, voice: true, car: "cobalt", instructor: "angry", color: "white", plate: DEFAULT_PLATE, size: "real" };
 try { Object.assign(settings, JSON.parse(localStorage.getItem("avtodrom.settings") || "{}")); } catch (_) {}
 // the old "Ovoz" button muted on first press; start everyone unmuted once
 if (!settings.v2) { settings.muted = false; settings.v2 = true; }
@@ -66,7 +66,7 @@ function start(m, el) {
   mode = m; elementId = el || null; ended = false;
   if (touchUi) goFullscreen();
   app.classList.toggle("auto", settings.transmission === "auto");
-  const W = m === "practice" ? buildPractice(el, carDims()) : buildFull(carDims());
+  const W = m === "practice" ? buildPractice(el, carDims()) : buildFull(carDims(m === "exam"));
   session = new Session(W, { mode: m, transmission: settings.transmission, spec: carById(settings.car).spec });
   view.setWorld(W, settings.quality);
   view.setMode(settings.camera || "cockpit");
@@ -214,7 +214,9 @@ function onAction(a) {
   }
 }
 
-function carDims() { const d = carById(settings.car).dims; return { length: d.length, rOh: d.rOh }; }
+// training size of the tight elements: wide for beginners, real size in the exam
+const SIZES = { wide: 1.5, mid: 1.25, real: 1 };
+function carDims(exam) { const d = carById(settings.car).dims; return { length: d.length, rOh: d.rOh, k: exam ? 1 : SIZES[settings.size] || 1 }; }
 // car model: generated Cobalt right away, then the .glb file once it has loaded
 let carModelId = null;
 function useCar(id) {
