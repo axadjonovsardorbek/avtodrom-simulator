@@ -93,6 +93,7 @@ export class View {
       this.eye = car.eye;
       for (const m of this.mirrors) if (car.mirrors && car.mirrors[m.key]) m.cam.position.set(...car.mirrors[m.key]);
     }
+    if (car && car.seat) this.seat = car.seat;
     const old = this.carView.root;
     this.scene.remove(old);
     cv.root.rotation.order = "YZX";
@@ -100,7 +101,16 @@ export class View {
     this.carView = cv;
     this.scene.add(cv.root);
     cv.setCockpit(this.mode === "cockpit");
+    if (this.instructor) this.setInstructor(this.instructor);
   }
+
+  // the instructor rides in the passenger seat of whatever car is shown
+  setInstructor(fig) {
+    this.instructor = fig;
+    fig.position.set(...(this.seat || [1.5, 0.46, 0.36]));
+    this.carView.root.add(fig);
+  }
+  setInstructorVisible(on) { if (this.instructor) this.instructor.visible = on; }
 
   setWorld(W, quality = "high") {
     if (this.worldGroup) {

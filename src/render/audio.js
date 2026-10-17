@@ -162,7 +162,8 @@ export class CarAudio {
   }
   preload(ids) { if (this.ctx) ids.forEach(id => this.clip(id).catch(() => {})); }
   // Speak a prompt; non-urgent prompts queue behind the current one, urgent ones cut in.
-  prompt(id, fallbackText, urgent = false) {
+  // opts.pan places the voice left/right; opts.talk marks it as the instructor speaking.
+  prompt(id, fallbackText, urgent = false, opts = {}) {
     if (!this.voiceOn || this.muted || !this.ctx) return;
     this.clip(id).then(buf => {
       const c = this.ctx, now = c.currentTime;
@@ -171,10 +172,23 @@ export class CarAudio {
       if (at - now > 5) return;                         // do not pile up stale prompts
       const src = c.createBufferSource(), g = c.createGain();
       src.buffer = buf; g.gain.value = 1.1;
-      src.connect(g); g.connect(this.master);
+      src.connect(g);
+      if (opts.pan && c.createStereoPanner) { const p = c.createStereoPanner(); p.pan.value = opts.pan; g.connect(p); p.connect(this.master); }
+      else g.connect(this.master);
       src.start(at);
       this.cur = src; this.busyUntil = at + buf.duration + 0.15;
-    }).catch(() => { if (fallbackText) this.say(fallbackText, urgent); });
+      if (opts.talk) { this.talkFrom = at; this.talkUntil = at + buf.duration; }
+    }).catch(() => {
+      if (!fallbackText) return;
+      this.say(fallbackText, urgent);
+      if (opts.talk) this.talkSpeech = performance.now() + 600 + fallbackText.length * 70;
+    });
+  }
+
+  talking() {
+    const c = this.ctx;
+    if (c && c.currentTime >= (this.talkFrom ?? 0) && c.currentTime < (this.talkUntil ?? 0)) return true;
+    return !!(this.talkSpeech && performance.now() < this.talkSpeech);
   }
 
   /* ---------- browser speech (fallback only) ---------- */

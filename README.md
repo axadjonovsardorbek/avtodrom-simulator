@@ -14,13 +14,28 @@ npm run prepare:cobalt -- ~/Downloads/chevrolet_cobalt_ltz_2014.glb   # Sketchfa
 
 ## Ovozli ko'rsatmalar
 
-Ko'rsatmalar o'zbek tilida, `public/audio/uz/*.mp3` fayllarida (Microsoft neyron ovozi `uz-UZ-SardorNeural`).
+Imtihon tizimi ovozi o'zbek tilida, `public/audio/uz/*.mp3` fayllarida (Microsoft neyron ovozi `uz-UZ-MadinaNeural`).
 Matnlar `src/audio/phrases.json` da. Matnni o'zgartirsangiz, fayllarni qayta yozing (internet kerak):
 
 ```bash
 python3 -m venv .venv && .venv/bin/pip install edge-tts
-.venv/bin/python tools/make_voice.py
+.venv/bin/python tools/make_voice.py          # hammasi
+.venv/bin/python tools/make_voice.py ins      # faqat instruktor
 ```
+
+## Instruktor
+
+Yo'lovchi o'rindig'ida instruktor o'tiradi (`src/render/instructorFigure.js`). U xatolarni aytadi,
+kerak bo'lsa qo'lini silkitadi, yaxshi bajarilgan mashqda bosh barmog'ini ko'taradi.
+Menyuda "Instruktor" tanlanadi:
+
+- **Jahldor** — qattiq gapiradi, lekin so'kinmaydi;
+- **Jahldor, so'kinadi (18+)** — `src/instructor/source/*.ogg` dagi yozuvlar ham ishlatiladi
+  (`public/audio/uz/ins/rude/*.mp3` ga o'girilgan; qaysi xatoda qaysi biri — `src/instructor/instructor.js`, `RUDE`);
+- **Yumshoq** — xotirjam maslahat beradi;
+- **Yo'q** — instruktor yo'q, xatolarni imtihon tizimi ovozi aytadi.
+
+Gaplar `src/instructor/lines.json` da (ovoz `uz-UZ-SardorNeural`, jahldor uchun tezroq va pastroq).
 
 Havola orqali to'g'ridan-to'g'ri ochish: `#imtihon`, `#trening`, `#mashq-ilon` (yoki boshqa element id).
 

@@ -96,6 +96,8 @@ export class Hud {
             <select id="optTrans"><option value="manual">Mexanik (ilashish bilan)</option><option value="auto">Avtomat</option></select></label>
           <label>Grafika
             <select id="optQuality"><option value="high">Yuqori</option><option value="low">Yengil (telefon)</option></select></label>
+          <label>Instruktor
+            <select id="optInstr"><option value="angry">Jahldor</option><option value="rude">Jahldor, so'kinadi (18+)</option><option value="calm">Yumshoq</option><option value="off">Yo'q</option></select></label>
           <label>Ovozli ko'rsatmalar
             <select id="optVoice"><option value="on">Yoqilgan</option><option value="off">O'chirilgan</option></select></label>
         </div>
@@ -117,6 +119,8 @@ export class Hud {
     $("#optQuality", m).value = this.h.settings.quality;
     $("#optTrans", m).onchange = e => this.h.settings.transmission = e.target.value;
     $("#optQuality", m).onchange = e => this.h.settings.quality = e.target.value;
+    $("#optInstr", m).value = this.h.settings.instructor || "angry";
+    $("#optInstr", m).onchange = e => this.h.settings.instructor = e.target.value;
     $("#optVoice", m).value = this.h.settings.voice === false ? "off" : "on";
     $("#optVoice", m).onchange = e => this.h.settings.voice = e.target.value === "on";
     m.querySelectorAll("[data-mode]").forEach(b => b.onclick = () => this.h.start(b.dataset.mode));

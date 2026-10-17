@@ -10,9 +10,11 @@ import { Hud } from "./ui/hud.js";
 import { carById } from "./cars/index.js";
 import { loadCarModel } from "./render/carLoader.js";
 import PHRASES from "./audio/phrases.json";
+import { Instructor, lineIds } from "./instructor/instructor.js";
+import { buildInstructor } from "./render/instructorFigure.js";
 
 const coarse = matchMedia("(pointer: coarse)").matches;
-const settings = { transmission: "manual", quality: coarse ? "low" : "high", mouseSteer: false, muted: false, voice: true, car: "cobalt" };
+const settings = { transmission: "manual", quality: coarse ? "low" : "high", mouseSteer: false, muted: false, voice: true, car: "cobalt", instructor: "angry" };
 try { Object.assign(settings, JSON.parse(localStorage.getItem("avtodrom.settings") || "{}")); } catch (_) {}
 // the old "Ovoz" button muted on first press; start everyone unmuted once
 if (!settings.v2) { settings.muted = false; settings.v2 = true; }
@@ -23,6 +25,11 @@ const app = document.getElementById("app");
 const hud = new Hud(app, { settings, start, resume, action: onAction, resultAction, useCar, showroom: openShowroom });
 const view = new View(hud.canvas);
 const audio = new CarAudio();
+const instructor = new Instructor(audio);
+instructor.mood = settings.instructor;
+const instructorFig = buildInstructor();
+view.setInstructor(instructorFig.root);
+view.setInstructorVisible(instructor.on);
 const controls = new Controls(hud.canvas, onAction);
 controls.bindTouch(document.getElementById("touchpad"));
 controls.mouseSteer = settings.mouseSteer;
@@ -52,6 +59,9 @@ function start(m, el) {
   bump.reset(); countdown = -1;
   audio.chime();
   audio.preload(Object.keys(PHRASES.phrases));
+  instructor.mood = settings.instructor; instructor.reset();
+  view.setInstructorVisible(instructor.on);
+  if (instructor.on) audio.preload(lineIds(instructor.mood));
   if (m === "practice") audio.prompt("task_" + el, ELEMENTS.find(e => e.id === el).name);
   else audio.prompt("wait_start", "Start ishorasini kuting");
 }
@@ -81,8 +91,9 @@ function showroomAction(a) {
 function resume() { if (session && !ended) { hud.hideMenu(); paused = false; } }
 
 function handleEvent(ev) {
+  instructor.onEvent(ev);
   switch (ev.type) {
-    case "penalty": hud.toast(`+${ev.pts} · ${ev.text}`, "bad"); hud.addLog(ev); audio.penalty(); audio.prompt("pen_" + ev.code, `Xato. ${ev.pts} ball`); break;
+    case "penalty": hud.toast(`+${ev.pts} · ${ev.text}`, "bad"); hud.addLog(ev); audio.penalty(); if (!instructor.on) audio.prompt("pen_" + ev.code, `Xato. ${ev.pts} ball`); break;
     case "limit": hud.toast(`Jarima ${PASS_LIMIT} balldan oshdi${session.strict ? ": imtihon to'xtatildi" : ""}`, "bad"); audio.prompt("limit"); break;
     case "task": hud.toast(`Mashq: ${ev.task.name}`); if (mode !== "practice") audio.prompt("task_" + ev.task.id, ev.task.name); break;
     case "taskDone": if (ev.ok) { hud.toast(`${ev.task.short}: bajarildi`, "good"); audio.chime(); audio.prompt("done"); } break;
@@ -262,6 +273,9 @@ function frame(now) {
       const k = Math.min(1, dt * 2.5);
       view.drag.yaw -= view.drag.yaw * k; view.drag.pitch -= view.drag.pitch * k;
     }
+    if (!paused && session.state === "running") instructor.update(session, dt, START_SIGNAL_AT);
+    else if (ended) instructor.t += dt;
+    instructorFig.update(dt, instructor.pose());
     view.update(session, dt, now);
     view.render();
     if (now - lastHud > 60) { hud.update(session, view, now); lastHud = now; }
@@ -276,7 +290,7 @@ function frame(now) {
   }
   requestAnimationFrame(frame);
 if (import.meta.env.DEV) {
-  window.__sim = { view, audio, get session() { return session; } };
+  window.__sim = { view, audio, fig: instructorFig, instructor, get session() { return session; } };
   // used by tools/export-car.mjs: generated Cobalt -> binary glTF (base64)
   window.__exportCar = async () => {
     const [{ GLTFExporter }, { buildCar }] = await Promise.all([import("three/examples/jsm/exporters/GLTFExporter.js"), import("./render/carModel.js")]);

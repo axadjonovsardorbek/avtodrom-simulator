@@ -1,0 +1,118 @@
+{
+ "voice": "uz-UZ-SardorNeural",
+ "prosody": { "calm": { "rate": "-2%", "pitch": "-4Hz" }, "angry": { "rate": "+12%", "pitch": "-8Hz", "volume": "+25%" } },
+ "lines": {
+  "hello": {
+   "calm": ["Assalomu alaykum. Kamarni taqing, oynalarni to'g'rilang, keyin boshlaymiz."],
+   "angry": ["Xo'sh, o'tir. Kamarni taq, oynalarni to'g'irla. Va asabimga tegma, kelishdikmi?", "Yana senmi? Mayli. Bugun hech bo'lmasa konuslarni urmagin."]
+  },
+  "belt": {
+   "calm": ["Kamarni taqishni unutdingiz."],
+   "angry": ["Kamar qani?! Birinchi kun mashinaga o'tirishingmi?!", "Kamarni taq! Shuni ham men aytishim kerakmi?!"]
+  },
+  "signal": {
+   "calm": ["Burilish chirog'ini yoqing."],
+   "angry": ["Povorotnik qani?! Bitta richagni bosishga qo'ling og'riydimi?!", "Chiroqni yoq deyapman-ku! Odamlar fikringni o'qiydimi?!"]
+  },
+  "signalOff": {
+   "calm": ["Burilish chirog'ini o'chiring."],
+   "angry": ["Povorotnikni o'chir! Hamma seni buriladi deb o'ylayapti!"]
+  },
+  "stall": {
+   "calm": ["Dvigatel o'chdi. Ilashishni sekinroq qo'yib yuboring."],
+   "angry": ["Yana o'chirding! Ilashishni sekin qo'yib yubor, sekin!", "Voy tavba, mashinani o'ldirding-ku! Gaz ber, sekin qo'yib yubor!"]
+  },
+  "speed": {
+   "calm": ["Tezlikni kamaytiring."],
+   "angry": ["Sekinroq! Bu yer poyga emas!", "Gazni qo'yib yubor! Qayoqqa shoshyapsan?!"]
+  },
+  "line": {
+   "calm": ["Chiziqni bosib o'tdingiz. Ehtiyot bo'ling."],
+   "angry": ["Chiziqni bosding! Ko'zing qayerda?!", "Chiziqni ko'rmayapsanmi?! Ko'zoynak taqib kel!"]
+  },
+  "stopLine": {
+   "calm": ["To'xtash chizig'iga e'tibor bering."],
+   "angry": ["Stop chizig'i qayerda edi?! Qayerda to'xtading o'zi?!"]
+  },
+  "early": {
+   "calm": ["Shoshilmang, uch soniya kuting."],
+   "angry": ["Shoshma! Uch soniya kut dedim-ku! Uchgacha sanay olasanmi?!"]
+  },
+  "hill": {
+   "calm": ["Orqaga ketdingiz. Qo'l tormozidan foydalaning."],
+   "angry": ["Orqaga ketyapsan! Qo'l tormozini tort, tez!", "Ketyapsan, ketyapsan! Tormozni bos!"]
+  },
+  "crash": {
+   "calm": ["To'siqqa tegdingiz."],
+   "angry": ["Konusni urib yubording! Qanday haydaysan o'zi?!", "Voy-voy! Mashinani sindirasan-ku! Pulini sen to'laysanmi?!"]
+  },
+  "redLight": {
+   "calm": ["Qizil chiroqda to'xtash kerak edi."],
+   "angry": ["Qizil edi!! Yo'l qoidasini umuman o'qiganmisan?!"]
+  },
+  "rail": {
+   "calm": ["Temir yo'l oldida to'xtash kerak edi."],
+   "angry": ["Temir yo'lda to'xta dedim! Poyezd seni kutib turmaydi!"]
+  },
+  "slow": {
+   "calm": ["Biroz tezroq harakatlaning."],
+   "angry": ["Qimirla! Uxlab qoldingmi?!", "Nima, sayr qilyapsanmi? Tezroq!"]
+  },
+  "gear": {
+   "calm": ["Ikkinchi uzatmaga o'ting."],
+   "angry": ["Ikkinchi uzatmaga o't! Motorni qiynama!"]
+  },
+  "hazard": {
+   "calm": ["Avariya chirog'iga e'tibor bering."],
+   "angry": ["Avariya chirog'i! Uchburchak tugmani bos, tez!"]
+  },
+  "notDone": {
+   "calm": ["Bu mashq bajarilmadi."],
+   "angry": ["Mashqni tashlab ketding! Kim bajaradi, menmi?!"]
+  },
+  "offRoute": {
+   "calm": ["Yo'nalishdan chiqdingiz."],
+   "angry": ["Qayoqqa ketyapsan?! Yo'l bu yoqda!"]
+  },
+  "reverse": {
+   "calm": ["Orqaga yurish mumkin emas."],
+   "angry": ["Nega orqaga ketyapsan?! Kim ruxsat berdi?!"]
+  },
+  "generic": {
+   "calm": ["Xato. Diqqatli bo'ling."],
+   "angry": ["Voy tavba!", "Ey, nima qilyapsan?!", "Yana xato! Kallangni ishlat!"]
+  },
+  "grind": {
+   "calm": ["Uzatmani almashtirishdan oldin ilashishni bosing."],
+   "angry": ["Ilashishni bos! Korobkani sindirasan!"]
+  },
+  "rev": {
+   "calm": ["Aylanishlar baland. Uzatmani almashtiring."],
+   "angry": ["Motorni qiynama! Uzatmani almashtir!"]
+  },
+  "handbrake": {
+   "calm": ["Qo'l tormozi tortilgan."],
+   "angry": ["Qo'l tormozi tortilgan! Hidini sezmayapsanmi?!"]
+  },
+  "go": {
+   "calm": ["Start berildi, harakatlaning."],
+   "angry": ["Nimaga turibsan? Start berildi! Yur!"]
+  },
+  "good": {
+   "calm": ["Yaxshi. Davom eting.", "Juda yaxshi."],
+   "angry": ["Mana, bo'ladi-ku!", "Yomon emas. Davom et.", "Ha, mana bu boshqa gap."]
+  },
+  "limit": {
+   "calm": ["Jarima ballari ko'payib ketdi."],
+   "angry": ["Bo'ldi, yetar! Bunaqa haydashda prava bermaydi!"]
+  },
+  "pass": {
+   "calm": ["Tabriklayman, o'tdingiz."],
+   "angry": ["O'tding?! Ishonmayman... Mayli, tabriklayman."]
+  },
+  "fail": {
+   "calm": ["Bu safar o'tmadingiz. Yana mashq qilamiz."],
+   "angry": ["Yiqilding. Uyga borib yana mashq qil, keyin kel."]
+  }
+ }
+}
