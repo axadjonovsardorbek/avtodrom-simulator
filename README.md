@@ -39,6 +39,10 @@ Gaplar `src/instructor/lines.json` da (ovoz `uz-UZ-SardorNeural`, jahldor uchun 
 
 Havola orqali to'g'ridan-to'g'ri ochish: `#imtihon`, `#trening`, `#mashq-ilon` (yoki boshqa element id).
 
+## Telefonda
+
+Telefon va planshetda ekranda tugmalar chiqadi (gorizontal holatda): chapda rul o'qlari, o'rtada burilish va avariya chiroqlari, kamar, dvigatel, qo'l tormozi, o'ngda uzatma, ilashish (mexanikada), tormoz va gaz pedallari. Mashq boshlanganda to'liq ekranga o'tadi; telefon tik turganda yotqizish so'raladi. Kompyuterda sinash uchun: manzil oxiriga `?mobile` qo'shing.
+
 ## Rejimlar
 
 - **Imtihon**: butun avtodrom bo'ylab 13 mashq ketma-ket. Jarima 100 balldan oshsa, imtihondan o'tilmaydi va imtihon to'xtatiladi (`PASS_LIMIT`).

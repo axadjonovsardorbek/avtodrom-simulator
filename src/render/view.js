@@ -141,13 +141,16 @@ export class View {
     this.cam.aspect = w / h; this.cam.updateProjectionMatrix();
     Object.assign(this.hudCam, { left: 0, right: w, top: h, bottom: 0 }); this.hudCam.updateProjectionMatrix();
     this.w = w; this.h = h;
-    const top = Math.min(110, h * 0.14);
-    const cw = Math.min(w * 0.34, 400), ch = cw * 180 / 640;
-    const sw = Math.min(w * 0.17, 210), sh = sw * 220 / 320;
+    // phones (short landscape screens): smaller mirrors so the controls stay clear
+    const small = h < 520;
+    const top = small ? h * 0.15 : Math.min(110, h * 0.14);
+    const cw = small ? Math.min(w * 0.26, 260) : Math.min(w * 0.34, 400), ch = cw * 180 / 640;
+    const sw = small ? Math.min(w * 0.12, 120) : Math.min(w * 0.17, 210), sh = sw * 220 / 320;
     const place = (m, x, y, mw, mh) => { m.quad.position.set(x, y, 0.1); m.quad.scale.set(mw, mh, 1); m.frame.position.set(x, y, 0); m.frame.scale.set(mw + 8, mh + 8, 1); };
     place(this.mirrors[0], w / 2, h - top - ch / 2, cw, ch);
-    place(this.mirrors[1], 14 + sw / 2, h * 0.47, sw, sh);
-    place(this.mirrors[2], w - 14 - sw / 2, h * 0.47, sw, sh);
+    const my = small ? h * 0.42 : h * 0.47;      // overlay y runs from the bottom
+    place(this.mirrors[1], 14 + sw / 2, my, sw, sh);
+    place(this.mirrors[2], w - 14 - sw / 2, my, sw, sh);
   }
 
   setMode(mode) {

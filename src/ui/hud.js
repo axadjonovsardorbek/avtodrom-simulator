@@ -40,6 +40,7 @@ export class Hud {
           <button class="tb" data-a="mouse" id="mouseBtn" title="Rulni sichqoncha bilan boshqarish">Sichqoncha-rul</button>
           <button class="tb" data-a="mute" id="muteBtn" title="Ovoz (L)">Ovoz</button>
           <button class="tb" data-a="help" title="Boshqaruv">?</button>
+          <button class="tb fs" data-a="fullscreen" title="To'liq ekran">⛶</button>
           <button class="tb primary" data-a="pause" title="Menyu (Esc)">Menyu</button>
         </div>
       </header>
@@ -62,14 +63,34 @@ export class Hud {
         ${gauge("speedo", 80, 10, "km/soat", "", 0)}
       </section>
       <section class="touchpad" id="touchpad">
-        <div class="grp"><button data-hold="left">◀</button><button data-hold="right">▶</button></div>
-        <div class="grid">
-          <button data-act="sigL">◁</button><button data-act="engine">Dvig.</button><button data-act="sigR">▷</button>
-          <button data-act="gDown">−Uz</button><button data-act="hand">P</button><button data-act="gUp">+Uz</button>
-          <button data-act="belt">Kamar</button><button data-act="hazard">△</button><button data-act="camera">Kam.</button>
+        <div class="tp-steer">
+          <button class="rnd steer" data-hold="left" aria-label="Chapga"><svg viewBox="0 0 24 24"><path d="M15 5 8 12l7 7"/></svg></button>
+          <button class="rnd steer" data-hold="right" aria-label="O'ngga"><svg viewBox="0 0 24 24"><path d="m9 5 7 7-7 7"/></svg></button>
         </div>
-        <div class="grp"><button data-hold="clutch" class="cl">Ilash.</button><button data-hold="brake" class="br">Tormoz</button><button data-hold="gas" class="gs">Gaz</button></div>
+        <div class="tp-mid">
+          <div class="row">
+            <button class="rnd sig" data-act="sigL" id="tSigL" aria-label="Chap chiroq"><svg viewBox="0 0 24 24"><path d="M10 6 4 12l6 6v-4h10v-4H10z"/></svg></button>
+            <button class="rnd haz" data-act="hazard" id="tHaz" aria-label="Avariya"><svg viewBox="0 0 24 24"><path d="M12 4 3 19h18z"/><path d="M12 9.5 7.6 17h8.8z"/></svg></button>
+            <button class="rnd sig" data-act="sigR" id="tSigR" aria-label="O'ng chiroq"><svg viewBox="0 0 24 24"><path d="m14 6 6 6-6 6v-4H4v-4h10z"/></svg></button>
+          </div>
+          <div class="row small">
+            <button class="pill" data-act="belt" id="tBelt">Kamar</button>
+            <button class="pill" data-act="engine" id="tEng">Dvigatel</button>
+            <button class="pill" data-act="hand" id="tHand">(P) Qo'l tormozi</button>
+          </div>
+        </div>
+        <div class="tp-right">
+          <div class="gearbox">
+            <button class="rnd gearbtn manual-only" data-act="gUp" aria-label="Uzatma yuqori">+</button>
+            <button class="rnd gearbtn" data-act="gToggle" id="tGear" aria-label="Uzatma">D</button>
+            <button class="rnd gearbtn manual-only" data-act="gDown" aria-label="Uzatma past">−</button>
+          </div>
+          <button class="pedal cl manual-only" data-hold="clutch"><i></i><span>Ilashish</span></button>
+          <button class="pedal br" data-hold="brake"><i></i><span>Tormoz</span></button>
+          <button class="pedal gs" data-hold="gas"><i></i><span>Gaz</span></button>
+        </div>
       </section>
+      <div class="rotate" id="rotate"><svg viewBox="0 0 24 24"><rect x="7" y="2" width="10" height="20" rx="2"/><path d="M3 12a9 9 0 0 1 4-7.5M21 12a9 9 0 0 1-4 7.5"/></svg><b>Telefonni yotqizing</b><small>Simulyator gorizontal holatda o'ynaladi</small></div>
       <div class="overlay" id="menu"></div>
       <div class="overlay" id="result" hidden></div>
       <div class="overlay" id="help" hidden></div>`;
@@ -206,6 +227,15 @@ export class Hud {
     $("#logCount", this.root).textContent = String(this.session.log.length);
   }
   toggleLog() { const p = $("#logPanel", this.root); p.hidden = !p.hidden; }
+
+  // touch buttons light up with the car's state
+  touchState(car) {
+    const r = this.root, set = (id, on) => { const e = r.querySelector("#" + id); if (e) e.classList.toggle("on", !!on); };
+    const blink = Math.floor(performance.now() / 380) % 2 === 0;
+    set("tSigL", (car.sig === -1 || car.hazard) && blink); set("tSigR", (car.sig === 1 || car.hazard) && blink);
+    set("tHaz", car.hazard); set("tBelt", car.belt); set("tEng", car.engineOn); set("tHand", car.handbrake);
+    const g = r.querySelector("#tGear"); if (g && g.textContent !== String(car.gear)) g.textContent = car.gear;
+  }
 
   update(s, view, now) {
     const car = s.car, r = this.root;

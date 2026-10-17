@@ -47,7 +47,15 @@ const showMute = () => { muteBtn.textContent = settings.muted ? "Ovoz o'chiq" : 
 showMute();
 // browsers only allow sound after a user gesture: (re)start audio on any interaction
 for (const ev of ["pointerdown", "keydown", "touchstart"]) addEventListener(ev, () => { audio.start(); audio.setMuted(settings.muted); audio.resume(); }, { capture: true });
-if (coarse) app.classList.add("touch");
+// phones and tablets get the on-screen controls (?mobile forces them for testing)
+const touchUi = coarse || (navigator.maxTouchPoints > 0 && Math.min(innerWidth, innerHeight) < 900) || /[?&]mobile/.test(location.search);
+if (touchUi) app.classList.add("touch");
+function goFullscreen() {
+  const el = document.documentElement;
+  const req = el.requestFullscreen || el.webkitRequestFullscreen;
+  if (!req || document.fullscreenElement || document.webkitFullscreenElement) return;
+  Promise.resolve(req.call(el, { navigationUI: "hide" })).then(() => screen.orientation && screen.orientation.lock && screen.orientation.lock("landscape").catch(() => {})).catch(() => {});
+}
 
 const TITLES = { exam: "To'liq avtodrom · Imtihon", training: "To'liq avtodrom · Trening" };
 
@@ -56,6 +64,8 @@ function start(m, el) {
   audio.start(); audio.setMuted(settings.muted); audio.voiceOn = settings.voice;
   saveSettings();
   mode = m; elementId = el || null; ended = false;
+  if (touchUi) goFullscreen();
+  app.classList.toggle("auto", settings.transmission === "auto");
   const W = m === "practice" ? buildPractice(el, carDims()) : buildFull(carDims());
   session = new Session(W, { mode: m, transmission: settings.transmission, spec: carById(settings.car).spec });
   view.setWorld(W, settings.quality);
@@ -168,6 +178,7 @@ function onAction(a) {
   if (a === "mouse") { settings.mouseSteer = controls.mouseSteer = !controls.mouseSteer; document.getElementById("mouseBtn").classList.toggle("on", settings.mouseSteer); hud.toast(settings.mouseSteer ? "Rul sichqoncha bilan: kursorni chapga-o'ngga suring" : "Rul klaviatura bilan"); saveSettings(); return; }
   if (a === "camera") { const order = ["cockpit", "chase", "orbit", "top"]; settings.camera = order[(order.indexOf(view.mode) + 1) % 4]; view.setMode(settings.camera); saveSettings(); return; }
   if (a === "map") return hud.toggleMinimap();
+  if (a === "fullscreen") return goFullscreen();
   if (a === "log") return hud.toggleLog();
   if (a === "pause") {
     if (!session) return;
@@ -190,6 +201,10 @@ function onAction(a) {
     case "gN": car.shift("N"); break;
     case "gD": if (car.transmission === "auto") car.shift("D"); break;
     case "gP": if (car.transmission === "auto") car.shift("P"); break;
+    case "gToggle":            // touch: one button; manual R <-> N, automatic R <-> D
+      if (car.transmission === "manual") car.shift(car.gear === "R" ? "N" : "R");
+      else car.shift(car.gear === "R" ? "D" : car.gear === "D" ? "R" : "D");
+      break;
     case "gUp": case "gDown": {
       const seq = car.transmission === "manual" ? MANUAL : AUTO;
       const i = seq.indexOf(car.gear) + (a === "gUp" ? 1 : -1);
@@ -306,6 +321,8 @@ function frame(now) {
     } else acc = 0;
     view.look = controls.look;
     app.classList.toggle("cockpit", view.mode === "cockpit");
+    app.classList.toggle("playing", !paused && !inShowroom && !ended);
+    if (touchUi) hud.touchState(session.car);
     // while driving, the head turns back to the road when you let go
     if (!inShowroom && !view.isDragging() && view.mode === "cockpit") {
       const k = Math.min(1, dt * 2.5);
