@@ -380,7 +380,7 @@ export function rigCar(root) {
   const glow = (list, on, hi, lo = 0.06) => list.forEach(m => { m.material.emissiveIntensity = on ? hi : lo; });
   let lastCluster = 0;
   return {
-    root, interior, setCockpit,
+    root, interior, setCockpit, clusterTex: cluster.tex,
     update(car, now) {
       for (const p of pivots) p.rotation.y = -car.steer;
       for (const w of spins) w.rotation.z = -car.wheelSpin;

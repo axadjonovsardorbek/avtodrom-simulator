@@ -59,14 +59,50 @@ export function dressCobalt(cv) {
     if (/^door_(lf|rf)_ok_glass/.test(o.name)) { o.material = o.material.clone(); o.material.opacity = 0.42; }
   });
 
-  // 8" touchscreen over the old radio panel on the centre stack (it faces the cabin, tilted back)
-  const stack = new THREE.Group(); stack.position.set(2.108, 0.66, 0); stack.rotation.set(-0.19, -Math.PI / 2, 0, "YXZ");
-  const bezel = new THREE.Mesh(new THREE.BoxGeometry(0.235, 0.15, 0.012), new THREE.MeshPhysicalMaterial({ color: 0x050607, roughness: 0.15, clearcoat: 1 }));
+  // facelift centre stack: piano-black frame with a button row, the 8" MyLink screen,
+  // and the climate panel with three round knobs below (all faces point at the cabin)
+  const piano = new THREE.MeshPhysicalMaterial({ color: 0x050607, roughness: 0.12, clearcoat: 1, clearcoatRoughness: 0.05 });
+  const satin = new THREE.MeshStandardMaterial({ color: 0x9da1a7, roughness: 0.3, metalness: 0.85 });
+  const darkGrey = new THREE.MeshStandardMaterial({ color: 0x2b2d31, roughness: 0.7 });
+  const face = (x, y, z, tilt) => { const g = new THREE.Group(); g.position.set(x, y, z); g.rotation.set(-tilt, -Math.PI / 2, 0, "YXZ"); car.add(g); return g; };
+  const stack = face(2.105, 0.68, 0.04, 0.19);
+  const frame = new THREE.Mesh(new THREE.BoxGeometry(0.27, 0.2, 0.02), piano); frame.position.y = 0.012; stack.add(frame);
+  const trimL = new THREE.Mesh(new THREE.BoxGeometry(0.006, 0.2, 0.024), satin); trimL.position.set(-0.137, 0.012, 0); stack.add(trimL);
+  const trimR = trimL.clone(); trimR.position.x = 0.137; stack.add(trimR);
   const screen = new THREE.Mesh(new THREE.PlaneGeometry(0.19, 0.112), new THREE.MeshBasicMaterial({ map: screenTexture(), toneMapped: false }));
-  screen.position.z = 0.0065;
-  const hazard = new THREE.Mesh(new THREE.CylinderGeometry(0.008, 0.008, 0.006, 3), new THREE.MeshStandardMaterial({ color: 0xd8262a, roughness: 0.4 }));
-  hazard.rotation.x = Math.PI / 2; hazard.position.set(0, 0.066, 0.008);
-  stack.add(bezel, screen, hazard); car.add(stack);
+  screen.position.set(0, -0.012, 0.0105); stack.add(screen);
+  // button row above the screen: lock, hazard (red triangle), traction
+  for (const [bx, w] of [[-0.075, 0.05], [0.075, 0.05]]) {
+    const b = new THREE.Mesh(new THREE.BoxGeometry(w, 0.018, 0.006), darkGrey); b.position.set(bx, 0.088, 0.011); stack.add(b);
+  }
+  const hazard = new THREE.Mesh(new THREE.CylinderGeometry(0.009, 0.009, 0.006, 3), new THREE.MeshStandardMaterial({ color: 0xd8262a, roughness: 0.4, emissive: 0x400000 }));
+  hazard.rotation.x = Math.PI / 2; hazard.position.set(0, 0.088, 0.013); stack.add(hazard);
+  // volume knob and track buttons at the right of the screen
+  const vol = new THREE.Mesh(new THREE.CylinderGeometry(0.011, 0.011, 0.012, 20), satin); vol.rotation.x = Math.PI / 2; vol.position.set(0.118, 0.045, 0.014); stack.add(vol);
+
+  const climate = face(2.085, 0.56, 0.04, 0.15);
+  const cpanel = new THREE.Mesh(new THREE.BoxGeometry(0.24, 0.07, 0.016), darkGrey); climate.add(cpanel);
+  const ringTex = (col) => canvasTex(64, 64, (g, w) => {
+    const grd = g.createLinearGradient(0, 0, w, 0); grd.addColorStop(0, "#2f7bff"); grd.addColorStop(1, "#ff3b30");
+    g.fillStyle = "#16171a"; g.fillRect(0, 0, w, w);
+    g.lineWidth = 6; g.strokeStyle = col === "temp" ? grd : "#c9ccd1"; g.beginPath(); g.arc(32, 32, 26, Math.PI * 0.7, Math.PI * 2.3); g.stroke();
+  });
+  [["temp", -0.075], ["fan", 0], ["mode", 0.075]].forEach(([k, kx]) => {
+    const ring = new THREE.Mesh(new THREE.CircleGeometry(0.026, 28), new THREE.MeshStandardMaterial({ map: ringTex(k), roughness: 0.5 }));
+    ring.position.set(kx, 0, 0.0085); climate.add(ring);
+    const knob = new THREE.Mesh(new THREE.CylinderGeometry(0.016, 0.017, 0.014, 28), piano); knob.rotation.x = Math.PI / 2; knob.position.set(kx, 0, 0.015); climate.add(knob);
+    const cap = new THREE.Mesh(new THREE.CylinderGeometry(0.0165, 0.0165, 0.003, 28), satin); cap.rotation.x = Math.PI / 2; cap.position.set(kx, 0, 0.0225); climate.add(cap);
+  });
+
+  // instrument cluster: the facelift's analogue tacho + speedo with a digital centre,
+  // fed by the simulator's live cluster canvas, under a dark hood
+  if (cv.clusterTex) {
+    const cl = face(2.215, 0.81, -0.29, 0.3);
+    const hood = new THREE.Mesh(new THREE.CylinderGeometry(0.17, 0.17, 0.06, 32, 1, true, -Math.PI / 2 - 0.9, 1.8), darkGrey);
+    hood.rotation.x = Math.PI / 2; hood.scale.set(1, 1, 1); hood.position.set(0, -0.09, 0.03); hood.material.side = THREE.DoubleSide; cl.add(hood);
+    const back = new THREE.Mesh(new THREE.PlaneGeometry(0.255, 0.105), new THREE.MeshBasicMaterial({ color: 0x050607 })); back.position.z = -0.002; cl.add(back);
+    const dial = new THREE.Mesh(new THREE.PlaneGeometry(0.24, 0.09), new THREE.MeshBasicMaterial({ map: cv.clusterTex, toneMapped: false })); cl.add(dial);
+  }
 
   // black "COBALT" plates front and rear, where the source has the plate holder screws
   const plateMat = new THREE.MeshStandardMaterial({ map: plateTexture(), roughness: 0.5, metalness: 0.2 });
