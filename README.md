@@ -41,7 +41,7 @@ Havola orqali to'g'ridan-to'g'ri ochish: `#imtihon`, `#trening`, `#mashq-ilon` (
 
 ## Rejimlar
 
-- **Imtihon**: butun avtodrom bo'ylab 13 mashq ketma-ket. Jarima 20 balldan oshsa imtihondan o'tilmaydi, 100 balldan oshsa imtihon to'xtatiladi (`STOP_LIMIT`).
+- **Imtihon**: butun avtodrom bo'ylab 13 mashq ketma-ket. Jarima 100 balldan oshsa, imtihondan o'tilmaydi va imtihon to'xtatiladi (`PASS_LIMIT`).
 - **Trening**: xuddi shu marshrut, lekin xatodan keyin ham davom etasiz.
 - **Alohida mashq**: 12 elementdan birini qisqa maydonda mashq qilish.
 
@@ -121,7 +121,7 @@ Kod: MIT (`LICENSE`). Modellar, ovozlar va musiqa o'z litsenziyasida: `CREDITS.m
 
 ## Taxminlar
 
-- O'tish chegarasi (jami 20 balldan oshmasligi) jadvalda ko'rsatilmagan, taxmin qilingan: `src/sim/penalties.js` dagi `PASS_LIMIT`.
+- O'tish chegarasi: jami jarima 100 balldan oshmasligi kerak (`src/sim/penalties.js` dagi `PASS_LIMIT`).
 - Tezlik xatosi 5 km/soat o'lchov xatoligi bilan hisoblanadi (25 va 45 km/soat).
 - Avtodrom xaritasi rasmdagi tartibga o'xshatib qurilgan, o'lchamlari taxminiy.
 - Hisobga olinmagan bandlar: №6 (4.7 va 3.24 belgilari), №26 (imtihonni tark etish), №32 (umumiy vaqt chegarasi noma'lum).

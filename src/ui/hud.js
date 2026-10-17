@@ -1,6 +1,6 @@
 // DOM overlay: instrument cluster, task card, score, toasts, minimap,
 // penalty log, start light, menus and the result protocol.
-import { PASS_LIMIT, STOP_LIMIT } from "../sim/penalties.js";
+import { PASS_LIMIT } from "../sim/penalties.js";
 import { ELEMENTS } from "../world/tracks.js";
 import { CARS } from "../cars/index.js";
 
@@ -108,7 +108,7 @@ export class Hud {
         <button class="showbtn" id="showroomBtn"><b>Mashinani 360° ko'rish</b><small>Tashqi ko'rinish va salon: sichqoncha yoki barmoq bilan aylantiring</small></button>
         <h2>To'liq avtodrom</h2>
         <div class="modes">
-          <button class="big primary" data-mode="exam"><b>Imtihon</b><small>13 mashq ketma-ket. ${PASS_LIMIT} balldan oshsa o'tolmaysiz, ${STOP_LIMIT} balldan oshsa imtihon to'xtatiladi.</small></button>
+          <button class="big primary" data-mode="exam"><b>Imtihon</b><small>13 mashq ketma-ket. Jarima ${PASS_LIMIT} balldan oshsa, imtihondan o'tolmaysiz va imtihon to'xtatiladi.</small></button>
           <button class="big" data-mode="training"><b>Trening</b><small>Xuddi shu marshrut, xato qilsangiz ham davom etasiz.</small></button>
         </div>
         <h2>Alohida mashq <small>(raqam: xaritadagi element)</small></h2>
