@@ -127,6 +127,15 @@ button:focus-visible, select:focus-visible { outline: 2px solid var(--amber); ou
 #app.cockpit .cluster .gauge { display: none; }
 #app.cockpit .cluster { border-radius: 14px; padding: 6px 12px; left: auto; right: max(16px, env(safe-area-inset-right, 0px)); transform: none; }
 
+/* 360 showroom */
+.showbtn { width: 100%; margin-top: 16px; text-align: left; display: grid; gap: 2px; border: 1px solid var(--amber); background: linear-gradient(90deg, rgba(242, 182, 50, .16), rgba(242, 182, 50, .04)); border-radius: 10px; padding: 12px 16px; cursor: pointer; }
+.showbtn b { font-family: var(--f-display); font-size: 22px; color: var(--amber); }
+.showbtn small { color: var(--muted); font-size: 13px; }
+.showroom-bar { position: absolute; z-index: 6; left: 50%; transform: translateX(-50%); bottom: calc(18px + env(safe-area-inset-bottom, 0px)); display: grid; justify-items: center; gap: 8px; background: var(--panel); border: 1px solid var(--rule); border-radius: 12px; padding: 12px 16px; max-width: calc(100% - 32px); }
+.showroom-bar .btn { margin-top: 0; }
+.showroom-bar small { color: var(--muted); }
+#app.showroom .task, #app.showroom .score, #app.showroom .cluster, #app.showroom .minimap, #app.showroom .touchpad, #app.showroom .log { display: none !important; }
+
 /* touch controls */
 .touchpad { display: none; }
 #app.touch .touchpad {

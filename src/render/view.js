@@ -60,6 +60,8 @@ export class View {
 
     this.mode = "cockpit";
     this.look = 0;
+    this.orbit = { az: 2.5, el: 0.22, dist: 7.5 };   // 360-degree view around the car
+    this.drag = { yaw: 0, pitch: 0 };                 // mouse/touch look from the driver's seat
     this.chasePos = null;
     this.worldGroup = null;
   }
@@ -121,8 +123,8 @@ export class View {
     const cam = this.cam;
     if (this.mode === "cockpit") {
       const eye = root.localToWorld(new THREE.Vector3(1.2, 1.22, -0.37));
-      const yaw = this.look;
-      const tgt = root.localToWorld(new THREE.Vector3(1.2 + 10 * Math.cos(yaw), 0.75, -0.37 + 10 * Math.sin(yaw)));
+      const yaw = this.look + this.drag.yaw, pitch = this.drag.pitch;
+      const tgt = root.localToWorld(new THREE.Vector3(1.2 + 10 * Math.cos(yaw) * Math.cos(pitch), 0.75 + 10 * Math.sin(pitch), -0.37 + 10 * Math.sin(yaw) * Math.cos(pitch)));
       cam.position.copy(eye); cam.lookAt(tgt);
       if (cam.fov !== 68) { cam.fov = 68; cam.updateProjectionMatrix(); }
     } else if (this.mode === "chase") {
@@ -134,6 +136,12 @@ export class View {
       cam.position.copy(this.chasePos);
       cam.lookAt(cp.clone().addScaledVector(f, 2).add(new THREE.Vector3(0, 1, 0)));
       if (cam.fov !== 55) { cam.fov = 55; cam.updateProjectionMatrix(); }
+    } else if (this.mode === "orbit") {
+      const o = this.orbit, a = car.th + o.az;
+      const c = cp.clone().addScaledVector(f, 1.25).add(new THREE.Vector3(0, 0.75, 0));
+      cam.position.set(c.x + o.dist * Math.cos(o.el) * Math.cos(a), Math.max(0.25, c.y + o.dist * Math.sin(o.el)), c.z + o.dist * Math.cos(o.el) * Math.sin(a));
+      cam.lookAt(c);
+      if (cam.fov !== 45) { cam.fov = 45; cam.updateProjectionMatrix(); }
     } else {
       cam.up.set(0, 0, -1);
       cam.position.set(car.x, car.h + 34, car.y + 0.01);

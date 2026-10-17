@@ -3,7 +3,7 @@
 // (Cobalt: 4.48 long, 1.735 wide, 1.51 tall, 2.62 wheelbase).
 import * as THREE from "three";
 
-export const DIM = { rear: -1.0, front: 3.46, hw: 0.8675, wb: 2.62, wheelR: 0.317, archR: 0.385 };
+export const DIM = { rear: -1.0, front: 3.46, hw: 0.861, wb: 2.62, wheelR: 0.317, archR: 0.385 };
 
 // C1 cubic Hermite spline through [x, y] points
 function spline(pts) {
@@ -21,12 +21,14 @@ function spline(pts) {
 }
 const smooth = t => { t = Math.min(1, Math.max(0, t)); return t * t * (3 - 2 * t); };
 
-// top of the lower body: trunk deck, rising beltline, bonnet
-export const belt = spline([[-1.0, 0.97], [-0.95, 1.03], [-0.75, 1.058], [-0.3, 1.068], [0.05, 1.075], [1.0, 1.055], [2.0, 1.02],
-  [2.55, 0.995], [2.95, 0.95], [3.25, 0.9], [3.4, 0.865], [3.46, 0.8]]);
-// greenhouse top: rear screen, roof, windscreen (only between 0.05 and 2.55)
-export const roof = spline([[0.05, 1.075], [0.3, 1.25], [0.55, 1.385], [0.8, 1.468], [1.1, 1.505], [1.4, 1.512], [1.7, 1.492],
-  [1.92, 1.445], [2.15, 1.31], [2.35, 1.165], [2.55, 0.995]]);
+// Profiles traced from a side photo of the 2020+ Cobalt (scaled to the real 1.514 m height):
+// top of the lower body: high trunk deck, beltline rising towards the rear, bonnet
+export const belt = spline([[-1.0, 1.0], [-0.96, 1.07], [-0.85, 1.115], [-0.6, 1.135], [-0.25, 1.145], [-0.1, 1.15], [0.3, 1.125],
+  [1.0, 1.09], [2.0, 1.05], [2.5, 1.04], [2.8, 1.01], [3.1, 0.96], [3.3, 0.905], [3.42, 0.86], [3.46, 0.8]]);
+// greenhouse top: long rear screen, roof, long raked windscreen (only between -0.1 and 2.5)
+export const roof = spline([[-0.1, 1.15], [0.1, 1.27], [0.35, 1.4], [0.62, 1.475], [0.9, 1.505], [1.15, 1.514], [1.4, 1.505],
+  [1.6, 1.475], [1.85, 1.38], [2.1, 1.25], [2.3, 1.14], [2.5, 1.04]]);
+export const GH = { x0: -0.1, x1: 2.5 };
 const bottomBase = spline([[-1.0, 0.46], [-0.85, 0.37], [-0.6, 0.35], [3.2, 0.33], [3.4, 0.36], [3.46, 0.42]]);
 export function bottom(x) {
   let b = bottomBase(x);
@@ -38,12 +40,14 @@ export function bottom(x) {
 }
 // plan view: rounded nose (narrow), boxier tail
 export function plan(x) {
-  if (x > 2.9) { const t = (x - 2.9) / (DIM.front - 2.9), p = 2.4; return 0.64 + 0.36 * Math.pow(Math.max(0, 1 - Math.pow(t, p)), 1 / p); }
-  if (x < -0.5) { const t = (-0.5 - x) / (-0.5 - DIM.rear), p = 2.8; return 0.86 + 0.14 * Math.pow(Math.max(0, 1 - Math.pow(t, p)), 1 / p); }
+  if (x > 2.95) { const t = (x - 2.95) / (DIM.front - 2.95), p = 2.2; return 0.78 + 0.22 * Math.pow(Math.max(0, 1 - Math.pow(t, p)), 1 / p); }
+  if (x < -0.6) { const t = (-0.6 - x) / (-0.6 - DIM.rear), p = 3; return 0.88 + 0.12 * Math.pow(Math.max(0, 1 - Math.pow(t, p)), 1 / p); }
   return 1;
 }
 // side bulge over the body height (0 = sill, 1 = shoulder)
-export const sideShape = yr => 0.955 + 0.045 * smooth(yr / 0.55) - 0.07 * smooth((yr - 0.86) / 0.14);
+// side bulge, with the shoulder crease (light catching ridge) that runs headlamp -> tail lamp
+export const sideShape = yr => 0.955 + 0.045 * smooth(yr / 0.55) - 0.07 * smooth((yr - 0.86) / 0.14)
+  + 0.013 * Math.exp(-(((yr - 0.7) / 0.045) ** 2)) - 0.006 * smooth((yr - 0.72) / 0.05);
 export const halfWidth = x => DIM.hw * plan(x);
 export function sideZ(x, y) {
   const b = bottom(x), t = belt(x) - 0.045;
@@ -94,7 +98,8 @@ function toGeometry(pos, groups) {
   const g = new THREE.BufferGeometry();
   g.setAttribute("position", new THREE.Float32BufferAttribute(pos, 3));
   const idx = []; let start = 0;
-  groups.forEach((gr, m) => { idx.push(...gr); g.addGroup(start, gr.length, m); start += gr.length; });
+  // empty groups would export as broken primitives, so only keep the used ones
+  groups.forEach((gr, m) => { if (!gr.length) return; idx.push(...gr); g.addGroup(start, gr.length, m); start += gr.length; });
   g.setIndex(idx);
   g.computeVertexNormals();
   return g;
@@ -130,18 +135,22 @@ export function buildBodyGeometries() {
   }, 4);
 
   const gxs = [];
-  for (let x = 0.05; x < 2.55 - 1e-6; x += 0.02) gxs.push(x);
-  gxs.push(2.55);
+  for (let x = GH.x0; x < GH.x1 - 1e-6; x += 0.02) gxs.push(x);
+  gxs.push(GH.x1);
   const green = loft(gxs, greenSection, (x, y, z, jh) => {
     const bel = belt(x), rf = roof(x);
     if (jh < 8) {
-      const inBand = y > bel + 0.035 && y < rf - 0.045 && rf - bel > 0.12;
-      if (inBand && x > 1.03 && x < 1.13) return MAT.black;                  // B-pillar trim
-      if (inBand && x >= 2.26 && x < 2.42) return MAT.black;                  // mirror sail triangle
-      if (inBand && ((x >= 1.13 && x < 2.26) || (x > 0.34 && x <= 1.03))) return MAT.glass;
+      const tall = rf - bel > 0.12;
+      const inBand = y > bel + 0.03 && y < rf - 0.045 && tall;
+      const inFrame = y > bel + 0.015 && y < rf - 0.03 && tall;                // black window surround
+      if (inFrame && x > 1.03 && x < 1.13) return MAT.black;                 // B-pillar
+      if (inFrame && x >= 2.12 && x < 2.34) return MAT.black;                // mirror sail
+      const front = x >= 1.13 && x < 2.12, rear = x > 0.28 && x <= 1.03;
+      if (inBand && (front || rear)) return MAT.glass;
+      if (inFrame && (front || rear)) return MAT.black;
       return MAT.paint;
     }
-    if (jh >= 12 && (x > 1.88 || x < 0.76)) return MAT.glass;                 // windscreen / rear screen
+    if (jh >= 12 && (x > 1.62 || x < 0.58)) return MAT.glass;                 // windscreen / rear screen
     return MAT.paint;
   }, 5);
 

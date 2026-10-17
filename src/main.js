@@ -19,7 +19,7 @@ const saveSettings = () => { try { localStorage.setItem("avtodrom.settings", JSO
 
 let session = null, mode = null, elementId = null, paused = true, ended = false;
 const app = document.getElementById("app");
-const hud = new Hud(app, { settings, start, resume, action: onAction, resultAction, useCar });
+const hud = new Hud(app, { settings, start, resume, action: onAction, resultAction, useCar, showroom: openShowroom });
 const view = new View(hud.canvas);
 const audio = new CarAudio();
 const controls = new Controls(hud.canvas, onAction);
@@ -36,6 +36,7 @@ if (coarse) app.classList.add("touch");
 const TITLES = { exam: "To'liq avtodrom · Imtihon", training: "To'liq avtodrom · Trening" };
 
 function start(m, el) {
+  if (inShowroom) { inShowroom = false; hud.showShowroom(false); }
   audio.start(); audio.setMuted(settings.muted); audio.voiceOn = settings.voice;
   saveSettings();
   mode = m; elementId = el || null; ended = false;
@@ -51,6 +52,28 @@ function start(m, el) {
   audio.chime();
   if (m === "practice") audio.say(`Mashq: ${ELEMENTS.find(e => e.id === el).name}`);
   else audio.say("Start ishorasini kuting");
+}
+
+// 360-degree showroom: the car parked, camera driven by mouse/touch
+let inShowroom = false;
+function openShowroom() {
+  audio.start(); audio.setMuted(settings.muted);
+  const W = buildPractice("tezlashish");
+  session = new Session(W, { mode: "practice", transmission: settings.transmission });
+  view.setWorld(W, settings.quality);
+  view.orbit = { az: 2.5, el: 0.2, dist: 7.5 }; view.drag = { yaw: 0, pitch: 0 };
+  view.setMode("orbit");
+  hud.reset(session, "Chevrolet Cobalt");
+  hud.hideMenu();
+  inShowroom = true; paused = true; ended = false;
+  hud.showShowroom(true, showroomAction);
+}
+function showroomAction(a) {
+  const car = session.car;
+  if (a === "orbit") view.setMode("orbit");
+  else if (a === "cockpit") { view.drag = { yaw: 0, pitch: 0 }; view.setMode("cockpit"); }
+  else if (a === "lights") { const on = !car.engineOn; car.engineOn = on; car.rpm = on ? 850 : 0; car.hazard = on; car.brake = on ? 1 : 0; }
+  else if (a === "exit") { inShowroom = false; hud.showShowroom(false); hud.showMenu({ canResume: false }); }
 }
 
 function resume() { if (session && !ended) { hud.hideMenu(); paused = false; } }
@@ -103,7 +126,7 @@ function onAction(a) {
   if (a === "padConnected") return hud.toast("Rul / gamepad ulandi");
   if (a === "mute") { settings.muted = !settings.muted; audio.setMuted(settings.muted); showMute(); saveSettings(); if (!settings.muted) audio.chime(); return; }
   if (a === "mouse") { settings.mouseSteer = controls.mouseSteer = !controls.mouseSteer; document.getElementById("mouseBtn").classList.toggle("on", settings.mouseSteer); hud.toast(settings.mouseSteer ? "Rul sichqoncha bilan: kursorni chapga-o'ngga suring" : "Rul klaviatura bilan"); saveSettings(); return; }
-  if (a === "camera") { const order = ["cockpit", "chase", "top"]; settings.camera = order[(order.indexOf(view.mode) + 1) % 3]; view.setMode(settings.camera); saveSettings(); return; }
+  if (a === "camera") { const order = ["cockpit", "chase", "orbit", "top"]; settings.camera = order[(order.indexOf(view.mode) + 1) % 4]; view.setMode(settings.camera); saveSettings(); return; }
   if (a === "map") return hud.toggleMinimap();
   if (a === "log") return hud.toggleLog();
   if (a === "pause") {
@@ -173,6 +196,43 @@ const bump = {
 };
 let countdown = -1;
 
+// drag to look around (cockpit) or orbit the car (360); wheel / pinch to zoom
+{
+  const cv = hud.canvas, pts = new Map();
+  let pinch = 0;
+  cv.addEventListener("pointerdown", e => {
+    if (controls.mouseSteer && view.mode === "cockpit" && !inShowroom) return;
+    pts.set(e.pointerId, [e.clientX, e.clientY]);
+    try { cv.setPointerCapture(e.pointerId); } catch (_) {}
+  });
+  cv.addEventListener("pointermove", e => {
+    const p = pts.get(e.pointerId); if (!p) return;
+    const dx = e.clientX - p[0], dy = e.clientY - p[1];
+    pts.set(e.pointerId, [e.clientX, e.clientY]);
+    if (pts.size === 2) {
+      const [a, b] = [...pts.values()], d = Math.hypot(a[0] - b[0], a[1] - b[1]);
+      if (pinch) view.orbit.dist = Math.min(18, Math.max(3, view.orbit.dist * pinch / d));
+      pinch = d; return;
+    }
+    if (view.mode === "orbit") {
+      view.orbit.az -= dx * 0.008;
+      view.orbit.el = Math.min(1.35, Math.max(-0.05, view.orbit.el + dy * 0.006));
+    } else if (view.mode === "cockpit") {
+      view.drag.yaw = Math.min(Math.PI, Math.max(-Math.PI, view.drag.yaw + dx * 0.005));
+      view.drag.pitch = Math.min(0.6, Math.max(-0.7, view.drag.pitch - dy * 0.004));
+    }
+  });
+  const up = e => { pts.delete(e.pointerId); if (pts.size < 2) pinch = 0; };
+  cv.addEventListener("pointerup", up); cv.addEventListener("pointercancel", up);
+  cv.addEventListener("wheel", e => {
+    if (view.mode !== "orbit") return;
+    e.preventDefault();
+    view.orbit.dist = Math.min(18, Math.max(3, view.orbit.dist * (e.deltaY > 0 ? 1.1 : 0.9)));
+  }, { passive: false });
+  cv.addEventListener("dblclick", () => { view.drag = { yaw: 0, pitch: 0 }; });
+  view.isDragging = () => pts.size > 0;
+}
+
 // deep links: #imtihon, #trening, #mashq-<element id>
 {
   const h = location.hash.slice(1);
@@ -195,6 +255,11 @@ function frame(now) {
     } else acc = 0;
     view.look = controls.look;
     app.classList.toggle("cockpit", view.mode === "cockpit");
+    // while driving, the head turns back to the road when you let go
+    if (!inShowroom && !view.isDragging() && view.mode === "cockpit") {
+      const k = Math.min(1, dt * 2.5);
+      view.drag.yaw -= view.drag.yaw * k; view.drag.pitch -= view.drag.pitch * k;
+    }
     view.update(session, dt, now);
     view.render();
     if (now - lastHud > 60) { hud.update(session, view, now); lastHud = now; }

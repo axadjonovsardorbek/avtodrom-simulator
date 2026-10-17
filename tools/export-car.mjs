@@ -14,8 +14,8 @@ const url = server.resolvedUrls.local[0];
 const browser = await puppeteer.launch({ executablePath: chrome, headless: "new", args: ["--use-angle=swiftshader", "--enable-unsafe-swiftshader"] });
 try {
   const page = await browser.newPage();
-  await page.goto(url, { waitUntil: "networkidle0" });
-  await page.waitForFunction(() => typeof window.__exportCar === "function");
+  await page.goto(url, { waitUntil: "load", timeout: 120000 });
+  await page.waitForFunction(() => typeof window.__exportCar === "function", { timeout: 120000 });
   const b64 = await page.evaluate(() => window.__exportCar());
   const out = join(root, "public/models/cobalt.glb");
   mkdirSync(dirname(out), { recursive: true });

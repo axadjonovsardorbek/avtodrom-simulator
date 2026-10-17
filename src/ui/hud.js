@@ -99,6 +99,7 @@ export class Hud {
           <label>Ovozli ko'rsatmalar
             <select id="optVoice"><option value="on">Yoqilgan</option><option value="off">O'chirilgan</option></select></label>
         </div>
+        <button class="showbtn" id="showroomBtn"><b>Mashinani 360° ko'rish</b><small>Tashqi ko'rinish va salon: sichqoncha yoki barmoq bilan aylantiring</small></button>
         <h2>To'liq avtodrom</h2>
         <div class="modes">
           <button class="big primary" data-mode="exam"><b>Imtihon</b><small>13 mashq ketma-ket. ${PASS_LIMIT} balldan oshsa, imtihon to'xtatiladi.</small></button>
@@ -120,6 +121,22 @@ export class Hud {
     m.querySelectorAll("[data-mode]").forEach(b => b.onclick = () => this.h.start(b.dataset.mode));
     m.querySelectorAll("[data-el]").forEach(b => b.onclick = () => this.h.start("practice", b.dataset.el));
     const r = $("#resume", m); if (r) r.onclick = () => this.h.resume();
+    $("#showroomBtn", m).onclick = () => this.h.showroom();
+  }
+
+  showShowroom(on, handlers) {
+    let el = $("#showroom", this.root);
+    if (!el) {
+      el = document.createElement("div"); el.id = "showroom"; el.className = "showroom-bar";
+      el.innerHTML = `<span class="eyebrow">Chevrolet Cobalt · 360°</span>
+        <div class="acts"><button class="btn primary" data-s="orbit">Tashqi</button><button class="btn" data-s="cockpit">Salon</button>
+        <button class="btn" data-s="lights">Chiroqlar</button><button class="btn" data-s="exit">Menyu</button></div>
+        <small>Sudrab aylantiring · g'ildirakcha yoki ikki barmoq bilan yaqinlashtiring</small>`;
+      this.root.appendChild(el);
+      el.querySelectorAll("[data-s]").forEach(b => b.onclick = () => { b.blur(); handlers(b.dataset.s); el.querySelectorAll("[data-s]").forEach(x => x.classList.toggle("primary", x === b && b.dataset.s !== "lights" && b.dataset.s !== "exit")); });
+    }
+    el.hidden = !on;
+    this.root.classList.toggle("showroom", on);
   }
   hideMenu() { $("#menu", this.root).hidden = true; }
 
@@ -140,6 +157,7 @@ export class Hud {
           <dt><kbd>K</kbd></dt><dd>Xavfsizlik kamari</dd>
           <dt><kbd>Z</kbd> <kbd>X</kbd></dt><dd>Chapga / o'ngga qarash</dd>
           <dt><kbd>C</kbd> <kbd>M</kbd> <kbd>L</kbd></dt><dd>Kamera, xarita, ovoz</dd>
+          <dt>Sichqoncha</dt><dd>Kabinada sudrab atrofga qarang (ikki marta bosish: oldinga). "360°" kamerada mashinani aylantiring, g'ildirakcha bilan yaqinlashtiring</dd>
           <dt><kbd>Esc</kbd></dt><dd>Menyu</dd>
         </dl>
         <p>Rul yoki gamepad ulansa: chap stik rul, RT gaz, LT tormoz, LB ilashish, A/B uzatma yuqori/past.</p>
@@ -216,7 +234,7 @@ export class Hud {
     $("#pC", r).style.height = car.clutch * 100 + "%";
     $("#pB", r).style.height = car.brake * 100 + "%";
     $("#pG", r).style.height = car.throttle * 100 + "%";
-    $("#camLabel", r).textContent = { cockpit: "Kabina", chase: "Orqadan", top: "Yuqoridan" }[view.mode];
+    $("#camLabel", r).textContent = { cockpit: "Kabina", chase: "Orqadan", orbit: "360°", top: "Yuqoridan" }[view.mode];
 
     this.drawMinimap(s);
   }
