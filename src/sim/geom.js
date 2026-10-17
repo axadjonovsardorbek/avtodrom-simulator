@@ -66,8 +66,10 @@ export function offsetPolyline(pts, d) {
     const p = pts[i];
     const a = pts[Math.max(0, i - 1)], b = pts[Math.min(n - 1, i + 1)];
     let n1 = null, n2 = null;
-    if (i > 0) { const dx = p[0] - a[0], dy = p[1] - a[1], L = Math.hypot(dx, dy) || 1; n1 = [-dy / L, dx / L]; }
-    if (i < n - 1) { const dx = b[0] - p[0], dy = b[1] - p[1], L = Math.hypot(dx, dy) || 1; n2 = [-dy / L, dx / L]; }
+    // zero-length neighbours (repeated points) give no direction
+    if (i > 0) { const dx = p[0] - a[0], dy = p[1] - a[1], L = Math.hypot(dx, dy); if (L > 1e-9) n1 = [-dy / L, dx / L]; }
+    if (i < n - 1) { const dx = b[0] - p[0], dy = b[1] - p[1], L = Math.hypot(dx, dy); if (L > 1e-9) n2 = [-dy / L, dx / L]; }
+    if (!n1 && !n2) { out.push(out.length ? out[out.length - 1].slice() : p.slice()); continue; }
     let m = n1 && n2 ? [n1[0] + n2[0], n1[1] + n2[1]] : (n1 || n2);
     const ml = Math.hypot(m[0], m[1]) || 1; m = [m[0] / ml, m[1] / ml];
     const ref = n1 || n2;
@@ -75,6 +77,29 @@ export function offsetPolyline(pts, d) {
     out.push([p[0] + m[0] * d / cosH, p[1] + m[1] * d / cosH]);
   }
   return out;
+}
+
+// Offsetting the inside of a sharp corner makes the line run past the corner and back
+// (a small loop that sticks out into the road). Collapse each such loop onto the point
+// where the line crosses itself; the vertex count stays the same so per-vertex data still lines up.
+export function untangle(pts, window = 16) {
+  const out = pts.map(p => p.slice());
+  for (let i = 0; i < out.length - 3; i++) {
+    for (let j = Math.min(out.length - 2, i + window); j > i + 1; j--) {
+      const X = segPoint(out[i], out[i + 1], out[j], out[j + 1]);
+      if (!X) continue;
+      for (let k = i + 1; k <= j; k++) out[k] = X.slice();
+      i = j; break;
+    }
+  }
+  return out;
+}
+function segPoint(a, b, c, d) {
+  const rx = b[0] - a[0], ry = b[1] - a[1], sx = d[0] - c[0], sy = d[1] - c[1];
+  const den = rx * sy - ry * sx;
+  if (Math.abs(den) < 1e-12) return null;
+  const t = ((c[0] - a[0]) * sy - (c[1] - a[1]) * sx) / den, u = ((c[0] - a[0]) * ry - (c[1] - a[1]) * rx) / den;
+  return t > 1e-9 && t < 1 - 1e-9 && u > 1e-9 && u < 1 - 1e-9 ? [a[0] + t * rx, a[1] + t * ry] : null;
 }
 
 // Cut a polyline (with per-vertex distance array) removing s-intervals.

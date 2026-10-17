@@ -74,6 +74,26 @@ export function dressCobalt(cv) {
   front.position.set(3.582, 0.45, 0); car.add(front);
   const rear = front.clone(); rear.position.set(-0.882, 0.545, 0); rear.rotation.y = Math.PI; car.add(rear);
 
+  // rectangular vents of the facelift dashboard over the round 2014 ones
+  const slats = canvasTex(64, 64, (g, w, h) => {
+    g.fillStyle = "#0b0c0e"; g.fillRect(0, 0, w, h);
+    for (let y = 4; y < h; y += 9) { g.fillStyle = "#3a3d42"; g.fillRect(0, y, w, 3); g.fillStyle = "#55595f"; g.fillRect(0, y, w, 1); }
+  });
+  const ventFrame = new THREE.MeshPhysicalMaterial({ color: 0x1a1b1e, roughness: 0.3, clearcoat: 0.6 });
+  const ventGrille = new THREE.MeshStandardMaterial({ map: slats, roughness: 0.6 });
+  const vent = (x, y, z, w, h, tilt) => {
+    const g = new THREE.Group(); g.position.set(x, y, z); g.rotation.set(0, -Math.PI / 2, 0, "YXZ"); g.rotateX(-tilt);
+    const frame = new THREE.Mesh(new THREE.BoxGeometry(w + 0.024, h + 0.024, 0.03), ventFrame); g.add(frame);
+    const grille = new THREE.Mesh(new THREE.PlaneGeometry(w, h), ventGrille); grille.position.z = 0.0155; g.add(grille);
+    const tab = new THREE.Mesh(new THREE.BoxGeometry(0.014, 0.008, 0.012), new THREE.MeshStandardMaterial({ color: 0x8c9096, metalness: 0.8, roughness: 0.3 }));
+    tab.position.set(0, -h / 2 + 0.004, 0.02); g.add(tab);
+    car.add(g);
+  };
+  vent(2.215, 0.826, -0.022, 0.105, 0.062, 0.15);    // centre pair
+  vent(2.215, 0.826, 0.098, 0.105, 0.062, 0.15);
+  vent(2.19, 0.752, -0.565, 0.1, 0.062, 0.05);       // sides
+  vent(2.19, 0.752, 0.585, 0.1, 0.062, 0.05);
+
   // gold bowtie on the airbag cover, kept level in the wheel's own frame
   const wheel = car.getObjectByName("steering_wheel");
   if (wheel) {

@@ -1,6 +1,6 @@
 // Static description of a driving ground: road surfaces, painted lines,
 // props, ramps and the ordered list of exam tasks. No rendering here.
-import { offsetPolyline, cutPolyline, toLocal, toWorld } from "../sim/geom.js";
+import { offsetPolyline, cutPolyline, untangle, toLocal, toWorld } from "../sim/geom.js";
 
 const CELL = 5;
 
@@ -41,7 +41,7 @@ export class World {
     this.roads.push({ pts: seg.pts, width: seg.width, surface: seg.surface });
     if (!seg.noEdges) {
       for (const [d, gaps] of [[-hw, seg.gapsL], [hw, seg.gapsR]]) {
-        const off = offsetPolyline(seg.pts, d);
+        const off = untangle(offsetPolyline(seg.pts, d));
         for (const piece of cutPolyline(off, seg.sArr, gaps)) this.addLine(piece, seg.kind);
       }
     }

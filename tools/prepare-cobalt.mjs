@@ -14,7 +14,7 @@ import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import { GLTFExporter } from "three/examples/jsm/exporters/GLTFExporter.js";
 import { NodeIO } from "@gltf-transform/core";
 import { ALL_EXTENSIONS } from "@gltf-transform/extensions";
-import { dedup, weld, simplify, prune, meshopt } from "@gltf-transform/functions";
+import { dedup, weld, simplifyPrimitive, prune, meshopt } from "@gltf-transform/functions";
 import { MeshoptSimplifier, MeshoptEncoder } from "meshoptimizer";
 
 // GLTFExporter (binary) needs FileReader, which Node does not have
@@ -100,9 +100,9 @@ for (const m of steerParts) steer.attach(m);
 /* ---------- materials ---------- */
 const named = {};
 car.traverse(o => { if (o.isMesh) for (const m of [].concat(o.material)) named[m.name] = m; });
-const paint = new THREE.MeshPhysicalMaterial({ name: "paint", color: 0xf3f4f2, roughness: 0.28, metalness: 0.15, clearcoat: 1, clearcoatRoughness: 0.1 });
+const paint = new THREE.MeshPhysicalMaterial({ name: "paint", color: 0xf3f4f2, roughness: 0.28, metalness: 0.15, clearcoat: 1, clearcoatRoughness: 0.1, side: THREE.DoubleSide });
 const glass = new THREE.MeshPhysicalMaterial({ name: "glass", color: 0x1c242d, roughness: 0.02, metalness: 0.1, transparent: true, opacity: 0.3, clearcoat: 1, side: THREE.DoubleSide, depthWrite: false });
-const trim = new THREE.MeshStandardMaterial({ name: "trim", color: 0x232427, roughness: 0.75 });
+const trim = new THREE.MeshStandardMaterial({ name: "trim", color: 0x232427, roughness: 0.75, side: THREE.DoubleSide });
 const greyTrim = new THREE.MeshStandardMaterial({ name: "trim_grey", color: 0x6d7075, roughness: 0.8 });
 const metal = new THREE.MeshStandardMaterial({ name: "metal", color: 0xb8bcc1, roughness: 0.3, metalness: 0.9 });
 const head = new THREE.MeshStandardMaterial({ name: "lamp_head", color: 0xdfe4ea, emissive: 0xfff3d6, emissiveIntensity: 0.05, roughness: 0.15, metalness: 0.6 });
@@ -242,7 +242,16 @@ await MeshoptSimplifier.ready; await MeshoptEncoder.ready;
 const io = new NodeIO().registerExtensions(ALL_EXTENSIONS).registerDependencies({ "meshopt.encoder": MeshoptEncoder });
 const doc = await io.read(tmp);
 doc.getRoot().getAsset().extras = { credit: car.userData.credit, source: "https://sketchfab.com/3d-models/chevrolet-cobalt-ltz-2014-f91cbef731444f939e263041400216ca", license: "CC-BY-4.0" };
-await doc.transform(dedup(), weld(), simplify({ simplifier: MeshoptSimplifier, ratio: 0.3, error: 0.0006 }), prune(), meshopt({ encoder: MeshoptEncoder, level: "medium" }));
+await doc.transform(dedup(), weld());
+// simplify everything except the wheels: a simplified tyre is no longer round and wobbles when it spins
+const wheelNodes = new Set();
+for (const n of doc.getRoot().listNodes()) if (/^wheel_spin_/.test(n.getName())) n.traverse(c => wheelNodes.add(c));
+for (const n of doc.getRoot().listNodes()) {
+  const mesh = n.getMesh();
+  if (!mesh || wheelNodes.has(n)) continue;
+  for (const prim of mesh.listPrimitives()) simplifyPrimitive(prim, { simplifier: MeshoptSimplifier, ratio: 0.35, error: 0.0004, lockBorder: true });   // lockBorder: no cracks along panel edges
+}
+await doc.transform(prune(), meshopt({ encoder: MeshoptEncoder, level: "medium" }));
 const out = join(ROOT, "public/models/cobalt.glb");
 await io.write(out, doc);
 writeFileSync(join(ROOT, "src/cars/cobalt-dims.json"), JSON.stringify(info, null, 1) + "\n");
