@@ -41,7 +41,7 @@ Havola orqali to'g'ridan-to'g'ri ochish: `#imtihon`, `#trening`, `#mashq-ilon` (
 
 ## Rejimlar
 
-- **Imtihon**: butun avtodrom bo'ylab 13 mashq ketma-ket. Jarima 20 balldan oshsa, imtihon to'xtatiladi.
+- **Imtihon**: butun avtodrom bo'ylab 13 mashq ketma-ket. Jarima 20 balldan oshsa imtihondan o'tilmaydi, 100 balldan oshsa imtihon to'xtatiladi (`STOP_LIMIT`).
 - **Trening**: xuddi shu marshrut, lekin xatodan keyin ham davom etasiz.
 - **Alohida mashq**: 12 elementdan birini qisqa maydonda mashq qilish.
 
@@ -113,6 +113,10 @@ tests/        node testlari va brauzer skrinshot skriptlari
 tools/        export-car.mjs: kod modelini .glb ga chiqarish
 public/models/  mashina modellari (.glb)
 ```
+
+## Litsenziya
+
+Kod: MIT (`LICENSE`). Modellar, ovozlar va musiqa o'z litsenziyasida: `CREDITS.md`.
 
 ## Taxminlar
 

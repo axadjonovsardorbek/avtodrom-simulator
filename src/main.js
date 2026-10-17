@@ -2,7 +2,7 @@ import "./style.css";
 import { buildFull, buildPractice, ELEMENTS } from "./world/tracks.js";
 import { Session, START_SIGNAL_AT } from "./sim/session.js";
 import { toLocal } from "./sim/geom.js";
-import { PASS_LIMIT } from "./sim/penalties.js";
+import { PASS_LIMIT, STOP_LIMIT } from "./sim/penalties.js";
 import { View } from "./render/view.js";
 import { CarAudio } from "./render/audio.js";
 import { Controls } from "./ui/input.js";
@@ -119,7 +119,8 @@ function handleEvent(ev) {
       else if (!instructor.on) audio.prompt("pen_" + ev.code, `Xato. ${ev.pts} ball`);
       break;
     case "stopFarNow": fayzullaFor = session.currentTask; hud.toast("To'xtash chizig'idan 1 m dan uzoqda to'xtadingiz", "bad"); audio.prompt("clips/fayzulla", null, true); break;
-    case "limit": hud.toast(`Jarima ${PASS_LIMIT} balldan oshdi${session.strict ? ": imtihon to'xtatildi" : ""}`, "bad"); audio.prompt("limit"); break;
+    case "limit": hud.toast(`Jarima ${PASS_LIMIT} balldan oshdi: imtihondan o'tolmaysiz${session.strict ? `, ${STOP_LIMIT} balldan oshsa to'xtatiladi` : ""}`, "bad"); audio.prompt("limit"); break;
+    case "stopLimit": hud.toast(`Jarima ${STOP_LIMIT} balldan oshdi: imtihon to'xtatildi`, "bad"); break;
     case "task": hud.toast(`Mashq: ${ev.task.name}`); if (mode !== "practice") audio.prompt("task_" + ev.task.id, ev.task.name); break;
     case "taskDone": if (ev.ok) { hud.toast(`${ev.task.short}: bajarildi`, "good"); audio.chime(); audio.prompt("done"); } break;
     case "stage": hud.toast("Bosqich bajarildi", "good"); audio.chime(); audio.prompt("stage"); break;

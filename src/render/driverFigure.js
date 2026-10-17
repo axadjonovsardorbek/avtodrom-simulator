@@ -52,9 +52,10 @@ export function buildDriver() {
   for (const s of [-1, 1]) {
     const z = s * 0.1;
     body.add(limb([0, 0, z], [0.44, 0.05, z * 1.1], 0.075, M.jeans));
-    body.add(limb([0.44, 0.05, z * 1.1], [0.6, -0.3, z * 1.15], 0.058, M.jeans));
-    const shoe = new THREE.Mesh(new THREE.BoxGeometry(0.26, 0.08, 0.1), M.shoe); shoe.position.set(0.68, -0.34, z * 1.15); shoe.rotation.z = 0.35; body.add(shoe);
-    const sole = new THREE.Mesh(new THREE.BoxGeometry(0.27, 0.025, 0.105), M.sole); sole.position.set(0.67, -0.38, z * 1.15); sole.rotation.z = 0.35; body.add(sole);
+    // shins go forward to the pedals so the feet stay above the cabin floor (~0.22 m below the hip)
+    body.add(limb([0.44, 0.05, z * 1.1], [0.74, -0.16, z * 1.15], 0.058, M.jeans));
+    const shoe = new THREE.Mesh(new THREE.BoxGeometry(0.25, 0.08, 0.1), M.shoe); shoe.position.set(0.82, -0.19, z * 1.15); shoe.rotation.z = 0.55; body.add(shoe);
+    const sole = new THREE.Mesh(new THREE.BoxGeometry(0.26, 0.025, 0.105), M.sole); sole.position.set(0.81, -0.225, z * 1.15); sole.rotation.z = 0.55; body.add(sole);
   }
   // torso
   const torso = new THREE.Group(); torso.rotation.z = LEAN; body.add(torso);

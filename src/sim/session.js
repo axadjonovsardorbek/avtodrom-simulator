@@ -1,7 +1,7 @@
 // One driving run: owns the vehicle, applies the exam rules, walks through
 // the world's tasks in order and records penalties.
 import { Vehicle } from "./vehicle.js";
-import { PEN, PASS_LIMIT, SPEED_TOL } from "./penalties.js";
+import { PEN, PASS_LIMIT, STOP_LIMIT, SPEED_TOL } from "./penalties.js";
 import { toLocal, polyTouchesSeg, polyNearPoint } from "./geom.js";
 
 export const START_SIGNAL_AT = 3;   // seconds after load the "Start" signal is given
@@ -49,8 +49,8 @@ export class Session {
     if (!this.limitHit && this.total > PASS_LIMIT) {
       this.limitHit = true;
       this.emit("limit", { total: this.total });
-      if (this.strict) this.end(false);
     }
+    if (this.strict && this.total > STOP_LIMIT) { this.emit("stopLimit", { total: this.total }); this.end(false); }
   }
 
   end(ok) {

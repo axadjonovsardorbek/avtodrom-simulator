@@ -34,5 +34,7 @@ export const PEN = {
 
 // Assumed pass threshold: the exam is failed when the total exceeds this.
 export const PASS_LIMIT = 20;
+// The exam keeps going past PASS_LIMIT (already failed) and is stopped only above this.
+export const STOP_LIMIT = 100;
 // The exam centre counts a 5 km/h measurement tolerance.
 export const SPEED_TOL = 5;

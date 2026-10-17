@@ -57,9 +57,9 @@ export function buildInstructor() {
   for (const s of [-1, 1]) {
     const z = s * 0.1;
     root.add(limb([0, 0, z], [0.42, 0.04, z * 1.15], 0.078, M.trousers));
-    root.add(limb([0.42, 0.04, z * 1.15], [0.5, -0.34, z * 1.2], 0.06, M.trousers));
+    root.add(limb([0.42, 0.04, z * 1.15], [0.7, -0.17, z * 1.2], 0.06, M.trousers));   // feet stay above the cabin floor
     const shoe = new THREE.Mesh(new THREE.BoxGeometry(0.24, 0.07, 0.1), M.shoe);
-    shoe.position.set(0.56, -0.39, z * 1.2); root.add(shoe);
+    shoe.position.set(0.78, -0.21, z * 1.2); shoe.rotation.z = 0.5; root.add(shoe);
   }
 
   // torso, leaning back with the seat
