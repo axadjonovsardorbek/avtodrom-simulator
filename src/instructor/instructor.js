@@ -17,21 +17,14 @@ const URGENT = new Set(["crash", "hill", "redLight", "rail", "reverse"]);
 // gesture that goes with a line
 const GESTURE = { good: "thumb", pass: "thumb", crash: "brace", hill: "brace", redLight: "brace", rail: "brace", go: "point", offRoute: "point", signal: "point", gear: "point" };
 
-// Mood "rude" (18+) is the angry instructor plus the user's own swearing recordings
-// (src/instructor/source/*.ogg -> public/audio/uz/ins/rude/<name>.mp3), picked by situation.
-const RUDE = {
-  crash: ["chingiz_iye", "jamshid"], redLight: ["chingiz_iye", "jamshid"], stall: ["chingiz_iye", "uka"],
-  speed: ["dal"], hill: ["dal", "chingiz_iye"], line: ["dal", "uka"], stopLine: ["dal", "uka"], offRoute: ["dal"],
-  notDone: ["dadangmanmi"], go: ["dadangmanmi"], slow: ["dadangmanmi"], gear: ["dadangmanmi"],
-  belt: ["davlataka"], signal: ["davlataka", "uka"], signalOff: ["uka"], early: ["uka"], hazard: ["uka"],
-  rail: ["jamshid"], reverse: ["chingiz_iye"], generic: ["uka", "haromi"], grind: ["chingiz_iye"],
-  limit: ["jamshid", "haromi"], fail: ["haromi", "jamshid"]
-};
-const RUDE_CLIPS = [...new Set(Object.values(RUDE).flat())];
+// Mood "rude" (18+) plays only the user's own recordings, shuffled, on every mistake
+// (src/instructor/source/*.ogg -> public/audio/uz/ins/rude/<name>.mp3).
+const RUDE_CLIPS = ["chingiz_iye", "dadangmanmi", "dal", "davlataka", "haromi", "jamshid", "uka"];
+const NOT_MISTAKES = new Set(["hello", "good", "pass"]);
 const voiceMood = mood => mood === "rude" ? "angry" : mood;
 
 export const lineIds = mood => Object.entries(LINES.lines).flatMap(([k, v]) => v[voiceMood(mood)].map((_, i) => `ins/${voiceMood(mood)}/${k}_${i}`))
-  .concat(mood === "rude" ? RUDE_CLIPS.map(c => "ins/rude/" + c) : []);
+  .filter(() => mood !== "rude").concat(mood === "rude" ? RUDE_CLIPS.map(c => "ins/rude/" + c) : []);
 
 export class Instructor {
   constructor(audio) {
@@ -50,6 +43,7 @@ export class Instructor {
 
   say(key, { urgent = URGENT.has(key), cooldown = 6 } = {}) {
     if (!this.on || !LINES.lines[key]) return;
+    if (this.mood === "rude") return this.rude(key);
     if (this.t - (this.last[key] ?? -99) < cooldown) return;
     if (!urgent && this.t - this.lastAny < 2.2) return;
     const mood = voiceMood(this.mood);
@@ -57,14 +51,22 @@ export class Instructor {
     let i = Math.floor(Math.random() * list.length);
     if (list.length > 1 && i === this.lastVariant[key]) i = (i + 1) % list.length;
     this.lastVariant[key] = i; this.last[key] = this.lastAny = this.t;
-    const clips = this.mood === "rude" && RUDE[key];
-    if (clips && this.t - (this.last.rude ?? -99) > 10 && Math.random() < 0.75) {
-      const c = clips.length > 1 && clips[0] === this.lastRude ? clips[1] : clips[Math.floor(Math.random() * clips.length)];
-      this.last.rude = this.t; this.lastRude = c;
-      this.audio.prompt("ins/rude/" + c, list[i], urgent, { pan: 0.35, talk: true });
-    } else this.audio.prompt(`ins/${mood}/${key}_${i}`, list[i], urgent, { pan: 0.35, talk: true });
+    this.audio.prompt(`ins/${mood}/${key}_${i}`, list[i], urgent, { pan: 0.35, talk: true });
     const g = GESTURE[key] || (mood === "angry" && key !== "hello" ? "angry" : null);
     if (g) { this.gesture = g; this.gestureUntil = this.t + (g === "thumb" ? 2.5 : 2.2); }
+  }
+
+  // one of the user's recordings for any mistake: a shuffled deck, so all play before one repeats
+  rude(key) {
+    if (NOT_MISTAKES.has(key) || this.audio.talking()) return;
+    if (!this.deck || !this.deck.length) {
+      this.deck = RUDE_CLIPS.slice().sort(() => Math.random() - 0.5);
+      if (this.deck[0] === this.lastRude) this.deck.push(this.deck.shift());
+    }
+    const c = this.lastRude = this.deck.shift();
+    this.lastAny = this.t;
+    this.audio.prompt("ins/rude/" + c, null, true, { pan: 0.2, talk: true });
+    this.gesture = "angry"; this.gestureUntil = this.t + 2.5;
   }
 
   // session events (penalty, taskDone, car, limit, end)
