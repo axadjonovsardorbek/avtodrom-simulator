@@ -109,11 +109,15 @@ export class Vehicle {
     const want = clamp(this.sw / s.wheelLock, -1, 1) * s.maxSteer, ds = want - this.steer;
     this.steer += Math.sign(ds) * Math.min(Math.abs(ds), s.steerRate * dt);
 
-    // terrain under the axles
-    const c = Math.cos(this.th), n = Math.sin(this.th);
-    const hR = heightAt(this.x, this.y), hF = heightAt(this.x + c * s.wb, this.y + n * s.wb);
-    this.h = (hR + hF) / 2;
+    // terrain under the four wheels: the car rests on them (pitch along, roll across)
+    const c = Math.cos(this.th), n = Math.sin(this.th), t2 = s.track / 2;
+    const at = (a, b) => heightAt(this.x + c * a - n * b, this.y + n * a + c * b);
+    const hRL = at(0, -t2), hRR = at(0, t2), hFL = at(s.wb, -t2), hFR = at(s.wb, t2);
+    const hR = (hRL + hRR) / 2, hF = (hFL + hFR) / 2;
+    this.h = hR;                                     // rear axle centre: the model's origin
     this.pitch = Math.atan2(hF - hR, s.wb);
+    // left side higher -> roof leans right (+); a wheel off the overpass edge tips the car
+    this.groundRoll = clamp(Math.atan2((hRL + hFL) / 2 - (hRR + hFR) / 2, s.track), -0.6, 0.6);
     this.grade = Math.sin(this.pitch);
     const Fload = s.mass * G * this.grade + s.aero * s.mass * this.v * Math.abs(this.v);
 
@@ -198,6 +202,10 @@ export class Vehicle {
     return (F - Fload) / s.mass;
   }
 
+  wheelPoints() {
+    const c = Math.cos(this.th), n = Math.sin(this.th), t2 = this.spec.track / 2, wb = this.spec.wb;
+    return [[0, -t2], [0, t2], [wb, -t2], [wb, t2]].map(([a, b]) => [this.x + c * a - n * b, this.y + n * a + c * b]);
+  }
   get front() { return this.spec.wb + this.spec.fOh; }
   get rear() { return -this.spec.rOh; }
   corners() {

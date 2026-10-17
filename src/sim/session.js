@@ -82,7 +82,12 @@ export class Session {
     if (this.state !== "running") return;
     const car = this.car, W = this.W;
     this.clock += dt;
+    const prev = { x: car.x, y: car.y, th: car.th };
     car.step(dt, (x, y) => W.heightAt(x, y));
+    if (W.ramps.length && W.offRampEdge(car.wheelPoints())) {
+      Object.assign(car, prev); car.v = 0;
+      if (this.clock - (this.kerbT ?? -9) > 2) { this.kerbT = this.clock; this.emit("car", { kind: "kerb", text: "Estakada chetiga tegdingiz" }); }
+    }
     for (const e of car.events) {
       if (e.type === "stall" && this.startSignal) this.pen("stall");
       this.emit("car", { kind: e.type, text: e.text });

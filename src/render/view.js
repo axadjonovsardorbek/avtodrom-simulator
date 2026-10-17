@@ -164,7 +164,7 @@ export class View {
   update(session, dt, now) {
     const car = session.car, root = this.carView.root;
     root.position.set(car.x, car.h, car.y);
-    root.rotation.y = -car.th; root.rotation.z = car.pitch + (car.bodyPitch || 0); root.rotation.x = car.bodyRoll || 0;
+    root.rotation.y = -car.th; root.rotation.z = car.pitch + (car.bodyPitch || 0); root.rotation.x = (car.groundRoll || 0) + (car.bodyRoll || 0);
     root.updateMatrixWorld(true);
     this.carView.update(car, now);
     if (this.driver) this.driver.update(dt, this.driver.wheel, car);

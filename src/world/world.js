@@ -54,6 +54,21 @@ export class World {
     }
   }
 
+  // true when a wheel would drop off the raised part of an overpass while the others are on it
+  // (the overpass has kerbs and posts along its edges: the car is stopped there)
+  offRampEdge(wheels) {
+    for (const r of this.ramps) {
+      let on = 0, off = 0;
+      for (const [x, y] of wheels) {
+        const [s, l] = toLocal(r.pose, x, y);
+        if (s <= r.s0 + 1.5 || s >= r.s3 - 1.5) continue;           // the low ends are open
+        if (Math.abs(l) <= r.halfW) on++; else if (Math.abs(l) < r.halfW + 3) off++;
+      }
+      if (on && off) return true;
+    }
+    return false;
+  }
+
   heightAt(x, y) {
     for (const r of this.ramps) {
       const [s, l] = toLocal(r.pose, x, y);
