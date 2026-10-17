@@ -43,13 +43,13 @@ export function bottom(x) {
 }
 // plan view: rounded nose (narrow), boxier tail
 export function plan(x) {
-  if (x > 3.0) { const t = (x - 3.0) / (DIM.front - 3.0), p = 2.4; return 0.9 + 0.1 * Math.pow(Math.max(0, 1 - Math.pow(t, p)), 1 / p); }
-  if (x < -0.7) { const t = (-0.7 - x) / (-0.7 - DIM.rear), p = 3; return 0.9 + 0.1 * Math.pow(Math.max(0, 1 - Math.pow(t, p)), 1 / p); }
+  if (x > 3.12) { const t = (x - 3.12) / (DIM.front - 3.12), p = 3.6; return 0.9 + 0.1 * Math.pow(Math.max(0, 1 - Math.pow(t, p)), 1 / p); }
+  if (x < -0.78) { const t = (-0.78 - x) / (-0.78 - DIM.rear), p = 4; return 0.93 + 0.07 * Math.pow(Math.max(0, 1 - Math.pow(t, p)), 1 / p); }
   return 1;
 }
 // side bulge over the body height (0 = sill, 1 = shoulder)
 // side bulge, with the shoulder crease (light catching ridge) that runs headlamp -> tail lamp
-export const sideShape = yr => 0.955 + 0.045 * smooth(yr / 0.55) - 0.07 * smooth((yr - 0.86) / 0.14)
+export const sideShape = yr => 0.972 + 0.028 * smooth(yr / 0.45) - 0.045 * smooth((yr - 0.9) / 0.1)
   + 0.012 * Math.exp(-(((yr - 0.55) / 0.04) ** 2)) - 0.006 * smooth((yr - 0.57) / 0.05);
 export const halfWidth = x => DIM.hw * plan(x);
 export function sideZ(x, y) {
@@ -57,7 +57,7 @@ export function sideZ(x, y) {
   return halfWidth(x) * sideShape(Math.min(1, Math.max(0, (y - b) / Math.max(1e-3, t - b))));
 }
 // corner radius at the top of the side, smaller where the body gets thin at the ends
-const topR = x => Math.min(0.045, Math.max(0.004, (belt(x) - bottom(x)) * 0.3));
+const topR = x => Math.min(0.026, Math.max(0.004, (belt(x) - bottom(x)) * 0.3));
 // how far forward / back the body reaches at height y (front and rear faces are curved)
 export function faceX(y, dir) {
   let lo = dir > 0 ? 2.9 : DIM.rear, hi = dir > 0 ? DIM.front : -0.5;
@@ -77,7 +77,7 @@ function lowerSection(x) {
   for (let i = 0; i <= 12; i++) { const yr = i / 12; pts.push([bot + (yTop - bot) * yr, hw * sideShape(yr)]); }
   const zs = hw * sideShape(1) - r;
   for (let k = 1; k <= 4; k++) { const a = k / 4 * Math.PI / 2; pts.push([yTop + r * Math.sin(a), zs + r * Math.cos(a)]); }
-  for (let k = 1; k <= 6; k++) { const z = zs * (1 - k / 6); pts.push([bel + 0.022 * (1 - (z / zs) ** 2), z]); }
+  for (let k = 1; k <= 6; k++) { const z = zs * (1 - k / 6); pts.push([bel + 0.012 * (1 - (z / zs) ** 2), z]); }
   return pts;   // right half, sill -> centre line, as [y, z]
 }
 function greenSection(x) {

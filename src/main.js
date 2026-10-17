@@ -167,7 +167,7 @@ function useCar(id) {
   const car = carById(id);
   if (carModelId === car.id) return;
   carModelId = car.id;
-  loadCarModel(car.model).then(cv => view.setCarModel(cv)).catch(e => console.warn("car model not loaded, using the built-in one:", e.message));
+  loadCarModel(car.model).then(cv => view.setCarModel(cv, car)).catch(e => console.warn("car model not loaded, using the built-in one:", e.message));
 }
 useCar(settings.car);
 

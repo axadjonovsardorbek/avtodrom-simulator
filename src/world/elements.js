@@ -202,7 +202,7 @@ export function boks(W, T) {
 
 /* 9. Orqaga harakatlanib parallel to'xtash (parkovka) */
 export function parkovka(W, T) {
-  const pose = T.pose, b0 = 9, b1 = 15.5, bw = 2.5, wide = 2.5, reg = b0 + 1.55;
+  const pose = T.pose, b0 = 9, b1 = 15.8, bw = 2.5, wide = 2.5, reg = b0 + 1.55;
   T.gapR(b0, b1);
   T.gapL(0, 30);
   T.fwd(30);

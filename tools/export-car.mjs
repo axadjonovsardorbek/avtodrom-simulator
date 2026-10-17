@@ -1,5 +1,5 @@
-// Regenerates public/models/cobalt.glb from the procedural model in src/render/carModel.js.
-// Usage: npm run export:car   (needs Google Chrome installed)
+// Exports the procedural Cobalt (src/render/carModel.js) to public/models/cobalt-procedural.glb.
+// Usage: npm run export:procedural   (needs Google Chrome installed)
 import { createServer } from "vite";
 import puppeteer from "puppeteer-core";
 import { writeFileSync, mkdirSync } from "node:fs";
@@ -17,7 +17,7 @@ try {
   await page.goto(url, { waitUntil: "load", timeout: 120000 });
   await page.waitForFunction(() => typeof window.__exportCar === "function", { timeout: 120000 });
   const b64 = await page.evaluate(() => window.__exportCar());
-  const out = join(root, "public/models/cobalt.glb");
+  const out = join(root, "public/models/cobalt-procedural.glb");
   mkdirSync(dirname(out), { recursive: true });
   const buf = Buffer.from(b64, "base64");
   writeFileSync(out, buf);

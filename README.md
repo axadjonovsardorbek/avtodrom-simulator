@@ -9,7 +9,7 @@ npm install
 npm run dev        # http://localhost:5173
 npm run build      # dist/ papkasiga tayyor sayt
 npm test           # brauzersiz testlar: fizika, trassa, qoidalar
-npm run export:car # public/models/cobalt.glb ni kod modelidan qayta yaratish (Chrome kerak)
+npm run prepare:cobalt -- ~/Downloads/chevrolet_cobalt_ltz_2014.glb   # Sketchfab modelidan public/models/cobalt.glb
 ```
 
 ## Ovozli ko'rsatmalar
@@ -52,7 +52,12 @@ Rul yoki gamepad (standart mapping): chap stik rul, RT gaz, LT tormoz, LB ilashi
 ## Mashinalar
 
 Mashinalar ro'yxati `src/cars/index.js` da. Har bir mashina `public/models/` dagi `.glb` fayldan yuklanadi.
-Hozircha bitta mashina bor: Chevrolet Cobalt (`cobalt.glb`). Bu model kod orqali yasalgan (`src/render/cobaltBody.js`, `src/render/carModel.js`) va `npm run export:car` bilan faylga chiqarilgan.
+Hozircha bitta mashina bor: Chevrolet Cobalt (`cobalt.glb`).
+
+3D model: ["Chevrolet Cobalt LTZ 2014"](https://sketchfab.com/3d-models/chevrolet-cobalt-ltz-2014-f91cbef731444f939e263041400216ca), muallif [Q.SARDOR](https://sketchfab.com/qsardor57913), litsenziya [CC BY 4.0](http://creativecommons.org/licenses/by/4.0/).
+O'zgartirishlar (`tools/prepare-cobalt.mjs`): takrorlangan g'ildiraklar olib tashlangan, o'lcham va o'qlar moslangan, g'ildiraklar va rul harakatlanadigan qilingan, materiallar sozlangan, burilish chiroqlari qo'shilgan, uchburchaklar soni kamaytirilib siqilgan (33 MB dan 1,8 MB ga).
+
+Model yuklanmasa, kod bilan yasalgan zaxira model ishlatiladi (`src/render/cobaltBody.js`, `src/render/carModel.js`; `npm run export:procedural` uni faylga chiqaradi).
 
 Yangi mashina qo'shish:
 

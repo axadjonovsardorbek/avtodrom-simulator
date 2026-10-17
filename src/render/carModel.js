@@ -112,7 +112,7 @@ export function buildCar() {
   const glass = new THREE.MeshPhysicalMaterial({ color: 0x0f151c, roughness: 0.03, metalness: 0.3, transparent: true, opacity: 0.82, side: THREE.DoubleSide, depthWrite: false, clearcoat: 1 });
   const chrome = new THREE.MeshStandardMaterial({ color: 0xe3e6e9, roughness: 0.1, metalness: 1 });
   const lampMat = (color, base = 0.12, extra = {}) => new THREE.MeshStandardMaterial({ color, emissive: color, emissiveIntensity: base, roughness: 0.2, ...extra });
-  const headMat = new THREE.MeshPhysicalMaterial({ name: "lamp_head", color: 0xaeb6bf, emissive: 0xfff3d6, emissiveIntensity: 0.05, roughness: 0.12, metalness: 0.9, clearcoat: 1 });
+  const headMat = new THREE.MeshPhysicalMaterial({ name: "lamp_head", color: 0xc7ced6, emissive: 0xfff3d6, emissiveIntensity: 0.05, roughness: 0.08, metalness: 0.95, clearcoat: 1 });
   const tailMat = lampMat(0xa5100a, 0.12, { roughness: 0.12, name: "lamp_tail" });
   const add = (m, parent = body) => { m.castShadow = true; m.receiveShadow = true; parent.add(m); return m; };
   const box = (w, h, d, mat, x, y, z, parent = body) => { const m = add(new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat), parent); m.position.set(x, y, z); return m; };
@@ -159,8 +159,9 @@ export function buildCar() {
   for (const sg of [-1, 1]) {
     const side = sg < 0 ? "L" : "R";
     // headlamp: big clear unit wrapping from beside the grille round onto the wing
-    add(new THREE.Mesh(sidePatch(3.02, 3.4, () => 0.64, x => belt(x), sg), headMat));
-    add(new THREE.Mesh(facePatch([[0.4, 0.62], [0.72, 0.62], [0.74, 0.79], [0.42, 0.76]].map(([z, y]) => [sg * z, y]), 1, 0.019), headMat));
+    add(new THREE.Mesh(sidePatch(2.94, 3.4, x => 0.6 + 0.27 * st((3.4 - x) / 0.46), x => belt(x), sg, 32, 10), headMat));
+    add(new THREE.Mesh(sidePatch(3.08, 3.36, x => belt(x) - 0.075 - 0.04 * st((3.36 - x) / 0.28), x => belt(x) - 0.02, sg, 20, 4, 0.006), chrome));
+    add(new THREE.Mesh(facePatch([[0.4, 0.635], [0.6, 0.6], [0.75, 0.6], [0.76, 0.79], [0.42, 0.765]].map(([z, y]) => [sg * z, y]), 1, 0.019), headMat));
     const refl = new THREE.Mesh(facePatch([[0.46, 0.665], [0.66, 0.665], [0.68, 0.75], [0.48, 0.74]].map(([z, y]) => [sg * z, y]), 1, 0.024), black); body.add(refl);
     for (const [z, r] of [[0.52, 0.034], [0.63, 0.028]]) {
       const y = 0.705, lens = new THREE.Mesh(new THREE.CircleGeometry(r, 24), lampMat(0xfff8e6, 0.1, { name: "lamp_head_lens" }));
@@ -254,23 +255,26 @@ export function buildCar() {
   extrudeProfile([[2.52, 0.86], [2.52, 1.035], [2.2, 1.03], [2.06, 1.0], [1.99, 0.95], [1.975, 0.86]], 1.6, dashTop);
   extrudeProfile([[1.975, 0.86], [1.99, 0.72], [2.06, 0.6], [2.25, 0.48], [2.5, 0.46], [2.52, 0.86]], 1.58, dashLow);
   // centre stack: gloss black panel, framed screen, vents, hazard switch, climate knobs
-  irb(0.12, 0.38, 0.38, 0.03, gloss, 1.93, 0.76, 0);
+  irb(0.1, 0.42, 0.36, 0.02, gloss, 1.985, 0.76, 0);
   const scr = new THREE.Mesh(new THREE.PlaneGeometry(0.2, 0.115), new THREE.MeshStandardMaterial({ color: 0x0b1424, emissive: 0x16345e, emissiveIntensity: 0.55, roughness: 0.1 }));
-  scr.position.set(1.868, 0.8, 0); scr.rotation.y = -Math.PI / 2; interior.add(scr);
+  scr.position.set(1.93, 0.8, 0); scr.rotation.y = -Math.PI / 2; interior.add(scr);
   const ring = (w, h, x, y, z) => { const sh = new THREE.Shape(); rr(sh, w, h, 0.012); const hl = new THREE.Path(); rr(hl, w - 0.016, h - 0.016, 0.008); sh.holes.push(hl); const m = new THREE.Mesh(new THREE.ExtrudeGeometry(sh, { depth: 0.012, bevelEnabled: false }), chrome); m.position.set(x, y, z); m.rotation.y = -Math.PI / 2; interior.add(m); return m; };
-  ring(0.22, 0.135, 1.875, 0.8, 0);
-  for (const z of [-0.075, 0.075]) { ring(0.11, 0.055, 1.885, 0.93, z); const v = ib(0.01, 0.04, 0.095, plastic, 1.89, 0.93, z); v.rotation.x = 0; }
+  ring(0.39, 0.45, 1.932, 0.76, 0);                                            // silver outline round the stack
+  ring(0.22, 0.135, 1.926, 0.8, 0);
+  for (const z of [-0.075, 0.075]) { ring(0.11, 0.055, 1.925, 0.93, z); const v = ib(0.01, 0.04, 0.095, plastic, 1.93, 0.93, z); v.rotation.x = 0; }
   const hazardBtn = new THREE.Mesh(new THREE.CircleGeometry(0.014, 3), new THREE.MeshStandardMaterial({ color: 0x550000, emissive: 0xff2010, emissiveIntensity: 0.1 }));
-  hazardBtn.name = "hazard_button"; hazardBtn.position.set(1.884, 0.93, 0); hazardBtn.rotation.y = -Math.PI / 2; hazardBtn.rotation.z = Math.PI / 2; interior.add(hazardBtn);
+  hazardBtn.name = "hazard_button"; hazardBtn.position.set(1.926, 0.875, 0); hazardBtn.rotation.y = -Math.PI / 2; hazardBtn.rotation.z = Math.PI / 2; interior.add(hazardBtn);
   for (const z of [-0.08, 0, 0.08]) {
-    const k = new THREE.Mesh(new THREE.CylinderGeometry(0.024, 0.026, 0.03, 24), dashTop); k.rotation.z = Math.PI / 2; k.position.set(1.86, 0.665, z); interior.add(k);
-    const kr = new THREE.Mesh(new THREE.TorusGeometry(0.026, 0.004, 6, 24), chrome); kr.rotation.y = Math.PI / 2; kr.position.set(1.848, 0.665, z); interior.add(kr);
+    const k = new THREE.Mesh(new THREE.CylinderGeometry(0.024, 0.026, 0.03, 24), dashTop); k.rotation.z = Math.PI / 2; k.position.set(1.92, 0.665, z); interior.add(k);
+    const kr = new THREE.Mesh(new THREE.TorusGeometry(0.026, 0.004, 6, 24), chrome); kr.rotation.y = Math.PI / 2; kr.position.set(1.906, 0.665, z); interior.add(kr);
   }
   for (const sg of [-1, 1]) { ring(0.1, 0.07, 1.985, 0.93, sg * 0.66); ib(0.01, 0.055, 0.085, plastic, 1.99, 0.93, sg * 0.66); }
   // instrument binnacle and cluster
-  const hood = new THREE.Mesh(new THREE.CylinderGeometry(0.17, 0.17, 0.14, 24, 1, true, -Math.PI / 2, Math.PI), dashTop);
-  hood.material = dashTop.clone(); hood.material.side = THREE.DoubleSide;
-  hood.rotation.z = Math.PI / 2; hood.scale.set(1, 1, 0.45); hood.position.set(2.0, 0.93, -0.37); interior.add(hood);
+  for (const dz of [-0.075, 0.075]) {                                          // twin round dial hoods
+    const hd = new THREE.Mesh(new THREE.CylinderGeometry(0.085, 0.085, 0.12, 24, 1, true, -Math.PI / 2, Math.PI), dashTop.clone());
+    hd.material.side = THREE.DoubleSide; hd.rotation.z = Math.PI / 2; hd.position.set(2.0, 0.925, -0.37 + dz); interior.add(hd);
+  }
+  irb(0.16, 0.03, 0.36, 0.012, dashTop, 2.02, 1.012, -0.37);
   const cl = new THREE.Mesh(new THREE.PlaneGeometry(0.3, 0.112), new THREE.MeshBasicMaterial({ color: 0x050607 }));
   cl.name = "cluster_screen"; cl.position.set(1.97, 0.925, -0.37); cl.rotation.y = -Math.PI / 2; interior.add(cl);
   // bonnet seen through the windscreen
@@ -348,10 +352,18 @@ export function rigCar(root) {
   // separate materials per lamp so they can switch independently
   for (const m of [...indL, ...indR, ...rev, ...hazard]) m.material = m.material.clone();
   const cluster = clusterCanvas();
+  const carNode = root.name === "car" ? root : root.getObjectByName("car");
+  const full = !!(carNode && carNode.userData.fullInterior);        // a real model: cabin and shell belong together
+  const dims = carNode && carNode.userData.dims;
+  if (dims && !root.getObjectByName("learner_sign")) {
+    const sign = new THREE.Mesh(new THREE.PlaneGeometry(0.4, 0.4), new THREE.MeshStandardMaterial({ map: signTexture("learner"), transparent: true, side: THREE.DoubleSide, roughness: 0.6 }));
+    sign.name = "learner_sign"; sign.position.set(dims.wheelbase * 0.45, dims.roofY + 0.22, 0); sign.rotation.y = Math.PI / 2; carNode.add(sign);
+    const base = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.05, 0.3), new THREE.MeshStandardMaterial({ color: 0x131416 })); base.position.set(dims.wheelbase * 0.45, dims.roofY + 0.02, 0); carNode.add(base);
+  }
   const screen = root.getObjectByName("cluster_screen");
   if (screen) screen.traverse(o => { if (o.isMesh) o.material = new THREE.MeshBasicMaterial({ map: cluster.tex }); });
 
-  const setCockpit = on => { if (interior) interior.visible = on; if (body) body.visible = !on; };
+  const setCockpit = on => { if (full) return; if (interior) interior.visible = on; if (body) body.visible = !on; };
   setCockpit(false);
   const glow = (list, on, hi, lo = 0.06) => list.forEach(m => { m.material.emissiveIntensity = on ? hi : lo; });
   let lastCluster = 0;

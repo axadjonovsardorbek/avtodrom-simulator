@@ -8,9 +8,9 @@ const RPM2W = Math.PI / 30;
 // Roughly a Chevrolet Cobalt 1.5 (the usual exam car in Uzbekistan).
 export const SPEC = {
   mass: 1250,
-  wb: 2.62, rOh: 1.0, fOh: 0.84, width: 1.735, track: 1.48,
+  wb: 2.744, rOh: 0.9, fOh: 0.854, width: 1.735, track: 1.454,   // from the Cobalt model (4.479 m long)
   maxSteer: 35 * DEG, wheelLock: 540,         // steering-wheel degrees to full lock
-  wheelR: 0.317,
+  wheelR: 0.322,
   final: 4.1, gears: [0, 3.58, 2.02, 1.35, 0.98, 0.81], reverse: 3.31,
   idleRpm: 850, stallRpm: 380, maxRpm: 6300, Ie: 0.17,
   clutchCap: 280,                               // Nm, fully engaged

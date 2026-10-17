@@ -9,12 +9,17 @@
     "build": "vite build && node tools/pack-models.mjs",
     "preview": "vite preview",
     "test": "node tests/run.js",
-    "export:car": "node tools/export-car.mjs"
+    "export:procedural": "node tools/export-car.mjs",
+    "prepare:cobalt": "node tools/prepare-cobalt.mjs"
   },
   "dependencies": {
     "three": "0.170.0"
   },
   "devDependencies": {
+    "@gltf-transform/core": "^4.1.1",
+    "@gltf-transform/extensions": "^4.1.1",
+    "@gltf-transform/functions": "^4.1.1",
+    "meshoptimizer": "^0.22.0",
     "puppeteer-core": "^23.11.1",
     "vite": "6.0.7"
   }

@@ -1,6 +1,7 @@
 // Loads a car .glb and rigs its moving parts. Hosts that cannot serve .glb get
 // the same bytes base64-wrapped in "<name>.glb.json" (see tools/pack-models.mjs).
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
+import { MeshoptDecoder } from "three/examples/jsm/libs/meshopt_decoder.module.js";
 import { rigCar } from "./carModel.js";
 
 async function fetchModel(url) {
@@ -18,7 +19,7 @@ async function fetchModel(url) {
 
 export async function loadCarModel(url) {
   const data = await fetchModel(url);
-  const gltf = await new GLTFLoader().parseAsync(data, "");
+  const gltf = await new GLTFLoader().setMeshoptDecoder(MeshoptDecoder).parseAsync(data, "");
   const root = gltf.scene;
   root.traverse(o => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
   return rigCar(root);

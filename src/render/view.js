@@ -2,7 +2,24 @@
 import * as THREE from "three";
 import { buildWorldMeshes, updateWorldMeshes } from "./worldMesh.js";
 import { buildCar } from "./carModel.js";
-import { RoomEnvironment } from "three/examples/jsm/environments/RoomEnvironment.js";
+// Outdoor reflection scene: bright sky dome, horizon band, dark green ground.
+function skyEnvironment() {
+  const scene = new THREE.Scene();
+  const geo = new THREE.SphereGeometry(50, 48, 24);
+  const col = [], p = geo.attributes.position, c = new THREE.Color();
+  for (let i = 0; i < p.count; i++) {
+    const y = p.getY(i) / 50;
+    if (y > 0.04) c.setRGB(0.55 + 0.25 * (1 - y), 0.7 + 0.18 * (1 - y), 0.95);
+    else if (y > -0.04) c.setRGB(0.9, 0.92, 0.94);
+    else c.setRGB(0.18, 0.24, 0.14);
+    col.push(c.r, c.g, c.b);
+  }
+  geo.setAttribute("color", new THREE.Float32BufferAttribute(col, 3));
+  scene.add(new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ vertexColors: true, side: THREE.BackSide })));
+  const sun = new THREE.Mesh(new THREE.SphereGeometry(3, 16, 8), new THREE.MeshBasicMaterial({ color: new THREE.Color(6, 5.6, 5) }));
+  sun.position.set(30, 35, 20); scene.add(sun);
+  return scene;
+}
 
 const MIRRORS = [
   { key: "center", pos: [1.62, 1.33, 0], yaw: 0, fov: 34, w: 640, h: 180 },
@@ -26,8 +43,8 @@ export class View {
     s.add(new THREE.HemisphereLight(0xe4f0ff, 0x56663a, 1.1));
     // soft studio reflections for the car paint and glass
     const pm = new THREE.PMREMGenerator(r);
-    s.environment = pm.fromScene(new RoomEnvironment(), 0.04).texture;
-    s.environmentIntensity = 0.35;
+    s.environment = pm.fromScene(skyEnvironment(), 0.02).texture;
+    s.environmentIntensity = 0.55;
     const sun = this.sun = new THREE.DirectionalLight(0xfff0d8, 2.4);
     sun.castShadow = true;
     sun.shadow.mapSize.set(2048, 2048);
@@ -36,6 +53,10 @@ export class View {
     s.add(sun, sun.target);
 
     this.cam = new THREE.PerspectiveCamera(60, 1, 0.05, 900);
+    // soft cabin light so the interior is readable under the roof's shadow
+    this.cabinLight = new THREE.PointLight(0xfff2e2, 1.3, 2.6, 1.8);
+    this.cabinLight.visible = false;
+    s.add(this.cabinLight);
     this.carView = buildCar();
     s.add(this.carView.root);
     this.carView.root.rotation.order = "YZX";
@@ -67,7 +88,11 @@ export class View {
   }
 
   // Swap in another car model (e.g. one loaded from a .glb); mirrors move with it.
-  setCarModel(cv) {
+  setCarModel(cv, car) {
+    if (car) {
+      this.eye = car.eye;
+      for (const m of this.mirrors) if (car.mirrors && car.mirrors[m.key]) m.cam.position.set(...car.mirrors[m.key]);
+    }
     const old = this.carView.root;
     this.scene.remove(old);
     cv.root.rotation.order = "YZX";
@@ -105,7 +130,7 @@ export class View {
 
   setMode(mode) {
     this.mode = mode;
-    this.carView.setCockpit(mode === "cockpit");
+    this.carView.setCockpit(mode === "cockpit" || mode === "interiorRear");
     this.cam.up.set(0, 1, 0);
     this.chasePos = null;
   }
@@ -116,15 +141,18 @@ export class View {
     root.rotation.y = -car.th; root.rotation.z = car.pitch;
     root.updateMatrixWorld(true);
     this.carView.update(car, now);
+    this.cabinLight.visible = this.mode === "cockpit" || this.mode === "interiorRear";
+    if (this.cabinLight.visible) this.cabinLight.position.copy(root.localToWorld(new THREE.Vector3(1.2, 1.12, 0)));
     updateWorldMeshes(this.W, this.dyn, session.clock, now);
 
     const f = new THREE.Vector3(Math.cos(car.th), 0, Math.sin(car.th));
     const cp = new THREE.Vector3(car.x, car.h, car.y);
     const cam = this.cam;
     if (this.mode === "cockpit") {
-      const eye = root.localToWorld(new THREE.Vector3(1.2, 1.22, -0.37));
-      const yaw = this.look + this.drag.yaw, pitch = this.drag.pitch;
-      const tgt = root.localToWorld(new THREE.Vector3(1.2 + 10 * Math.cos(yaw) * Math.cos(pitch), 0.75 + 10 * Math.sin(pitch), -0.37 + 10 * Math.sin(yaw) * Math.cos(pitch)));
+      const [ex, ey, ez] = this.eye || [1.2, 1.22, -0.37];
+      const eye = root.localToWorld(new THREE.Vector3(ex, ey, ez));
+      const yaw = this.look + this.drag.yaw, pitch = this.drag.pitch - 0.045;
+      const tgt = root.localToWorld(new THREE.Vector3(ex + 10 * Math.cos(yaw) * Math.cos(pitch), ey + 10 * Math.sin(pitch), ez + 10 * Math.sin(yaw) * Math.cos(pitch)));
       cam.position.copy(eye); cam.lookAt(tgt);
       if (cam.fov !== 68) { cam.fov = 68; cam.updateProjectionMatrix(); }
     } else if (this.mode === "chase") {
@@ -136,6 +164,11 @@ export class View {
       cam.position.copy(this.chasePos);
       cam.lookAt(cp.clone().addScaledVector(f, 2).add(new THREE.Vector3(0, 1, 0)));
       if (cam.fov !== 55) { cam.fov = 55; cam.updateProjectionMatrix(); }
+    } else if (this.mode === "interiorRear") {
+      // like a photo taken from the middle of the rear seat (used to compare with references)
+      const eye = root.localToWorld(new THREE.Vector3(0.85, 1.24, 0.0));
+      cam.position.copy(eye); cam.lookAt(root.localToWorld(new THREE.Vector3(3.0, 0.92, 0)));
+      if (cam.fov !== 58) { cam.fov = 58; cam.updateProjectionMatrix(); }
     } else if (this.mode === "orbit") {
       const o = this.orbit, a = car.th + o.az;
       const c = cp.clone().addScaledVector(f, 1.25).add(new THREE.Vector3(0, 0.75, 0));
