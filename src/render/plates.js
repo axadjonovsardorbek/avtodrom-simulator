@@ -41,9 +41,10 @@ function drawPlate(g, text, relief) {
   g.lineWidth = 2 * MM; g.beginPath(); g.moveTo(div, 3 * MM); g.lineTo(div, CH - 3 * MM); g.stroke();
   // characters: region and number in the same face
   g.fillStyle = ink; g.textAlign = "center"; g.textBaseline = "alphabetic";
-  const base = CH / 2 + 30 * MM, hgt = 86 * MM;
-  fitText(g, region, (8 * MM + div) / 2 + 4 * MM, base, 72 * MM, hgt, 600);
-  fitText(g, number.replace(/ /g, "  "), div + 175 * MM, base, 320 * MM, hgt, 600);
+  // bold, filling the plate height like the real ones
+  const base = CH / 2 + 35 * MM, hgt = 100 * MM;
+  fitText(g, region, (8 * MM + div) / 2 + 4 * MM, base, 76 * MM, hgt, 700);
+  fitText(g, number.replace(/ /g, "\u2009"), div + 174 * MM, base, 330 * MM, hgt, 700);
   // flag (blue / red / white / red / green) with crescent, and "UZ"
   const fx = 452 * MM, fy = 14 * MM, fw = 44 * MM, s = 8 * MM, rl = 1 * MM;
   if (!relief) {
@@ -89,7 +90,8 @@ export function makePlate(mat) {
   const g = new THREE.Group(); g.name = "plate";
   const face = new THREE.Mesh(new THREE.PlaneGeometry(PW, PH), mat);
   face.rotation.y = Math.PI / 2; face.position.x = 0.008; face.name = "plate";
-  const holder = new THREE.Mesh(new THREE.BoxGeometry(0.008, PH + 0.018, PW + 0.02), holderMat);
+  // thin backing only: the plate is screwed straight to the body, no thick frame
+  const holder = new THREE.Mesh(new THREE.BoxGeometry(0.006, PH + 0.004, PW + 0.004), holderMat);
   holder.position.x = 0.003; holder.name = "plate";
   g.add(holder, face);
   return g;

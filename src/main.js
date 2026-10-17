@@ -230,7 +230,7 @@ function useCar(id) {
     audio.setProfile(car.sound);
     if (car.id === "cobalt") dressCobalt(cv); else addPaint(cv);
     // the Cobalt file has no plates of its own: put them on the plate holders
-    addPlates(cv, settings.plate, car.id === "cobalt" ? [{ pos: [3.582, 0.45, 0], back: false }, { pos: [-0.882, 0.545, 0], back: true }] : undefined);
+    addPlates(cv, settings.plate, car.id === "cobalt" ? [{ pos: [3.582, 0.45, 0], back: false }, { pos: [-0.882, 0.47, 0], back: true }] : undefined);
     if (cv.setPaint) cv.setPaint(settings.color);
     view.setCarModel(cv, car);
   }).catch(e => { clearTimeout(slow); hud.toast(`${car.name} yuklanmadi`, "bad"); console.warn("car model not loaded, using the built-in one:", e.message); });
