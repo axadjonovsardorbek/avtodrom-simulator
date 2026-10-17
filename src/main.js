@@ -7,22 +7,30 @@ import { View } from "./render/view.js";
 import { CarAudio } from "./render/audio.js";
 import { Controls } from "./ui/input.js";
 import { Hud } from "./ui/hud.js";
+import { carById } from "./cars/index.js";
+import { loadCarModel } from "./render/carLoader.js";
 
 const coarse = matchMedia("(pointer: coarse)").matches;
-const settings = { transmission: "manual", quality: coarse ? "low" : "high", mouseSteer: false, muted: false, voice: true };
+const settings = { transmission: "manual", quality: coarse ? "low" : "high", mouseSteer: false, muted: false, voice: true, car: "cobalt" };
 try { Object.assign(settings, JSON.parse(localStorage.getItem("avtodrom.settings") || "{}")); } catch (_) {}
+// the old "Ovoz" button muted on first press; start everyone unmuted once
+if (!settings.v2) { settings.muted = false; settings.v2 = true; }
 const saveSettings = () => { try { localStorage.setItem("avtodrom.settings", JSON.stringify(settings)); } catch (_) {} };
 
 let session = null, mode = null, elementId = null, paused = true, ended = false;
 const app = document.getElementById("app");
-const hud = new Hud(app, { settings, start, resume, action: onAction, resultAction });
+const hud = new Hud(app, { settings, start, resume, action: onAction, resultAction, useCar });
 const view = new View(hud.canvas);
 const audio = new CarAudio();
 const controls = new Controls(hud.canvas, onAction);
 controls.bindTouch(document.getElementById("touchpad"));
 controls.mouseSteer = settings.mouseSteer;
 document.getElementById("mouseBtn").classList.toggle("on", settings.mouseSteer);
-document.getElementById("muteBtn").classList.toggle("on", settings.muted);
+const muteBtn = document.getElementById("muteBtn");
+const showMute = () => { muteBtn.textContent = settings.muted ? "Ovoz o'chiq" : "Ovoz yoniq"; muteBtn.classList.toggle("off", settings.muted); };
+showMute();
+// browsers only allow sound after a user gesture: (re)start audio on any interaction
+for (const ev of ["pointerdown", "keydown", "touchstart"]) addEventListener(ev, () => { audio.start(); audio.setMuted(settings.muted); audio.resume(); }, { capture: true });
 if (coarse) app.classList.add("touch");
 
 const TITLES = { exam: "To'liq avtodrom · Imtihon", training: "To'liq avtodrom · Trening" };
@@ -40,6 +48,7 @@ function start(m, el) {
   hud.hideMenu();
   paused = false;
   bump.reset(); countdown = -1;
+  audio.chime();
   if (m === "practice") audio.say(`Mashq: ${ELEMENTS.find(e => e.id === el).name}`);
   else audio.say("Start ishorasini kuting");
 }
@@ -92,7 +101,7 @@ const MANUAL = ["R", "N", 1, 2, 3, 4, 5], AUTO = ["P", "R", "N", "D"];
 function onAction(a) {
   if (a === "help") return hud.toggleHelp();
   if (a === "padConnected") return hud.toast("Rul / gamepad ulandi");
-  if (a === "mute") { settings.muted = !settings.muted; audio.setMuted(settings.muted); document.getElementById("muteBtn").classList.toggle("on", settings.muted); saveSettings(); return; }
+  if (a === "mute") { settings.muted = !settings.muted; audio.setMuted(settings.muted); showMute(); saveSettings(); if (!settings.muted) audio.chime(); return; }
   if (a === "mouse") { settings.mouseSteer = controls.mouseSteer = !controls.mouseSteer; document.getElementById("mouseBtn").classList.toggle("on", settings.mouseSteer); hud.toast(settings.mouseSteer ? "Rul sichqoncha bilan: kursorni chapga-o'ngga suring" : "Rul klaviatura bilan"); saveSettings(); return; }
   if (a === "camera") { const order = ["cockpit", "chase", "top"]; settings.camera = order[(order.indexOf(view.mode) + 1) % 3]; view.setMode(settings.camera); saveSettings(); return; }
   if (a === "map") return hud.toggleMinimap();
@@ -126,6 +135,16 @@ function onAction(a) {
     }
   }
 }
+
+// car model: generated Cobalt right away, then the .glb file once it has loaded
+let carModelId = null;
+function useCar(id) {
+  const car = carById(id);
+  if (carModelId === car.id) return;
+  carModelId = car.id;
+  loadCarModel(car.model).then(cv => view.setCarModel(cv)).catch(e => console.warn("car model not loaded, using the built-in one:", e.message));
+}
+useCar(settings.car);
 
 // a preview of the autodrome behind the menu
 session = new Session(buildFull(), { mode: "training", transmission: settings.transmission });
@@ -189,6 +208,18 @@ function frame(now) {
     }
   }
   requestAnimationFrame(frame);
-if (import.meta.env.DEV) window.__sim = { view, audio, get session() { return session; } };
+if (import.meta.env.DEV) {
+  window.__sim = { view, audio, get session() { return session; } };
+  // used by tools/export-car.mjs: generated Cobalt -> binary glTF (base64)
+  window.__exportCar = async () => {
+    const [{ GLTFExporter }, { buildCar }] = await Promise.all([import("three/examples/jsm/exporters/GLTFExporter.js"), import("./render/carModel.js")]);
+    const root = buildCar().root;
+    root.getObjectByName("interior").visible = true; root.getObjectByName("body").visible = true;
+    const ab = await new GLTFExporter().parseAsync(root, { binary: true, onlyVisible: false });
+    const bytes = new Uint8Array(ab); let bin = "";
+    for (let i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000));
+    return btoa(bin);
+  };
+}
 }
 requestAnimationFrame(frame);

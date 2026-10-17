@@ -20,8 +20,9 @@ export class CarAudio {
     const c = this.ctx = new AC();
     const comp = c.createDynamicsCompressor();
     comp.threshold.value = -14; comp.ratio.value = 4;
-    this.master = c.createGain(); this.master.gain.value = this.muted ? 0 : 0.9;
+    this.master = c.createGain(); this.master.gain.value = this.muted ? 0 : 1;
     this.master.connect(comp); comp.connect(c.destination);
+    this.analyser = c.createAnalyser(); this.analyser.fftSize = 2048; comp.connect(this.analyser);
 
     // noise buffers
     const len = c.sampleRate * 2;
@@ -31,26 +32,29 @@ export class CarAudio {
     let last = 0;
     for (let i = 0; i < len; i++) { w[i] = Math.random() * 2 - 1; last = (last + 0.02 * w[i]) / 1.02; b[i] = last * 3.5; }
 
-    // engine: harmonic-rich firing note + half-order rumble, soft-clipped and filtered
-    const real = new Float32Array([0, 1, 0.62, 0.48, 0.3, 0.24, 0.16, 0.12, 0.08, 0.06, 0.04]);
-    const wave = c.createPeriodicWave(real, new Float32Array(real.length));
-    this.eng = c.createOscillator(); this.eng.setPeriodicWave(wave);
-    this.sub = c.createOscillator(); this.sub.type = "triangle";
-    const subG = c.createGain(); subG.gain.value = 0.5;
+    // engine: firing note plus its 2nd harmonic and a half-order rumble, soft-clipped.
+    // Small speakers cannot play the 25-200 Hz fundamental, so the upper harmonics carry it.
+    this.eng = c.createOscillator(); this.eng.type = "sawtooth";
+    this.eng2 = c.createOscillator(); this.eng2.type = "sawtooth";
+    this.sub = c.createOscillator(); this.sub.type = "square";
+    const g1 = c.createGain(); g1.gain.value = 0.55;
+    const g2 = c.createGain(); g2.gain.value = 0.35;
+    const subG = c.createGain(); subG.gain.value = 0.3;
     const shaper = c.createWaveShaper();
     const curve = new Float32Array(1024);
-    for (let i = 0; i < 1024; i++) { const x = i / 512 - 1; curve[i] = Math.tanh(x * 2.2); }
+    for (let i = 0; i < 1024; i++) { const x = i / 512 - 1; curve[i] = Math.tanh(x * 2.6); }
     shaper.curve = curve;
-    this.engFilter = c.createBiquadFilter(); this.engFilter.type = "lowpass"; this.engFilter.Q.value = 2.5;
+    this.engFilter = c.createBiquadFilter(); this.engFilter.type = "lowpass"; this.engFilter.Q.value = 1.4;
     this.engGain = c.createGain(); this.engGain.gain.value = 0;
-    this.eng.connect(shaper); this.sub.connect(subG); subG.connect(shaper);
+    this.eng.connect(g1); this.eng2.connect(g2); this.sub.connect(subG);
+    [g1, g2, subG].forEach(g => g.connect(shaper));
     shaper.connect(this.engFilter); this.engFilter.connect(this.engGain); this.engGain.connect(this.master);
-    this.eng.start(); this.sub.start();
+    this.eng.start(); this.eng2.start(); this.sub.start();
 
     // intake / road / wind beds
     this.intake = this.bed(this.white, "bandpass", 900, 1.2);
-    this.road = this.bed(this.brown, "lowpass", 380, 0.7);
-    this.wind = this.bed(this.white, "highpass", 1600, 0.5);
+    this.road = this.bed(this.white, "bandpass", 650, 0.6);
+    this.wind = this.bed(this.white, "highpass", 2200, 0.5);
 
     // tyre squeal and the in-car alarm beeper
     this.squeal = c.createOscillator(); this.squeal.type = "sawtooth"; this.squeal.frequency.value = 980;
@@ -75,7 +79,14 @@ export class CarAudio {
     return { f, g };
   }
 
-  setMuted(m) { this.muted = m; if (this.master) this.master.gain.value = m ? 0 : 0.9; if (m && window.speechSynthesis) speechSynthesis.cancel(); }
+  setMuted(m) { this.muted = m; if (this.master) this.master.gain.value = m ? 0 : 1; if (m && window.speechSynthesis) speechSynthesis.cancel(); }
+  resume() { if (this.ctx && this.ctx.state !== "running") this.ctx.resume(); }
+  // current output level (RMS), used by tests and the sound check
+  level() {
+    if (!this.analyser) return 0;
+    const d = new Float32Array(this.analyser.fftSize); this.analyser.getFloatTimeDomainData(d);
+    return Math.sqrt(d.reduce((a, v) => a + v * v, 0) / d.length);
+  }
 
   /* ---------- one-shot helpers ---------- */
   burst({ freq = 1000, q = 1, type = "bandpass", gain = 0.2, dur = 0.08, when = 0, buf = null }) {
@@ -177,15 +188,16 @@ export class CarAudio {
     const rpm = car.rpm, thr = car.throttle, on = car.engineOn;
     const f = Math.max(6, rpm / 30);                       // 4-cylinder firing frequency
     this.eng.frequency.setTargetAtTime(f, t, 0.02);
+    this.eng2.frequency.setTargetAtTime(f * 2.004, t, 0.02);
     this.sub.frequency.setTargetAtTime(f / 2, t, 0.02);
-    this.engFilter.frequency.setTargetAtTime(260 + thr * 1600 + rpm * 0.18, t, 0.04);
-    const load = on ? 0.06 + thr * 0.08 + clamp(rpm / 6500, 0, 1) * 0.05 : (rpm > 50 ? 0.03 * rpm / 800 : 0);
+    this.engFilter.frequency.setTargetAtTime(700 + thr * 2600 + rpm * 0.3, t, 0.04);
+    const load = on ? 0.16 + thr * 0.16 + clamp(rpm / 6500, 0, 1) * 0.08 : (rpm > 50 ? 0.08 * rpm / 800 : 0);
     this.engGain.gain.setTargetAtTime(load, t, 0.05);
     this.intake.g.gain.setTargetAtTime(on ? thr * clamp(rpm / 4000, 0.15, 1) * 0.12 : 0, t, 0.06);
     this.intake.f.frequency.setTargetAtTime(500 + rpm * 0.25, t, 0.06);
     const kmh = car.kmh;
-    this.road.g.gain.setTargetAtTime(clamp(kmh / 45, 0, 1) * 0.22, t, 0.1);
-    this.wind.g.gain.setTargetAtTime(clamp((kmh / 60) ** 2, 0, 1) * 0.06, t, 0.15);
+    this.road.g.gain.setTargetAtTime(clamp(kmh / 45, 0, 1) * 0.16, t, 0.1);
+    this.wind.g.gain.setTargetAtTime(clamp((kmh / 60) ** 2, 0, 1) * 0.08, t, 0.15);
     const skid = car.brake > 0.75 && Math.abs(car.v) > 3.5 ? 0.035 : 0;
     this.squealGain.gain.setTargetAtTime(skid, t, 0.04);
     this.squeal.frequency.setTargetAtTime(950 + Math.sin(now / 37) * 60, t, 0.02);

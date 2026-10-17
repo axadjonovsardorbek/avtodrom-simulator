@@ -93,8 +93,8 @@ function clusterCanvas() {
 }
 
 export function buildCar() {
-  const root = new THREE.Group();
-  const body = new THREE.Group();
+  const root = new THREE.Group(); root.name = "car";
+  const body = new THREE.Group(); body.name = "body";
   root.add(body);
 
   const paint = new THREE.MeshPhysicalMaterial({ color: 0xf4f5f3, roughness: 0.28, metalness: 0.15, clearcoat: 1, clearcoatRoughness: 0.12 });
@@ -107,8 +107,8 @@ export function buildCar() {
 
   // lofted shell: lower body, greenhouse with its glass, flat end caps
   const lampMat = (color, base = 0.12, extra = {}) => new THREE.MeshStandardMaterial({ color, emissive: color, emissiveIntensity: base, roughness: 0.2, ...extra });
-  const headMat = new THREE.MeshPhysicalMaterial({ color: 0x2a2f36, emissive: 0xfff3d6, emissiveIntensity: 0.05, roughness: 0.08, metalness: 0.6, clearcoat: 1 });
-  const tailMat = lampMat(0xb3120b, 0.12, { roughness: 0.15 });
+  const headMat = new THREE.MeshPhysicalMaterial({ name: "lamp_head", color: 0x2a2f36, emissive: 0xfff3d6, emissiveIntensity: 0.05, roughness: 0.08, metalness: 0.6, clearcoat: 1 });
+  const tailMat = lampMat(0xb3120b, 0.12, { roughness: 0.15, name: "lamp_tail" });
   const geo = buildBodyGeometries();
   add(new THREE.Mesh(geo.lower, [paint, headMat, tailMat, plastic]));
   const gh = add(new THREE.Mesh(geo.green, [paint, paint, paint, black, glass]));
@@ -163,18 +163,20 @@ export function buildCar() {
   const fp = new THREE.Mesh(new THREE.PlaneGeometry(0.52, 0.112), plateMat); fp.position.set(F + 0.012, 0.5, 0); fp.rotation.y = Math.PI / 2; body.add(fp);
 
   // lamps (emissive, animated)
-  const head = [headMat], tail = [tailMat], rev = [], indL = [], indR = [];
   for (const sg of [-1, 1]) {
     for (const z of [0.35, 0.44]) {                                               // projector lenses
-      const lens = new THREE.Mesh(new THREE.CircleGeometry(0.026, 20), lampMat(0xfff8e6, 0.1));
-      lens.position.set(F + 0.006, 0.72, sg * z); lens.rotation.y = Math.PI / 2; body.add(lens); head.push(lens.material);
+      const lens = new THREE.Mesh(new THREE.CircleGeometry(0.026, 20), lampMat(0xfff8e6, 0.1, { name: "lamp_head_lens" }));
+      lens.position.set(F + 0.006, 0.72, sg * z); lens.rotation.y = Math.PI / 2; body.add(lens);
     }
     box(0.01, 0.025, 0.09, lampMat(0x8a0a06, 0.15), DIM.rear - 0.004, 0.48, sg * 0.62);
+    const side = sg < 0 ? "L" : "R";
     const ind = box(0.05, 0.035, 0.09, lampMat(0xffa21a, 0.05), F - 0.17, 0.725, sg * (halfWidth(F - 0.17) * 0.95 + 0.002)); ind.rotation.y = sg * 0.7;
-    (sg < 0 ? indL : indR).push(ind);
+    ind.name = "ind_" + side + "_front";
     const fog = new THREE.Mesh(new THREE.TorusGeometry(0.05, 0.012, 8, 24), chrome); fog.position.set(F + 0.004, 0.47, sg * 0.5); fog.rotation.y = Math.PI / 2; body.add(fog);
-    const r = new THREE.Mesh(new THREE.PlaneGeometry(0.08, 0.04), lampMat(0xffffff, 0.02)); r.position.set(DIM.rear - 0.007, 0.83, sg * 0.53); r.rotation.y = -Math.PI / 2; body.add(r); rev.push(r);
-    const ri = box(0.03, 0.05, 0.12, lampMat(0xffa21a, 0.05), DIM.rear + 0.17, 0.83, sg * (halfWidth(DIM.rear + 0.17) * 0.96 + 0.003)); (sg < 0 ? indL : indR).push(ri);
+    const r = new THREE.Mesh(new THREE.PlaneGeometry(0.08, 0.04), lampMat(0xffffff, 0.02)); r.position.set(DIM.rear - 0.007, 0.83, sg * 0.53); r.rotation.y = -Math.PI / 2; body.add(r);
+    r.name = "lamp_reverse_" + side;
+    const ri = box(0.03, 0.05, 0.12, lampMat(0xffa21a, 0.05), DIM.rear + 0.17, 0.83, sg * (halfWidth(DIM.rear + 0.17) * 0.96 + 0.003));
+    ri.name = "ind_" + side + "_rear";
   }
   const R0 = DIM.rear;
   box(0.012, 0.04, 0.7, chrome, R0 - 0.004, 0.93, 0);                             // trunk chrome strip
@@ -194,10 +196,11 @@ export function buildCar() {
   const spokeGeo = new THREE.BoxGeometry(0.19, 0.03, 0.05); spokeGeo.translate(0.1, 0, 0);
   const hubGeo = new THREE.CylinderGeometry(0.045, 0.045, 0.06, 16); hubGeo.rotateX(Math.PI / 2);
   const tyreMat = new THREE.MeshStandardMaterial({ color: 0x18191b, roughness: 0.92 });
-  const wheels = [], pivots = [];
   for (const [x, isFront] of [[0, false], [SPEC.wb, true]]) for (const sg of [-1, 1]) {
+    const tag = (isFront ? "F" : "R") + (sg < 0 ? "L" : "R");
     const pivot = new THREE.Group(); pivot.position.set(x, SPEC.wheelR, sg * (SPEC.track / 2 + 0.02));
-    const w = new THREE.Group();
+    pivot.name = "wheel_pivot_" + tag;
+    const w = new THREE.Group(); w.name = "wheel_spin_" + tag;
     add(new THREE.Mesh(tireGeo, tyreMat), w);
     w.add(new THREE.Mesh(rimGeo, new THREE.MeshStandardMaterial({ color: 0x0c0d0f, roughness: 0.6 })));
     for (let k = 0; k < 5; k++) for (const off of [-0.11, 0.11]) {
@@ -205,11 +208,10 @@ export function buildCar() {
     }
     const hb = new THREE.Mesh(hubGeo, rimMat); hb.position.z = sg * 0.07; w.add(hb);
     pivot.add(w); root.add(pivot);
-    wheels.push(w); if (isFront) pivots.push(pivot);
   }
 
   /* ---------- interior (shown from the driver's seat; exterior shell hidden) ---------- */
-  const interior = new THREE.Group();
+  const interior = new THREE.Group(); interior.name = "interior";
   const dashTop = new THREE.MeshStandardMaterial({ color: 0x2b2d31, roughness: 0.9 });
   const dashLow = new THREE.MeshStandardMaterial({ color: 0xc8c3b9, roughness: 0.85 });
   const trimGrey = new THREE.MeshStandardMaterial({ color: 0xb8b3a9, roughness: 0.95, side: THREE.DoubleSide });
@@ -221,6 +223,7 @@ export function buildCar() {
   const screen = new THREE.Mesh(new THREE.PlaneGeometry(0.22, 0.12), new THREE.MeshStandardMaterial({ color: 0x0c1220, emissive: 0x13305a, emissiveIntensity: 0.6, roughness: 0.2 }));
   screen.position.set(1.858, 0.78, 0); screen.rotation.y = -Math.PI / 2; interior.add(screen);
   const hazardBtn = new THREE.Mesh(new THREE.CircleGeometry(0.014, 3), new THREE.MeshStandardMaterial({ color: 0x550000, emissive: 0xff2010, emissiveIntensity: 0.1 }));
+  hazardBtn.name = "hazard_button";
   hazardBtn.position.set(1.858, 0.875, 0); hazardBtn.rotation.y = -Math.PI / 2; hazardBtn.rotation.z = Math.PI / 2; interior.add(hazardBtn);
   for (const z of [-0.07, 0.07]) {                                             // centre vents
     ib(0.02, 0.05, 0.11, chrome, 1.87, 0.92, z);
@@ -232,8 +235,8 @@ export function buildCar() {
   for (const [z, len] of wiperParts) { const w = ib(0.02, 0.012, len, black, 2.52, 1.03, z); w.rotation.y = 0.12; }
   // instrument binnacle + cluster
   ib(0.2, 0.05, 0.4, dashTop, 1.98, 1.0, -0.37);
-  const cluster = clusterCanvas();
-  const cl = new THREE.Mesh(new THREE.PlaneGeometry(0.3, 0.112), new THREE.MeshBasicMaterial({ map: cluster.tex }));
+  const cl = new THREE.Mesh(new THREE.PlaneGeometry(0.3, 0.112), new THREE.MeshBasicMaterial({ color: 0x050607 }));
+  cl.name = "cluster_screen";
   cl.position.set(1.925, 0.915, -0.37); cl.rotation.y = -Math.PI / 2; cl.rotation.x = 0; interior.add(cl);
   // hood seen through the windscreen
   const hoodM = ib(0.9, 0.04, SPEC.width - 0.3, paint, 3.0, 0.93, 0); hoodM.rotation.z = -0.13;
@@ -259,7 +262,7 @@ export function buildCar() {
   ib(0.1, 0.62, 0.08, dashLow, 0.76, 0.82, 0.6);
   ib(0.1, 0.18, 0.26, seatDark, 0.72, 1.3, 0.37);
   // Chevrolet-style steering wheel, column leaning back ~25 degrees
-  const wheelG = new THREE.Group();
+  const wheelG = new THREE.Group(); wheelG.name = "steering_wheel";
   wheelG.add(new THREE.Mesh(new THREE.TorusGeometry(0.188, 0.026, 12, 48), seatDark));
   for (const [a, len] of [[0, 0.17], [Math.PI, 0.17]]) {
     const sp = new THREE.Mesh(new THREE.BoxGeometry(len, 0.06, 0.03), seatDark);
@@ -272,28 +275,54 @@ export function buildCar() {
   const tilt = new THREE.Group(); tilt.position.set(1.62, 0.89, -0.37); tilt.rotation.z = -0.45;
   const yaw = new THREE.Group(); yaw.rotation.y = -Math.PI / 2;
   yaw.add(wheelG); tilt.add(yaw); interior.add(tilt);
-  interior.visible = false;
   root.add(interior);
+  return rigCar(root);
+}
 
-  const setCockpit = on => { interior.visible = on; body.visible = !on; };
-  const setLamp = (m, on, hi = 2.2, lo = 0.06) => { m.material.emissiveIntensity = on ? hi : lo; };
+// Finds the animated parts of a car model by name. Works for the generated
+// model and for any .glb that follows the same naming:
+//   body, interior, wheel_pivot_F*, wheel_spin_*, steering_wheel, cluster_screen,
+//   hazard_button, ind_L*, ind_R*, lamp_reverse*, materials lamp_head*, lamp_tail
+export function rigCar(root) {
+  const find = re => { const out = []; root.traverse(o => { if (re.test(o.name)) out.push(o); }); return out; };
+  const body = root.getObjectByName("body"), interior = root.getObjectByName("interior");
+  const pivots = find(/^wheel_pivot_F/), spins = find(/^wheel_spin_/);
+  const steering = root.getObjectByName("steering_wheel");
+  const meshesOf = objs => objs.flatMap(o => { const m = []; o.traverse(c => { if (c.isMesh) m.push(c); }); return m; });
+  const indL = meshesOf(find(/^ind_L/)), indR = meshesOf(find(/^ind_R/)), rev = meshesOf(find(/^lamp_reverse/));
+  const hazard = meshesOf(find(/^hazard_button/));
+  const head = new Set(), tail = new Set();
+  root.traverse(o => {
+    if (!o.isMesh) return;
+    for (const m of [].concat(o.material)) {
+      if (/^lamp_head/.test(m.name)) head.add(m);
+      if (/^lamp_tail/.test(m.name)) tail.add(m);
+    }
+  });
+  // separate materials per lamp so they can switch independently
+  for (const m of [...indL, ...indR, ...rev, ...hazard]) m.material = m.material.clone();
+  const cluster = clusterCanvas();
+  const screen = root.getObjectByName("cluster_screen");
+  if (screen) screen.traverse(o => { if (o.isMesh) o.material = new THREE.MeshBasicMaterial({ map: cluster.tex }); });
+
+  const setCockpit = on => { if (interior) interior.visible = on; if (body) body.visible = !on; };
+  setCockpit(false);
+  const glow = (list, on, hi, lo = 0.06) => list.forEach(m => { m.material.emissiveIntensity = on ? hi : lo; });
   let lastCluster = 0;
-
   return {
     root, interior, setCockpit,
     update(car, now) {
       for (const p of pivots) p.rotation.y = -car.steer;
-      for (const w of wheels) w.rotation.z = -car.wheelSpin;
-      wheelG.rotation.z = -car.sw * Math.PI / 180;
+      for (const w of spins) w.rotation.z = -car.wheelSpin;
+      if (steering) steering.rotation.z = -car.sw * Math.PI / 180;
       const blink = Math.floor(now / 380) % 2 === 0;
-      const left = car.hazard || car.sig === -1, right = car.hazard || car.sig === 1;
-      indL.forEach(m => setLamp(m, left && blink, 3));
-      indR.forEach(m => setLamp(m, right && blink, 3));
+      glow(indL, (car.hazard || car.sig === -1) && blink, 3);
+      glow(indR, (car.hazard || car.sig === 1) && blink, 3);
+      glow(rev, car.gear === "R", 2);
+      glow(hazard, car.hazard && blink, 3, 0.15);
       tail.forEach(mt => { mt.emissiveIntensity = car.brake > 0.05 ? 2.6 : car.engineOn ? 0.55 : 0.08; });
-      rev.forEach(m => setLamp(m, car.gear === "R", 2));
-      head.forEach(mt => { mt.emissiveIntensity = car.engineOn ? (mt === headMat ? 0.25 : 1.6) : 0.05; });
-      setLamp(hazardBtn, car.hazard && blink, 3, 0.15);
-      if (interior.visible && now - lastCluster > 90) { cluster.draw(car, now); lastCluster = now; }
+      head.forEach(mt => { mt.emissiveIntensity = car.engineOn ? (mt.name === "lamp_head" ? 0.25 : 1.6) : 0.05; });
+      if (interior && interior.visible && now - lastCluster > 90) { cluster.draw(car, now); lastCluster = now; }
     }
   };
 }

@@ -64,6 +64,17 @@ export class View {
     this.worldGroup = null;
   }
 
+  // Swap in another car model (e.g. one loaded from a .glb); mirrors move with it.
+  setCarModel(cv) {
+    const old = this.carView.root;
+    this.scene.remove(old);
+    cv.root.rotation.order = "YZX";
+    for (const m of this.mirrors) cv.root.add(m.cam);
+    this.carView = cv;
+    this.scene.add(cv.root);
+    cv.setCockpit(this.mode === "cockpit");
+  }
+
   setWorld(W, quality = "high") {
     if (this.worldGroup) {
       this.scene.remove(this.worldGroup);

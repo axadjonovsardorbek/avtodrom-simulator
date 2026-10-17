@@ -9,6 +9,7 @@ npm install
 npm run dev        # http://localhost:5173
 npm run build      # dist/ papkasiga tayyor sayt
 npm test           # brauzersiz testlar: fizika, trassa, qoidalar
+npm run export:car # public/models/cobalt.glb ni kod modelidan qayta yaratish (Chrome kerak)
 ```
 
 Havola orqali to'g'ridan-to'g'ri ochish: `#imtihon`, `#trening`, `#mashq-ilon` (yoki boshqa element id).
@@ -38,6 +39,25 @@ Havola orqali to'g'ridan-to'g'ri ochish: `#imtihon`, `#trening`, `#mashq-ilon` (
 
 Rul yoki gamepad (standart mapping): chap stik rul, RT gaz, LT tormoz, LB ilashish, A/B uzatma.
 
+## Mashinalar
+
+Mashinalar ro'yxati `src/cars/index.js` da. Har bir mashina `public/models/` dagi `.glb` fayldan yuklanadi.
+Hozircha bitta mashina bor: Chevrolet Cobalt (`cobalt.glb`). Bu model kod orqali yasalgan (`src/render/cobaltBody.js`, `src/render/carModel.js`) va `npm run export:car` bilan faylga chiqarilgan.
+
+Yangi mashina qo'shish:
+
+1. `.glb` faylni `public/models/` ga qo'ying. O'lchami metrda bo'lsin, orqa o'q markazi koordinata boshida, old tomoni +X, o'ng tomoni +Z, yuqorisi +Y.
+2. Harakatlanadigan qismlarni shunday nomlang:
+   - `body`, `interior`;
+   - g'ildiraklar: `wheel_pivot_FL/FR/RL/RR` va `wheel_spin_FL/FR/RL/RR`;
+   - `steering_wheel`, `cluster_screen`, `hazard_button`;
+   - burilish chiroqlari: `ind_L_*`, `ind_R_*`;
+   - orqaga yurish chirog'i: `lamp_reverse_*`;
+   - materiallar: `lamp_head*`, `lamp_tail`.
+3. `src/cars/index.js` ga `{ id, name, model }` qatorini qo'shing. Menyuda paydo bo'ladi.
+
+Fizika parametrlari hozircha barcha mashinalar uchun bir xil (`src/sim/vehicle.js` dagi `SPEC`).
+
 ## Tuzilishi
 
 ```
@@ -50,9 +70,12 @@ src/
     path.js        yo'l quruvchi (to'g'ri, yoy, burchak, ilon)
     elements.js    12 element: geometriya va tekshiruv qoidalari
     tracks.js      to'liq avtodrom va alohida mashq maydonlari
-  render/     Three.js: sahna, mashina modeli, oynalar, ovoz
+  cars/       mashinalar ro'yxati
+  render/     Three.js: sahna, mashina modeli va yuklovchi, oynalar, ovoz
   ui/         boshqaruv, asboblar paneli, menyu
 tests/        node testlari va brauzer skrinshot skriptlari
+tools/        export-car.mjs: kod modelini .glb ga chiqarish
+public/models/  mashina modellari (.glb)
 ```
 
 ## Taxminlar

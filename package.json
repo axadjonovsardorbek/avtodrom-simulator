@@ -6,9 +6,10 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "vite build",
+    "build": "vite build && node tools/pack-models.mjs",
     "preview": "vite preview",
-    "test": "node tests/run.js"
+    "test": "node tests/run.js",
+    "export:car": "node tools/export-car.mjs"
   },
   "dependencies": {
     "three": "0.170.0"

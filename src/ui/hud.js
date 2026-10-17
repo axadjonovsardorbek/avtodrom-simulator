@@ -2,6 +2,7 @@
 // penalty log, start light, menus and the result protocol.
 import { PASS_LIMIT } from "../sim/penalties.js";
 import { ELEMENTS } from "../world/tracks.js";
+import { CARS } from "../cars/index.js";
 
 const $ = (sel, root = document) => root.querySelector(sel);
 const el = (tag, cls, html) => { const e = document.createElement(tag); if (cls) e.className = cls; if (html != null) e.innerHTML = html; return e; };
@@ -89,6 +90,8 @@ export class Hud {
         <h1>Avtodrom simulyatori</h1>
         <p class="lead">Amaliy imtihonni to'liq avtodromda yoki alohida mashqlarda takrorlang. Jarima ballari rasmiy jadval bo'yicha hisoblanadi.</p>
         <div class="opts">
+          <label>Mashina
+            <select id="optCar">${CARS.map(c => `<option value="${c.id}">${c.name}</option>`).join("")}</select></label>
           <label>Uzatmalar qutisi
             <select id="optTrans"><option value="manual">Mexanik (ilashish bilan)</option><option value="auto">Avtomat</option></select></label>
           <label>Grafika
@@ -106,6 +109,8 @@ export class Hud {
         ${state && state.canResume ? `<button class="btn" id="resume">Davom ettirish</button>` : ""}
       </div>`;
     m.hidden = false;
+    $("#optCar", m).value = this.h.settings.car || CARS[0].id;
+    $("#optCar", m).onchange = e => { this.h.settings.car = e.target.value; this.h.useCar && this.h.useCar(e.target.value); };
     $("#optTrans", m).value = this.h.settings.transmission;
     $("#optQuality", m).value = this.h.settings.quality;
     $("#optTrans", m).onchange = e => this.h.settings.transmission = e.target.value;
