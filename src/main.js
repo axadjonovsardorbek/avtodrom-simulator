@@ -12,6 +12,7 @@ import { loadCarModel } from "./render/carLoader.js";
 import PHRASES from "./audio/phrases.json";
 import { Instructor, lineIds } from "./instructor/instructor.js";
 import { buildInstructor } from "./render/instructorFigure.js";
+import { KidShow } from "./render/singerKid.js";
 
 const coarse = matchMedia("(pointer: coarse)").matches;
 const settings = { transmission: "manual", quality: coarse ? "low" : "high", mouseSteer: false, muted: false, voice: true, car: "cobalt", instructor: "angry" };
@@ -30,6 +31,7 @@ instructor.mood = settings.instructor;
 const instructorFig = buildInstructor();
 view.setInstructor(instructorFig.root);
 view.setInstructorVisible(instructor.on);
+const kidShow = new KidShow(view.scene, audio);
 const controls = new Controls(hud.canvas, onAction);
 controls.bindTouch(document.getElementById("touchpad"));
 controls.mouseSteer = settings.mouseSteer;
@@ -60,6 +62,7 @@ function start(m, el) {
   audio.chime();
   audio.preload(Object.keys(PHRASES.phrases));
   instructor.mood = settings.instructor; instructor.reset();
+  kidShow.reset(session, m === "training");
   view.setInstructorVisible(instructor.on);
   if (instructor.on) audio.preload(lineIds(instructor.mood));
   if (m === "practice") audio.prompt("task_" + el, ELEMENTS.find(e => e.id === el).name);
@@ -78,6 +81,7 @@ function openShowroom() {
   hud.reset(session, "Chevrolet Cobalt");
   hud.hideMenu();
   inShowroom = true; paused = true; ended = false;
+  kidShow.reset(null);
   hud.showShowroom(true, showroomAction);
 }
 function showroomAction(a) {
@@ -276,6 +280,7 @@ function frame(now) {
     if (!paused && session.state === "running") instructor.update(session, dt, START_SIGNAL_AT);
     else if (ended) instructor.t += dt;
     instructorFig.update(dt, instructor.pose());
+    if (!paused) kidShow.update(dt); else kidShow.stopSong(0.2);
     view.update(session, dt, now);
     view.render();
     if (now - lastHud > 60) { hud.update(session, view, now); lastHud = now; }
@@ -290,7 +295,7 @@ function frame(now) {
   }
   requestAnimationFrame(frame);
 if (import.meta.env.DEV) {
-  window.__sim = { view, audio, fig: instructorFig, instructor, get session() { return session; } };
+  window.__sim = { view, audio, fig: instructorFig, instructor, kidShow, get session() { return session; } };
   // used by tools/export-car.mjs: generated Cobalt -> binary glTF (base64)
   window.__exportCar = async () => {
     const [{ GLTFExporter }, { buildCar }] = await Promise.all([import("three/examples/jsm/exporters/GLTFExporter.js"), import("./render/carModel.js")]);

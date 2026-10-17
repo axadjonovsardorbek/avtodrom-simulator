@@ -185,6 +185,32 @@ export class CarAudio {
     });
   }
 
+  // a music file (e.g. a song) played once from `from` seconds; returns { stop(fade) }
+  song(url, from = 0, onEnd) {
+    let src = null, g = null, stopped = false;
+    if (this.ctx) {
+      this.songs = this.songs || new Map();
+      if (!this.songs.has(url)) this.songs.set(url, fetch(url).then(r => { if (!r.ok) throw new Error(r.status); return r.arrayBuffer(); }).then(b => this.ctx.decodeAudioData(b)));
+      this.songs.get(url).then(buf => {
+        if (stopped) return;
+        const c = this.ctx;
+        src = c.createBufferSource(); g = c.createGain(); g.gain.value = 1.0;
+        src.buffer = buf; src.connect(g); g.connect(this.master);
+        src.onended = () => { if (!stopped && onEnd) onEnd(); };
+        src.start(0, Math.min(from, buf.duration - 0.1));
+      }).catch(e => console.warn("song not loaded:", e.message));
+    }
+    return {
+      stop: (fade = 0.6) => {
+        stopped = true;
+        if (!src) return;
+        const t = this.ctx.currentTime;
+        g.gain.setValueAtTime(g.gain.value, t); g.gain.linearRampToValueAtTime(0, t + fade);
+        try { src.stop(t + fade + 0.05); } catch (_) {}
+      }
+    };
+  }
+
   talking() {
     const c = this.ctx;
     if (c && c.currentTime >= (this.talkFrom ?? 0) && c.currentTime < (this.talkUntil ?? 0)) return true;
