@@ -28,6 +28,7 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
+      - run: npm test             # no deploy when a rule or physics check fails
       - run: npx vite build
         env:
           HASHED: "1"

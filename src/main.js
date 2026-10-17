@@ -1,4 +1,5 @@
 import "./style.css";
+import { boot } from "./ui/boot.js";
 import { buildFull, buildPractice, ELEMENTS } from "./world/tracks.js";
 import { Session, START_SIGNAL_AT } from "./sim/session.js";
 import { toLocal } from "./sim/geom.js";
@@ -236,8 +237,10 @@ function useCar(id) {
   const car = carById(id);
   if (carModelId === car.id) return;
   carModelId = car.id;
-  const slow = setTimeout(() => hud.toast(`${car.name} yuklanmoqda…`), 600);
-  loadCarModel(car.model).then(cv => {
+  const first = !boot.isDone();
+  const slow = first ? 0 : setTimeout(() => hud.toast(`${car.name} yuklanmoqda…`), 600);
+  if (first) boot.step(`${car.name} yuklanmoqda…`, 0.15);
+  loadCarModel(car.model, first ? f => boot.step(`${car.name} yuklanmoqda… ${Math.round(f * 100)}%`, 0.15 + f * 0.8) : undefined).then(cv => {
     clearTimeout(slow);
     if (carModelId !== car.id) return;                  // another car was picked meanwhile
     audio.setProfile(car.sound);
@@ -246,7 +249,8 @@ function useCar(id) {
     addPlates(cv, settings.plate, car.id === "cobalt" ? [{ pos: [3.582, 0.45, 0], back: false }, { pos: [-0.882, 0.47, 0], back: true }] : undefined);
     if (cv.setPaint) cv.setPaint(settings.color);
     view.setCarModel(cv, car);
-  }).catch(e => { clearTimeout(slow); hud.toast(`${car.name} yuklanmadi`, "bad"); console.warn("car model not loaded, using the built-in one:", e.message); });
+    boot.done();
+  }).catch(e => { clearTimeout(slow); boot.done(); hud.toast(`${car.name} yuklanmadi`, "bad"); console.warn("car model not loaded, using the built-in one:", e.message); });
 }
 useCar(settings.car);
 

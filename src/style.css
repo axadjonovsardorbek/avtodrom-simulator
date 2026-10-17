@@ -263,3 +263,15 @@ tr:last-child td { border-bottom: 0; }
   .score > div { min-width: 60px; padding: 5px 9px; }
 }
 @media (prefers-reduced-motion: reduce) { .toast, .rotate svg { animation: none; } }
+
+/* boot screen: shown until the car model has loaded */
+.boot { position: fixed; inset: 0; z-index: 50; display: grid; place-items: center; background: #0b0c0e; transition: opacity .4s; }
+.boot.done { opacity: 0; pointer-events: none; }
+.boot-card { display: grid; justify-items: center; gap: 12px; color: #e9edf2; font-family: var(--f-body, sans-serif); text-align: center; padding: 24px; }
+.boot-card b { font-family: var(--f-display, sans-serif); font-size: 28px; letter-spacing: .04em; text-transform: uppercase; }
+.boot-mark { width: 56px; height: 56px; border-radius: 12px; background: #1f5fd1; border: 2px solid #fff; display: grid; place-items: center; font: 700 30px var(--f-display, sans-serif); }
+.boot-bar { width: min(280px, 70vw); height: 6px; border-radius: 3px; background: #23262c; overflow: hidden; }
+.boot-bar i { display: block; height: 100%; width: 5%; background: #f0b030; transition: width .25s; }
+.boot-card small { color: #9aa3ae; }
+.boot.err .boot-bar { display: none; }
+.boot.err small { color: #ff8a7a; max-width: 40ch; }

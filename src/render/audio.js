@@ -277,7 +277,7 @@ export class CarAudio {
     this.eng2.frequency.setTargetAtTime(f * 2.004, t, 0.02);
     this.sub.frequency.setTargetAtTime(f / 2, t, 0.02);
     const P = this.profile;
-    this.engFilter.frequency.setTargetAtTime(P.filter[0] + thr * P.filter[1] + rpm * 0.3, t, 0.04);
+    this.engFilter.frequency.setTargetAtTime(clamp(P.filter[0] + thr * P.filter[1] + rpm * 0.3, 60, 12000), t, 0.04);
     const load = on ? 0.16 + thr * 0.16 + clamp(rpm / 6500, 0, 1) * 0.08 : (rpm > 50 ? 0.08 * rpm / 800 : 0);
     this.engGain.gain.setTargetAtTime(load * P.gain, t, 0.05);
     // boost builds with throttle above ~1800 rpm; the whistle follows it

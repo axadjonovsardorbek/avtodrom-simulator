@@ -128,6 +128,11 @@ tools/        export-car.mjs: kod modelini .glb ga chiqarish
 public/models/  mashina modellari (.glb)
 ```
 
+## Nashr (production)
+
+`main` ga har push GitHub Actions'da testlarni yurgizadi, o'tsa saytni GitHub Pages'ga chiqaradi (`.github/workflows/pages.yml`). Prod build: `HASHED=1 npx vite build` (fayl nomlarida hash, three.js alohida bo'lak).
+Sayt: yuklanish ekrani va xato xabari (`src/ui/boot.js`), oflayn kesh (`public/sw.js`), ilova sifatida o'rnatish (`public/manifest.webmanifest`, `public/icons/`).
+
 ## Litsenziya
 
 Kod: MIT (`LICENSE`). Modellar, ovozlar va musiqa o'z litsenziyasida: `CREDITS.md`.

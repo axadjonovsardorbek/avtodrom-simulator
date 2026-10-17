@@ -10,11 +10,14 @@ export default defineConfig({
   build: {
     outDir: "dist",
     assetsInlineLimit: 0,
+    chunkSizeWarningLimit: 700,          // three.js alone is ~640 kB
     rollupOptions: {
       output: {
         entryFileNames: hashed ? "assets/app-[hash].js" : "assets/app.js",
         chunkFileNames: hashed ? "assets/[name]-[hash].js" : "assets/[name].js",
-        assetFileNames: hashed ? "assets/[name]-[hash][extname]" : "assets/[name][extname]"
+        assetFileNames: hashed ? "assets/[name]-[hash][extname]" : "assets/[name][extname]",
+        // three.js in its own file: it changes far less often than the app, so browsers keep it cached
+        manualChunks: hashed ? id => (/node_modules\/three\//.test(id) ? "three" : undefined) : undefined
       }
     }
   }
