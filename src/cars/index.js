@@ -22,7 +22,7 @@ export const CARS = [
     dims: COBALT, eye: [1.38, 1.15, -0.3], seat: [1.5, 0.46, 0.36],
     mirrors: { center: [1.98, 1.3, 0], left: [2.33, 1.06, -0.93], right: [2.33, 1.06, 0.93] },
     sound: NA,
-    voice: { url: "cobalt.mp3", from: 4 }          // plays from the 4th second when the car is picked
+    voice: { url: "cobalt.mp3", from: 4, dur: 3 }          // plays from the 4th second when the car is picked
   },
   {
     id: "malibu-premier", name: "Chevrolet Malibu 2 Premier", model: "models/malibu-premier.glb", info: "1.5 Turbo · 163 o.k. · 4,93 m",
@@ -50,7 +50,7 @@ export const CARS = [
     mirrors: { center: [1.76, 1.3, 0], left: [2.15, 1.05, -0.98], right: [2.15, 1.05, 0.98] },
     spec: { mass: 1320, wb: MONZA.wheelbase, rOh: MONZA.rOh, fOh: MONZA.fOh, width: 1.80, track: MONZA.track, wheelR: MONZA.wheelR, torque: NA15, clutchCap: 300, autoForce: 4700 },
     sound: NA,
-    voice: { url: "monzachila_shottamisila.mp3", from: 0, dur: 1 }          // only the first second
+    voice: { url: "monzachila_shottamisila.mp3", from: 0, dur: 1.3 }          // only the first second
   }
 ];
 // "malibu" was the Malibu XL model, now replaced by the Premier
