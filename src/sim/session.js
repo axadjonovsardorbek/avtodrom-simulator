@@ -152,7 +152,7 @@ export class Session {
     const xs = P.map(p => p[0]), ys = P.map(p => p[1]);
     const touching = new Set();
     for (const sg of W.segmentsNear(Math.min(...xs), Math.min(...ys), Math.max(...xs), Math.max(...ys)))
-      if (!touching.has(sg.li) && polyTouchesSeg(P, sg.a, sg.b)) touching.add(sg.li);
+      if (polyTouchesSeg(P, sg.a, sg.b)) { touching.add(sg.li); W.lines[sg.li].hit = [(sg.a[0] + sg.b[0]) / 2, (sg.a[1] + sg.b[1]) / 2]; }
     W.lines.forEach((ln, li) => {
       if (touching.has(li)) {
         ln.flash = this.clock;

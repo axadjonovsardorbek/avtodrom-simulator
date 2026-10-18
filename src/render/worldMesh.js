@@ -124,7 +124,7 @@ export function buildWorldMeshes(W, quality) {
       const m = new THREE.Mesh(ribbon(pc, ln.width, h, Y_LINE), mat);
       m.receiveShadow = true; group.add(m);
     }
-    dyn.lines.push({ ln, mat });
+    dyn.lines.push({ ln, mat, h, group });
   }
   for (const p of W.paint) {
     const m = new THREE.Mesh(flatPoly(p.poly, h, Y_PAINT), p.color === "yellow" ? yellow : white);
@@ -444,6 +444,7 @@ export function buildWorldMeshes(W, quality) {
   return { group, dyn };
 }
 
+const flashMat = new THREE.MeshBasicMaterial({ color: 0xff3b1f });
 const _trMats = {};
 function trafficCar(color) {
   const g = new THREE.Group();
@@ -488,8 +489,26 @@ export function updateWorldMeshes(W, dyn, clock, now) {
   // flags flutter
   if (dyn.flags) for (const f of dyn.flags) { const p = f.geometry.attributes.position; for (let i = 0; i < p.count; i++) { const x = p.getX(i); p.setZ(i, Math.sin(x * 2.2 - now / 260) * 0.12 * (x / 2.4)); } p.needsUpdate = true; }
   for (const { c, m } of dyn.cones) if (c.hit && m.rotation.z === 0) { m.rotation.z = 1.4; m.position.y = 0.15; }
-  for (const { ln, mat } of dyn.lines) {
-    const hot = clock - ln.flash < 0.8;
-    if (hot !== !!mat.userData.hot) { mat.userData.hot = hot; mat.color.set(hot ? 0xff3b1f : (ln.color === "yellow" ? 0xf2b632 : 0xeeece4)); }
+  // a touched line glows red only around the contact (about 6 m), not along its whole length
+  for (const L of dyn.lines) {
+    const { ln } = L, hot = clock - ln.flash < 0.8 && ln.hit;
+    if (!hot) { if (L.flashMesh && L.flashMesh.visible) L.flashMesh.visible = false; continue; }
+    const key = ln.hit[0].toFixed(1) + "," + ln.hit[1].toFixed(1);
+    if (L.hitKey !== key) {
+      L.hitKey = key;
+      let k = 0, best = Infinity;
+      ln.pts.forEach((p, i) => { const d = Math.hypot(p[0] - ln.hit[0], p[1] - ln.hit[1]); if (d < best) { best = d; k = i; } });
+      let a = k, b = k, len = 0;
+      while (a > 0 && len < 3) { len += Math.hypot(ln.pts[a][0] - ln.pts[a - 1][0], ln.pts[a][1] - ln.pts[a - 1][1]); a--; }
+      len = 0;
+      while (b < ln.pts.length - 1 && len < 3) { len += Math.hypot(ln.pts[b + 1][0] - ln.pts[b][0], ln.pts[b + 1][1] - ln.pts[b][1]); b++; }
+      const piece = ln.pts.slice(a, b + 1);
+      if (L.flashMesh) { L.group.remove(L.flashMesh); L.flashMesh.geometry.dispose(); L.flashMesh = null; }
+      if (piece.length > 1) {
+        L.flashMesh = new THREE.Mesh(ribbon(piece, ln.width * 1.15, L.h, Y_LINE + 0.004), flashMat);
+        L.flashMesh.renderOrder = 4; L.group.add(L.flashMesh);
+      }
+    }
+    if (L.flashMesh) L.flashMesh.visible = true;
   }
 }
