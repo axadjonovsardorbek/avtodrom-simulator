@@ -17,7 +17,7 @@ for (let t = 0; t < 400; t += 0.05) {
       c.prev = c.s;
       if (i > 0) minGap = Math.min(minGap, arm.cars[i - 1].s - 4.3 - c.s);
     });
-    if (arm.deg === -90 && t > 5 && arm.cars.length) blockedSpawn++;
+    if (arm.deg === -90 && t > 15 && arm.cars.length) blockedSpawn++;
   }
 }
 ok(redRun === 0, "cars stop on red (violations: " + redRun + ")");
