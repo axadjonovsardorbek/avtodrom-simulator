@@ -237,7 +237,7 @@ export class View {
       this.worldGroup.traverse(o => { if (o.geometry) o.geometry.dispose(); });
     }
     const { group, dyn } = buildWorldMeshes(W, quality);
-    this.W = W; this.dyn = dyn; this.worldGroup = group;
+    this.W = W; this.dyn = dyn; this.worldGroup = group; this.applyTrafficMode();
     this.dressPedestrians();
     this.buildStopZones(W);
     this.buildGuides(W);
@@ -290,6 +290,11 @@ export class View {
   saveMirrors() {
     try { localStorage.setItem("avtodrom.mirrors", JSON.stringify(Object.fromEntries(this.mirrors.map(m => [m.key, m.adj])))); } catch (_) {}
   }
+
+  // other cars at the junction: "real" cars use these light models, anything else the plain boxes
+  setTrafficModels(map) { this.trafficReal = map; this.applyTrafficMode(); }
+  setTrafficMode(mode) { this.trafficMode = mode; this.applyTrafficMode(); }
+  applyTrafficMode() { if (this.dyn && this.dyn.traffic) this.dyn.traffic.real = this.trafficMode === "real" ? this.trafficReal : null; }
 
   // red pins where penalties happened (replay)
   setReplayMarkers(marks = []) {

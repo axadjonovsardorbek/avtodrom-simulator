@@ -463,13 +463,26 @@ function trafficCar(color) {
   return g;
 }
 
+// a copy of a light car model with its own paint colour
+function realCar(tpl, color) {
+  const g = tpl.clone(true);
+  g.traverse(o => {
+    if (!o.isMesh) return;
+    o.material = [].concat(o.material).map(m => { if (m && m.name === "paint") { const c = m.clone(); c.color.setHex(color); return c; } return m; });
+    if (!Array.isArray(o.material) || o.material.length === 1) o.material = [].concat(o.material)[0];
+  });
+  return g;
+}
+
 export function updateWorldMeshes(W, dyn, clock, now) {
   if (W.traffic && dyn.traffic) {
     const seen = new Set();
     for (const c of W.traffic.cars) {
       let m = dyn.traffic.made.get(c);
-      if (!m) { m = trafficCar(c.color); dyn.traffic.group.add(m); dyn.traffic.made.set(c, m); }
-      const p = W.traffic.worldPose(c);
+      const tpl = dyn.traffic.real && c.model && dyn.traffic.real[c.model];
+      if (m && tpl && !m.userData.real) { dyn.traffic.group.remove(m); m = null; }                 // the light model arrived after the box
+      if (!m) { m = tpl ? realCar(tpl, c.color) : trafficCar(c.color); m.userData.real = !!tpl; dyn.traffic.group.add(m); dyn.traffic.made.set(c, m); }
+      const p = tpl ? W.traffic.axlePose(c) : W.traffic.worldPose(c);     // real models sit on their rear axle, the boxes on their middle
       m.position.set(p.x, W.heightAt ? W.heightAt(p.x, p.y) : 0, p.y); m.rotation.y = -p.th; seen.add(c);
     }
     for (const [c, m] of dyn.traffic.made) if (!seen.has(c)) { dyn.traffic.group.remove(m); dyn.traffic.made.delete(c); }

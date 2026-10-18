@@ -9,7 +9,7 @@ import { CarAudio } from "./render/audio.js";
 import { Controls } from "./ui/input.js";
 import { Hud } from "./ui/hud.js";
 import { carById } from "./cars/index.js";
-import { loadCarModel } from "./render/carLoader.js";
+import { loadCarModel, loadTrafficModel } from "./render/carLoader.js";
 import { dressCobalt, addPaint } from "./render/carDress.js";
 import { addPlates, DEFAULT_PLATE } from "./render/plates.js";
 import PHRASES from "./audio/phrases.json";
@@ -21,6 +21,7 @@ import { CARS } from "./cars/index.js";
 import { recordAttempt, keyFor } from "./sim/history.js";
 import { Tutorial } from "./ui/tutorial.js";
 import { Recorder } from "./sim/replay.js";
+import { setTrafficFleet } from "./world/traffic.js";
 import { unlock } from "./sim/achievements.js";
 import { loadHistory } from "./sim/history.js";
 import { dailyTask } from "./sim/daily.js";
@@ -28,7 +29,7 @@ import { buildDriver } from "./render/driverFigure.js";
 import { loadPeople, realInstructor, realDriver, realKid, realPedestrian } from "./render/people.js";
 
 const coarse = matchMedia("(pointer: coarse)").matches;
-const settings = { transmission: "manual", quality: coarse ? "mid" : "high", mouseSteer: false, muted: false, voice: true, car: "cobalt", instructor: "angry", color: "white", plate: DEFAULT_PLATE, size: "real" };
+const settings = { transmission: "manual", quality: coarse ? "mid" : "high", traffic: coarse ? "simple" : "real", mouseSteer: false, muted: false, voice: true, car: "cobalt", instructor: "angry", color: "white", plate: DEFAULT_PLATE, size: "real" };
 try { Object.assign(settings, JSON.parse(localStorage.getItem("avtodrom.settings") || "{}")); } catch (_) {}
 // the old "Ovoz" button muted on first press; start everyone unmuted once
 // phones used to start on "light"; the new balanced tier keeps shadows and the colour grade at a moderate cost
@@ -95,7 +96,13 @@ function start(m, el) {
   mode = m; elementId = el || null; ended = false;
   if (touchUi) goFullscreen();
   app.classList.toggle("auto", settings.transmission === "auto");
+  // other cars: none, plain boxes, or light copies of the real models (the models load in the background)
+  const trafficMode = settings.traffic || "simple";
+  setTrafficFleet(trafficMode === "real" ? CARS.map(c => ({ id: c.id, len: c.dims.length, wid: Math.min(1.8, c.dims.width), rOh: c.dims.rOh })) : []);
+  if (trafficMode === "real") loadTrafficModels();
   const W = m === "practice" ? buildPractice(el, carDims()) : buildFull(carDims(m === "exam"));
+  if (trafficMode === "off") W.traffic = null;
+  view.setTrafficMode(trafficMode);
   rec.reset(); replay = null; hud.hideReplay(); view.setReplayMarkers([]);
   tutorial = m === "learn" ? new Tutorial(settings.transmission) : null;
   if (!tutorial) hud.showTutor(null);
@@ -337,6 +344,15 @@ function prepareCar(car, onProgress) {
     if (cv.setPaint) cv.setPaint(settings.color);
     return cv;
   });
+}
+
+// light models for the traffic, loaded once when they are first needed
+let trafficLoading = null;
+function loadTrafficModels() {
+  if (trafficLoading) return trafficLoading;
+  const map = {};
+  trafficLoading = Promise.all(CARS.map(c => loadTrafficModel(c.model.replace(/\.glb$/, "-lite.glb")).then(m => { map[c.id] = m; view.setTrafficModels({ ...map }); }).catch(e => console.warn("traffic model", c.id, e.message))));
+  return trafficLoading;
 }
 
 // the car's own voice clip, played when the player picks it (menu or garage); not at load

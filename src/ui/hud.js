@@ -168,6 +168,7 @@ export class Hud {
           <h3>Boshqa</h3>
           <div class="row2">
             <div><span class="lbl">Ovozli ko'rsatma</span>${seg("optVoice", [["on", "Ha"], ["off", "Yo'q"]])}</div>
+            <div><span class="lbl">Boshqa mashinalar</span>${seg("optTraffic", [["off", "Yo'q"], ["simple", "Oddiy"], ["real", "Real"]])}</div>
             <div><span class="lbl">Grafika</span>${seg("optQuality", [["high", "Yuqori"], ["mid", "O'rta"], ["low", "Yengil"]])}</div>
           </div>
         </aside>
@@ -183,6 +184,7 @@ export class Hud {
     bindSeg("optInstr", S.instructor || "angry", v => S.instructor = v);
     bindSeg("optVoice", S.voice === false ? "off" : "on", v => S.voice = v === "on");
     bindSeg("optQuality", S.quality, v => S.quality = v);
+    bindSeg("optTraffic", S.traffic || "simple", v => S.traffic = v);
     const markCar = () => m.querySelectorAll(".carbtn").forEach(b => b.classList.toggle("on", b.dataset.car === (S.car === "malibu" ? "malibu-premier" : S.car || CARS[0].id)));
     markCar();
     m.querySelectorAll(".carbtn").forEach(b => b.onclick = () => { S.car = b.dataset.car; markCar(); this.h.useCar && this.h.useCar(S.car); this.h.save && this.h.save(); });

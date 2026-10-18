@@ -57,3 +57,11 @@ export async function loadCarModel(url, onProgress) {
   addShadowProxy(root);
   return rigCar(root);
 }
+
+// a light copy of a car for the traffic: no rigging, nothing but the shape
+export async function loadTrafficModel(url) {
+  const data = await fetchModel(url);
+  const gltf = await new GLTFLoader().setMeshoptDecoder(MeshoptDecoder).parseAsync(data, "");
+  gltf.scene.traverse(o => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = false; } });
+  return gltf.scene;
+}
