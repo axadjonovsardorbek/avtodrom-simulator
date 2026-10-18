@@ -103,20 +103,21 @@ export function piyoda(W, T, len = 34, opt = {}) {
 }
 
 /* 1. To'xtash va tik balandlikka ko'tarilish (estakada) */
-export function estakada(W, T) {
-  const pose = T.pose, stopS = 18;
-  T.fwd(44);
-  W.ramps.push({ pose, s0: 10, s1: 22, s2: 28, s3: 40, h: 1.92, halfW: HL + 0.4 });
+export function estakada(W, T, opt = {}) {
+  const { s0 = 10, s1 = 22, s2 = 28, s3 = 40, h = 1.92, stopS = 18, len = 44 } = opt;
+  const pose = T.pose;
+  T.fwd(len);
+  W.ramps.push({ pose, s0, s1, s2, s3, h, halfW: HL + 0.4 });
   stopPaint(W, pose, stopS);
   W.texts.push({ ...at(pose, stopS - 1.6, 0), th: pose.th, text: "STOP", size: 1.0 });
-  W.signs.push({ ...at(pose, 7, 2.9), th: pose.th + Math.PI, kind: "hill" });
+  W.signs.push({ ...at(pose, Math.max(1, s0 - 3), 2.9), th: pose.th + Math.PI, kind: "hill" });
   return task({
     id: "estakada", mapNo: 3, name: "To'xtash va tik balandlikka ko'tarilish (estakada)", short: "Estakada", pose,
     stages: [{
       text: "Estakadaga chiqing va to'xtash chizig'idan oshmasdan, undan 1 m ichida to'xtang.",
       update(ctx) { stopLineRule(ctx, "sl", stopS, () => true, "stopLine"); },
       hint: ctx => stopHint(ctx, ctx.f.sl, stopS) || "Qiyalikda ilashish va qo'l tormozidan foydalaning.",
-      done: ctx => (ctx.f.sl && ctx.f.sl.crossed) || (ctx.car.v === 0 && ctx.still > 0.3 && ctx.fs > 10 && stopS - ctx.fs < 8)
+      done: ctx => (ctx.f.sl && ctx.f.sl.crossed) || (ctx.car.v === 0 && ctx.still > 0.3 && ctx.fs > s0 && stopS - ctx.fs < 8)
     }, {
       text: "Kamida 3 soniya turing. So'ng orqaga 0,3 m dan ko'p siljimasdan 30 soniya ichida harakatni boshlang.",
       enter(ctx) { Object.assign(ctx.f, { ref: ctx.cs, back: 0, track: true, t0: ctx.t }); },
@@ -130,7 +131,7 @@ export function estakada(W, T) {
         if (f.track && !f.late && ctx.t - f.t0 > 30) { f.late = true; ctx.pen("hill30"); }
       },
       hint: ctx => ctx.f.track ? `Turibsiz: ${Math.floor(ctx.t - ctx.f.t0)} s · orqaga: ${Math.round(Math.max(0, ctx.f.back) * 100)} sm (ruxsat 30 sm)` : "",
-      done: ctx => ctx.rs > 40
+      done: ctx => ctx.rs > s3
     }]
   });
 }
@@ -307,7 +308,7 @@ export function temir(W, T, opt = {}) {
   const pose = T.pose, stopS = 12, r0 = 17.5;
   T.fwd(36);
   stopPaint(W, pose, stopS);
-  W.rails.push({ pose, s: r0, l0: opt.l0 ?? -22, l1: opt.l1 ?? 22, deadEnd: !!opt.deadEnd, train: { pos: null, timer: 55, dir: 1, hit: false } });   // a steam locomotive crosses now and then (src/sim/session.js trainStep)
+  W.rails.push({ pose, s: r0, l0: opt.l0 ?? -22, l1: opt.l1 ?? 22, deadEnd: !!opt.deadEnd, from: opt.from || -1, train: { pos: null, timer: 55, dir: 1, hit: false } });   // a steam locomotive crosses now and then (src/sim/session.js trainStep)
   W.signs.push({ ...at(pose, 11.2, 2.9), th: pose.th + Math.PI, kind: "stop" });
   W.signs.push({ ...at(pose, 8.5, 2.9), th: pose.th + Math.PI, kind: "rail" });
   return task({

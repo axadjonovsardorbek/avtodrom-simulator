@@ -18,7 +18,7 @@ const URGENT = new Set(["crash", "hill", "redLight", "rail", "reverse"]);
 const GESTURE = { good: "thumb", pass: "thumb", crash: "brace", hill: "brace", redLight: "brace", rail: "brace", go: "point", offRoute: "point", signal: "point", gear: "point" };
 
 // Mood "rude" (18+) plays only the user's own recordings, shuffled, on every mistake
-// (src/instructor/source/*.ogg -> public/audio/uz/ins/rude/<name>.mp3).
+// (src/instructor/source/*.mp3 -> public/audio/uz/ins/rude/<name>.mp3).
 // "chingzbl" is cut to its first 7 s and "bl" to its first 4 s; "hayron" (amazement) is rarer, see below
 const RUDE_CLIPS = ["chingiz_iye", "dadangmanmi", "dal", "davlataka", "haromi", "jamshid", "uka", "bekzod1", "bekzod2", "chingiz_uka", "chingzbl", "bl", "nodon", "uka2", "qlq", "shayba", "dab", "mazgi", "tupik", "skameyka"];
 const HAYRON_EVERY = 5, HAYRON_CLEAN = 90;          // about one mistake in five; or after this many seconds of driving without a penalty

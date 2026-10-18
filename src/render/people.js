@@ -277,8 +277,37 @@ export function realWalker(instructorGltf, kidGltf) {
     Hat: { tint: 0x4f5f43 }, Jacket: { tint: 0xc4b69c, sleeves: { k: 0.36, open: 0.09, tint: 0x4f78bf } },
     Pants: { tint: 0x4a4b4f }, Shoes: { tint: 0x3a2c22 }
   });
-  const walk = P.actions[clip.name], pin = pinHips(P), standT = standingFrame(P, walk, clip);
-  return { root: P.root, update(dt, walking) { walk.timeScale = walking ? 0.9 : 0; if (!walking) walk.time = standT; P.mixer.update(dt); pin(); } };
+  const walk = P.actions[clip.name], pin = pinHips(P), standT = standingFrame(P, walk, clip), arms = armsDown(P);
+  return { root: P.root, update(dt, walking) { walk.timeScale = walking ? 0.9 : 0; if (!walking) walk.time = standT; P.mixer.update(dt); pin(); arms(); } };
+}
+
+// The walking clip is the boy's: on the grown-ups its arm tracks leave the arms up in the bind pose. After every update
+// the arms are turned to hang down by the sides and swing a little with the step (opposite to the legs).
+function armsDown(P) {
+  const sides = ["Left", "Right"].map(n => ({ up: P.bones(new RegExp(n + "Arm$")), fore: P.bones(new RegExp(n + "ForeArm$")), hand: P.bones(new RegExp(n + "Hand$")), sg: n === "Left" ? 1 : -1 }));
+  const thigh = P.bones(/LeftUpLeg$/), tq = Q(), down = V(), cur = V(), pw = Q(), a = V(), b = V();
+  const aim = (bone, child, dir) => {                         // turn `bone` so that the way to `child` points along dir (world)
+    bone.updateMatrixWorld(true);
+    bone.getWorldPosition(a); child.getWorldPosition(b); cur.subVectors(b, a).normalize();
+    tq.setFromUnitVectors(cur, dir);
+    bone.parent.getWorldQuaternion(pw);
+    const wq = bone.getWorldQuaternion(Q()).premultiply(tq);
+    bone.quaternion.copy(pw.invert().multiply(wq));
+  };
+  return () => {
+    if (!sides[0].up || !sides[0].fore) return;
+    P.root.updateMatrixWorld(true);
+    const fwd = V().set(1, 0, 0).transformDirection(P.root.matrixWorld), side = V().set(0, 0, 1).transformDirection(P.root.matrixWorld);
+    // the swing follows the left thigh: forward leg, backward arm
+    let swing = 0;
+    if (thigh) { const hipP = thigh.getWorldPosition(V()), knee = thigh.children[0] ? thigh.children[0].getWorldPosition(V()) : hipP; swing = Math.max(-1, Math.min(1, V().subVectors(knee, hipP).dot(fwd) / 0.25)); }
+    for (const s of sides) {
+      if (!s.up || !s.fore) continue;
+      down.set(0, -1, 0).addScaledVector(fwd, -s.sg * swing * 0.35).addScaledVector(side, s.sg * -0.12).normalize();
+      aim(s.up, s.fore, down);
+      if (s.hand) { down.set(0, -1, 0).addScaledVector(fwd, 0.25 - s.sg * swing * 0.3).normalize(); aim(s.fore, s.hand, down); }
+    }
+  };
 }
 
 // The learner on his feet (his own model with the boy's walking clip): he walks up to the driver's door.
@@ -286,8 +315,8 @@ export function realDriverWalker(driverGltf, kidGltf) {
   const clip = kidGltf.animations[0];
   const P = rigPerson({ scene: driverGltf.scene, animations: [clip] }, { torso: 0.6, seated: false });
   dress(P.scene, { Tops: { tint: 0x26334f }, Bottoms: { tint: 0x2b3446 } });
-  const walk = P.actions[clip.name], pin = pinHips(P), standT = standingFrame(P, walk, clip);
-  return { root: P.root, update(dt, walking) { walk.timeScale = walking ? 0.9 : 0; if (!walking) walk.time = standT; P.mixer.update(dt); pin(); } };
+  const walk = P.actions[clip.name], pin = pinHips(P), standT = standingFrame(P, walk, clip), arms = armsDown(P);
+  return { root: P.root, update(dt, walking) { walk.timeScale = walking ? 0.9 : 0; if (!walking) walk.time = standT; P.mixer.update(dt); pin(); arms(); } };
 }
 
 // Pedestrian at the crossing: the same Mixamo walker at adult size in a dark jacket and jeans.

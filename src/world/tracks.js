@@ -71,85 +71,87 @@ function checker(W, pose, s, halfW) {
 
 // car: { length, rOh } of the car being driven (the parking box is sized to it)
 //
-// The B/C exam ground of the Tashkent centre, drawn from the plan on its board (src/world/board.js): asphalt everywhere,
-// the islands and the pale exercise pads cut into it. Start (1) at the top right, heading west: the pedestrian crossing (2),
-// the overpass (3), down the west road into the 90-degree turns (4) and the junction (5) from the north; the snake (6) in the
-// south-west, the railway crossing (8) on the west road, the junction from the west, the emergency stop (10) on the east road,
-// the garage (7) in the south-east, the parking bays (11) on the east road, the junction from the east, the speed lane (9) on
-// the north-east road, the junction from the north again and the finish (12) on the east road. North is -y.
+// The B/C exam ground of the Tashkent centre, drawn from the plan on its board (src/world/board.js), the exercises where
+// the board numbers them: start (1) at the top right heading west, the pedestrian crossing (2) and the overpass (3) on the top
+// road, the 90-degree turns (4) on the second zigzag pad, the junction (5) from the north turning right, the right-hand snake (6)
+// from its top end down to the bay, the bottom road east, the emergency stop (10) on the east loop road, the garage (7) on the
+// east pad of the south-east quarter, the junction from the east straight on, the railway crossing (8) on the west road, the
+// speed lane (9) on the bottom road, the junction from the south straight on, the parallel parking (11) on the north-east road
+// and the finish (12) at its end. North is -y; positions are taken in pixels of the plan photo (px()).
 export function buildFull(car) {
   const W = new World("full"); W.car = car; W.k = (car && car.k) || 1;
   const A = 30, O = { x: 0, y: 0 };
   buildIntersection(W, A, false, true);
   addBoard(W);
   const bare = { bare: true };
+  const heading = (a, b) => { const p = px(...a), q = px(...b); return Math.atan2(q[1] - p[1], q[0] - p[0]) / DEG; };
+  const at = (x, y, deg) => { const [X, Y] = px(x, y); return new Turtle(W, X, Y, deg, bare); };
 
-  // ---- 1-3: the start line, the crossing and the overpass on the top road (heading west)
-  const [sx, sy] = px(915, 62);
-  const T = new Turtle(W, sx, sy, 180, bare);
+  // ---- 1-3: start, the crossing and the overpass on the top road (heading west)
+  const T = at(915, 66, heading([915, 66], [100, 66]));
   W.startLine = { pose: T.pose, s: 0 };
-  { const [x, y] = px(959, 62); W.start = { x, y, th: 180 * DEG }; }
+  { const [x, y] = px(962, 66); W.start = { x, y, th: T.pose.th }; }
   W.addPaint([toWorld(T.pose, -0.3, -HL), toWorld(T.pose, 0, -HL), toWorld(T.pose, 0, HL), toWorld(T.pose, -0.3, HL)]);
-  T.fwd(2.4);
-  const tP = piyoda(W, T, 26, { zebra: false, pave: false });
-  const tE = estakada(W, T);
+  const zebraS = Math.hypot(...px(716, 66).map((v, i) => v - px(915, 66)[i]));
+  T.fwd(zebraS - 17.5);
+  const tP = piyoda(W, T, 21, { zebra: false, pave: false });
+  const tE = estakada(W, T, { s0: 1, s1: 9, s2: 14, s3: 22, h: 1.0, stopS: 6, len: 23 });
 
-  // ---- 4: the 90-degree turns, the zigzag of the first pale pad (in at the west end, out at the top east end)
+  // ---- 4: the 90-degree turns on the second zigzag pad: in from the road on its west side, out at the top towards the east
   const tB = padExercise(W, {
     id: "burilish", mapNo: 4, name: "90 gradus burchak ostida burilishlar", short: "90° burilish", timeLimit: 120,
-    pads: [{ poly: PADS[PAD.zigA], open: padOpen(PADS[PAD.zigA]) }],
-    stages: [{ text: "Koridorga g'arb tomondan kiring, ikki marta 90° ga buriling (chapga, keyin o'ngga) va nazorat chiziqlariga tegmasdan yuqori chetdan chiqing. 2 daqiqadan oshirmang.", enter: { x: -47, y: -19.5, r: 3 }, exit: { x: -33, y: -39, r: 4 } }]
+    pads: [{ poly: PADS[PAD.zigB], open: padOpen(PADS[PAD.zigB]) }],
+    stages: [{ text: "Koridorga g'arb tomondan kiring, ikki marta 90° ga buriling (chapga, keyin o'ngga) va nazorat chiziqlariga tegmasdan sharq tomonga chiqing. 2 daqiqadan oshirmang.",
+      enter: { ...xy(px(330, 503)), r: 3.5 }, exit: { ...xy(px(424, 356)), r: 4 } }]
   });
 
-  // ---- 5: the junction from the north (straight)
-  const c1 = chorraha(W, O, 90, "straight", A);
+  // ---- 5: the junction from the north, turning right (west)
+  const c1 = chorraha(W, O, 90, "right", A);
 
-  // ---- 6: the snake: the right strand from the bottom to the top, then the left one from the top to the bottom
+  // ---- 6: the right-hand snake, from its top end down to the bay
   const tI = padExercise(W, {
-    id: "ilon", mapNo: 6, name: "Ilon izi", short: "Ilon izi", timeLimit: 150,
-    pads: [{ poly: PADS[PAD.snakeR], open: padOpen(PADS[PAD.snakeR]) }, { poly: PADS[PAD.snakeL], open: padOpen(PADS[PAD.snakeL]) }],
-    stages: [
-      { text: "Ilon izining o'ng qismiga pastdan kiring va nazorat chiziqlariga tegmasdan yuqoriga chiqing.", enter: { x: -12.3, y: 29.5, r: 3.5 }, exit: { x: -27.6, y: 8.8, r: 4 } },
-      { text: "Endi chap qismiga yuqoridan kiring va pastga tushing. 2 daqiqadan oshirmang.", enter: { x: -51.5, y: 10.3, r: 3.5 }, exit: { x: -28.5, y: 34.5, r: 4 } }
-    ]
+    id: "ilon", mapNo: 6, name: "Ilon izi", short: "Ilon izi", timeLimit: 120,
+    pads: [{ poly: PADS[PAD.snakeR], open: padOpen(PADS[PAD.snakeR]) }],
+    stages: [{ text: "Ilon iziga yuqoridan kiring va nazorat chiziqlariga tegmasdan pastga, cho'ntakka chiqing. 2 daqiqadan oshirmang.",
+      enter: { ...xy(px(428, 662)), r: 4 }, exit: { ...xy(px(568, 888)), r: 4.5 } }]
   });
 
-  // ---- 8: the railway crossing on the west road (heading north)
-  const [rx] = px(98, 900);
-  const T2 = new Turtle(W, rx, 52.5, -90, bare);
-  const tR = temir(W, T2, { l0: -34, l1: 2.6, deadEnd: true });       // the line comes in from outside the ground and ends at the island
+  // ---- 10: the emergency stop on the east loop road (heading north)
+  const T4 = at(1362, 1050, heading([1362, 1050], [1362, 640]));
+  const tA = avariya(W, T4, 38);
 
-  // ---- the junction from the west (straight), the emergency stop on the east road
-  const c2 = chorraha(W, O, 0, "straight", A);
-  const [ex0] = px(800, 0);
-  const T3 = new Turtle(W, ex0, -1, 0, bare);
-  const tA = avariya(W, T3, 44);
+  // ---- 7: the garage on the east pad of the south-east quarter: in from the road above, the box on the east side
+  const g0 = px(1178, 733), g1 = px(1178, 1012), gth = Math.atan2(g1[1] - g0[1], g1[0] - g0[0]) / DEG, gd = (a, b) => Math.hypot(...px(...a).map((v, i) => v - px(...b)[i]));
+  const tX = boksPad(W, { x: g0[0], y: g0[1], th: gth, Lc: gd([1178, 733], [1178, 1012]), cw: gd([1157, 800], [1200, 800]) / 2,
+    bx0: gd([1178, 733], [1178, 890]), bx1: gd([1178, 733], [1178, 950]), bd: gd([1200, 920], [1257, 920]), side: -1, poly: PADS[PAD.T4], open: padOpen(PADS[PAD.T4]) });
 
-  // ---- 7: the garage: the first T-shaped pad of the south-east, in at its south end, the box on the west side
-  const tX = boksPad(W, { x: 14.2, y: 38.6, th: -90, Lc: 19, cw: 2.1, bx0: 7.2, bx1: 12.9, bd: 4.8, side: -1, poly: PADS[PAD.T1], open: padOpen(PADS[PAD.T1]) });
+  // ---- the junction from the east, straight on (west)
+  const c2 = chorraha(W, O, 180, "straight", A);
 
-  // ---- 11: the parking bays on the east road (heading west, the bay on the right)
-  const [bx] = px(1250, 0);
-  const T4 = new Turtle(W, bx, -7.75, 180, bare);
-  const tK = parkovka(W, T4, { b0: bx - 43, b1: bx - 33.5, bw: 3.5, len: 30, board: true });
+  // ---- 8: the railway crossing on the west road (heading south; the line comes in from outside the ground, on the right)
+  const T2 = at(78, 715, heading([78, 715], [78, 1000]));
+  const tR = temir(W, T2, { l0: -4.2, l1: 34, deadEnd: true, from: 1 });
 
-  // ---- the junction from the east (right turn), then the speed lane on the north-east road (heading east)
-  const c3 = chorraha(W, O, 180, "right", A);
-  const [ux, uy] = px(759, 348);
-  const T5 = new Turtle(W, ux, uy, 0, bare);
-  const tZ = tezlashish(W, T5, 46, [40, 45.5]);
+  // ---- 9: the speed lane on the bottom road (heading east)
+  const T3 = at(189, 1081, heading([189, 1081], [700, 1081]));
+  const tZ = tezlashish(W, T3, 46, [34, 40]);
 
-  // ---- the junction from the north (left turn) and the finish on the east road
-  const c4 = chorraha(W, O, 90, "left", A);
-  const [fx] = px(1285, 0);
-  const fp = { x: 30, y: HL, th: 0 };
-  W.finishLine = { pose: fp, s: fx - 30, halfW: 6 };
-  checker(W, fp, fx - 30 - 1, 4.5);
-  W.texts.push({ x: fx - 3.5, y: HL - 5.5, th: 0, text: "FINISH", size: 1.4 });
+  // ---- the junction from the south, straight on (north)
+  const c3 = chorraha(W, O, -90, "straight", A);
 
-  W.tasks.push(tP, tE, tB, c1, tI, tR, c2, tA, tX, tK, c3, tZ, c4);
+  // ---- 11: the parallel parking on the north-east road (heading east, the box in the right lane), 12: the finish at its end
+  const T5 = at(860, 312, heading([860, 312], [1230, 312]));
+  const tK = parkovka(W, T5, { b0: 9, len: 30, board: true });
+  const fs0 = px(860, 312), fp = { x: fs0[0], y: fs0[1], th: T5.pose.th };
+  const fS = Math.hypot(...px(1218, 312).map((v, i) => v - fs0[i]));
+  W.finishLine = { pose: fp, s: fS, halfW: 5 };
+  checker(W, fp, fS - 1, 3.5);
+  { const [x, y] = toWorld(fp, fS - 4, 0); W.texts.push({ x, y, th: fp.th, text: "FINISH", size: 1.2 }); }
+
+  W.tasks.push(tP, tE, tB, c1, tI, tA, tX, c2, tR, tZ, c3, tK);
   return W.build();
 }
+const xy = ([x, y]) => ({ x, y });
 
 const ELEMENT_FN = { piyoda, estakada, burilish, ilon, boks, parkovka, temir, tezlashish, avariya };
 

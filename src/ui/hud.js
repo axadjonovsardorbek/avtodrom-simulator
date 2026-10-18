@@ -53,7 +53,7 @@ export class Hud {
       <section class="tutor" id="tutor" hidden></section>
       <section class="task" id="task"><span class="eyebrow" id="taskTitle"></span><p id="taskText"></p><p class="hint" id="taskHint"></p></section>
       <section class="score"><div><small>Jarima</small><b id="pts">0</b><em>/ ${PASS_LIMIT}</em></div><div><small>Vaqt</small><b id="time">0:00</b></div><div><small>Mashq</small><b id="prog">–</b></div></section>
-      <canvas class="minimap" id="minimap" width="260" height="260"></canvas>
+      <canvas class="minimap" id="minimap" width="520" height="520"></canvas>
       <div class="startlight" id="startlight" hidden><span></span><b>START</b></div>
       <div class="toasts" id="toasts" aria-live="polite"></div>
       <section class="replay" id="replay" hidden></section>
@@ -349,38 +349,45 @@ export class Hud {
   }
 
   drawMinimap(s) {
+    const toFin = f => ({ x: f.pose.x + Math.cos(f.pose.th) * f.s, y: f.pose.y + Math.sin(f.pose.th) * f.s });
     const c = this.mm, g = c.getContext("2d"), W = s.W;
     if (c.hidden) return;
-    const size = c.width, b = W.bounds;
+    const K = c.width / 260, size = 260, b = W.board ? (() => { const f = W.board.frame, xs = f.map(q => q[0]), ys = f.map(q => q[1]); return { minX: Math.min(...xs) - 2, maxX: Math.max(...xs) + 2, minY: Math.min(...ys) - 2, maxY: Math.max(...ys) + 2 }; })() : W.bounds;
     const sc = Math.min(size / (b.maxX - b.minX), size / (b.maxY - b.minY));
     const ox = (size - (b.maxX - b.minX) * sc) / 2 - b.minX * sc, oy = (size - (b.maxY - b.minY) * sc) / 2 - b.minY * sc;
     if (!this.mmBase) {
-      const base = document.createElement("canvas"); base.width = base.height = size;
-      const bg = base.getContext("2d");
+      const base = document.createElement("canvas"); base.width = base.height = c.width;      // drawn at twice the size: sharp on dense screens
+      const bg = base.getContext("2d"); bg.scale(K, K);
       bg.fillStyle = "rgba(20,24,20,0.85)"; bg.fillRect(0, 0, size, size);
       bg.strokeStyle = "#5b6066"; bg.lineCap = "round"; bg.lineJoin = "round";
-      if (W.board) {                              // the plan: asphalt, green islands, pale pads
-        const path = (poly) => { bg.beginPath(); poly.forEach((q, i) => i ? bg.lineTo(q[0] * sc + ox, q[1] * sc + oy) : bg.moveTo(q[0] * sc + ox, q[1] * sc + oy)); bg.closePath(); };
-        bg.fillStyle = "#555a60"; path(W.board.frame); bg.fill();
-        bg.fillStyle = "#2f4a35"; for (const isl of W.board.islands) { path(isl.kerb); bg.fill(); }
-        bg.fillStyle = "#9aa6aa"; for (const p of W.board.pads) { path(p); bg.fill(); }
+      if (W.board) {                              // the plan: asphalt, kerbed green islands, the exercise lanes outlined, numbered pins
+        const path = (poly, close = true) => { bg.beginPath(); poly.forEach((q, i) => i ? bg.lineTo(q[0] * sc + ox, q[1] * sc + oy) : bg.moveTo(q[0] * sc + ox, q[1] * sc + oy)); if (close) bg.closePath(); };
+        bg.fillStyle = "#454a50"; path(W.board.frame); bg.fill();
+        bg.fillStyle = "#c9c8c2"; for (const isl of W.board.islands) { path(isl.kerb); bg.fill(); }
+        bg.fillStyle = "#3b6a3c"; for (const isl of W.board.islands) { path(isl.grass); bg.fill(); }
+        bg.fillStyle = "#565c62"; bg.strokeStyle = "rgba(255,255,255,0.75)"; bg.lineWidth = 0.8; for (const p of W.board.pads) { path(p); bg.fill(); bg.stroke(); }
+        // the pins: a red drop with the number, at the exercise (the junction once, in its middle)
+        const pins = [[1, W.startLine && W.startLine.pose], [12, W.finishLine && toFin(W.finishLine)]], seen = new Set();
+        for (const t of W.tasks) { if (seen.has(t.mapNo)) continue; seen.add(t.mapNo); pins.push([t.mapNo, t.id.startsWith("chorraha") ? { x: 0, y: 0 } : t.pose]); }
+        bg.font = "bold 9px Barlow, sans-serif"; bg.textAlign = "center"; bg.textBaseline = "middle";
+        for (const [n, p] of pins) { if (!p) continue; const x = p.x * sc + ox, y = p.y * sc + oy - 7;
+          bg.fillStyle = "#c0392b"; bg.beginPath(); bg.arc(x, y, 6, Math.PI * 0.85, Math.PI * 2.15); bg.lineTo(x, y + 9); bg.closePath(); bg.fill();
+          bg.fillStyle = "#fff"; bg.fillText(String(n), x, y + 0.5); }
+      } else {
+        for (const rd of W.roads) {
+          bg.lineWidth = Math.max(2, rd.width * sc);
+          bg.beginPath(); rd.pts.forEach((p, i) => i ? bg.lineTo(p[0] * sc + ox, p[1] * sc + oy) : bg.moveTo(p[0] * sc + ox, p[1] * sc + oy)); bg.stroke();
+        }
+        bg.fillStyle = "#5b6066";
+        for (const p of W.pads) { bg.beginPath(); p.poly.forEach((q, i) => i ? bg.lineTo(q[0] * sc + ox, q[1] * sc + oy) : bg.moveTo(q[0] * sc + ox, q[1] * sc + oy)); bg.fill(); }
+        bg.fillStyle = "#e9ebee"; bg.font = "bold 11px Barlow, sans-serif"; bg.textAlign = "center"; bg.textBaseline = "middle";
+        const seen = new Set();
+        for (const t of W.tasks) { if (seen.has(t.mapNo + t.id.split("-")[0])) continue; seen.add(t.mapNo + t.id.split("-")[0]); const p = t.id.startsWith("chorraha") ? { x: 0, y: 0 } : t.pose; bg.fillText(String(t.mapNo), p.x * sc + ox + 9, p.y * sc + oy - 9); }
       }
-      for (const rd of W.roads) {
-        bg.lineWidth = Math.max(2, rd.width * sc);
-        bg.beginPath(); rd.pts.forEach((p, i) => i ? bg.lineTo(p[0] * sc + ox, p[1] * sc + oy) : bg.moveTo(p[0] * sc + ox, p[1] * sc + oy)); bg.stroke();
-      }
-      bg.fillStyle = "#5b6066";
-      for (const p of W.pads) { bg.beginPath(); p.poly.forEach((q, i) => i ? bg.lineTo(q[0] * sc + ox, q[1] * sc + oy) : bg.moveTo(q[0] * sc + ox, q[1] * sc + oy)); bg.fill(); }
-      bg.fillStyle = "#e9ebee"; bg.font = "bold 11px Barlow, sans-serif"; bg.textAlign = "center"; bg.textBaseline = "middle";
-      const seen = new Set();
-      for (const t of W.tasks) { if (seen.has(t.mapNo + t.id.split("-")[0])) continue; seen.add(t.mapNo + t.id.split("-")[0]); const p = t.id.startsWith("chorraha") ? { x: 0, y: 0 } : t.pose; bg.fillText(String(t.mapNo), p.x * sc + ox + 9, p.y * sc + oy - 9); }
-      // the start (1) and the finish (12) of the full route, numbered like the board of the exam centre
-      if (W.startLine) bg.fillText("1", W.startLine.pose.x * sc + ox + 9, W.startLine.pose.y * sc + oy - 9);
-      if (W.finishLine) bg.fillText("12", W.finishLine.pose.x * sc + ox + 9, W.finishLine.pose.y * sc + oy - 9);
       this.mmBase = base;
     }
-    g.clearRect(0, 0, size, size);
-    g.drawImage(this.mmBase, 0, 0);
+    g.setTransform(1, 0, 0, 1, 0, 0); g.clearRect(0, 0, c.width, c.height);
+    g.drawImage(this.mmBase, 0, 0); g.setTransform(K, 0, 0, K, 0, 0);
     const nt = s.active ? s.active.task : W.tasks[s.taskIdx];
     if (nt) {
       const p = nt.pose;

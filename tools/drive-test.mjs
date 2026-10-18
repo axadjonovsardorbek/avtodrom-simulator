@@ -66,37 +66,33 @@ const steps = [];
 const go = (name, path, speed = 4.2, opt) => { const ok = run(path, speed, opt); progress(name + (ok ? "" : " [TIMEOUT]")); };
 const put = (x, y, th) => { Object.assign(C, { x, y, th, v: 0 }); C.brake = 1; };
 
-const Y0 = -53.25;                                   // the top lane
-go("top road, crossing, overpass", [[26.8, Y0], [-30, Y0], [-48, Y0], [-56, Y0], [-61, -51], [-63.2, -46], [-63.7, -40], [-63.7, -27], [-62, -22], [-57, -19.65], [-49.5, -19.65]], 5);
-go("through the zigzag", [[-49.5, -19.65], ...padPath(PADS[PAD.zigA], [-47, -19.65], [-33, -39]), [-29, -39], [-20, -39], [-8, -38.3], [-4.5, -36.5], [-2.2, -32.5], [-1.75, -29]], 3.2);
-go("junction from the north", [[-1.75, -29], [-1.75, -10], [-1.75, 10], [-1.9, 20], [-1.9, 42], [-4, 47.5], [-10, 49]], 4.5);
-// the snake: the right strand from the bottom to the top, then the left one from the top to the bottom
-go("to the snake", [[-10, 49], [-18, 48.5], [-20.5, 44], [-17.5, 38], [-13.5, 33.5], [-12.6, 30]], 3);
-go("snake right strand", padPath(PADS[PAD.snakeR], [-12.5, 28.7], [-27.6, 8.8]), 2.6);
-go("along the band", [[-27.6, 8.8], [-27.8, 4.5], [-30, 1.2], [-34, 0.5], [-45, 1], [-50, 2.8], [-51.6, 6.5], [-51.6, 10.3]], 2.6);
-go("snake left strand", padPath(PADS[PAD.snakeL], [-51.5, 10.3], [-28.5, 34.5]), 2.6);
-const Ln = -61.7;
-go("to the west road", [[-28.5, 34.5], [-27, 43], [-34, 49.5], [-50, 50.5], [-58.5, 49], [Ln, 44], [Ln, 30], [Ln, 18], [Ln, 8.5], [-56.5, 3.5], [-50, 1.9], [-30, 1.75]], 4.2);
-go("junction from the west", [[-30, 1.75], [0, 1.75], [30, 1.75], [40, -0.5], [52, -1], [58, -0.5], [62.5, 3]], 4.5, { stopAt: "alarm" });
-if (S.active && S.active.task.id === "avariya") { for (let k = 0; k < 60 * 6; k++) { C.brake = 1; C.throttle = 0; if (S.W.alarm) C.hazard = true; S.step(DT); } C.brake = 0; C.hazard = false; C.sig = 0; go("after the alarm", [[C.x, C.y], [58, -1], [64, 2]], 4); }
-progress("after the emergency stop");
-// the garage: the road south, the bottom road west, in at the south end of the T pad; then the car is put into the box and out again
-C.sig = 1;
-go("to the garage", [[64, 2], [64.5, 20], [63, 40], [58, 48.5], [40, 49.5], [20, 49.5], [14.3, 46], [14.3, 36]], 3.8);
-C.sig = -1; put(8.5, 28.6, 0); for (let k = 0; k < 60 * 3; k++) S.step(DT); progress("in the box");
-C.brake = 0; C.sig = 1; put(14.3, 44, Math.PI / 2); for (let k = 0; k < 60 * 2; k++) S.step(DT); progress("out of the garage");
-// the parking bays on the east road: put the car into the bay, then drive on
-C.sig = 1; C.brake = 0;
-go("to the bays", [[14.3, 44], [20, 49], [45, 49.5], [60, 47], [64, 35], [64.5, 18], [62, 6], [56, -7.75], [48, -7.75]], 3.8);
-put(41.6, -11.25, Math.PI); for (let k = 0; k < 60 * 3; k++) S.step(DT); progress("in the bay");
-C.brake = 0; C.sig = -1; put(40, -7.75, Math.PI);
-go("to the junction from the east", [[40, -7.75], [30, -3], [22, -1.75], [8, -1.75], [2, -4], [1.75, -9], [1.75, -19.7], [6.75, -24.7]], 3.6);
-go("speed lane", [[6.75, -24.7], [30, -24.7], [52, -24.7]], 4.5);
+const Q = (...pts) => pts.map(([x, y]) => px(x, y));
+const pad = (name, a, b) => padPath(PADS[PAD[name]], px(...a), px(...b));
+go("1-3 top road, crossing, overpass", Q([962, 66], [700, 66], [400, 66], [180, 68], [120, 85], [86, 130], [78, 200], [78, 420], [90, 470], [130, 500], [250, 503], [318, 503]), 5);
+go("4 the zigzag pad", [...pad("zigB", [330, 503], [424, 356]), ...Q([460, 356], [560, 356], [610, 362], [650, 395], [672, 440], [674, 480])], 3);
+go("5 junction from the north, right", Q([674, 480], [674, 530], [660, 565], [620, 578], [520, 578], [470, 580], [445, 600], [430, 630], [428, 655]), 4);
+go("6 the snake", [...pad("snakeR", [428, 662], [568, 888]), ...Q([555, 905], [530, 950], [522, 1000], [530, 1045], [580, 1078], [700, 1081])], 2.6);
+go("bottom road east", Q([700, 1081], [1000, 1081], [1250, 1085], [1330, 1070], [1360, 1030], [1362, 1000]), 5);
+go("10 emergency stop on the east loop", Q([1362, 1000], [1362, 800], [1362, 660]), 4.5, { stopAt: "alarm" });
+if (S.active && S.active.task.id === "avariya") { for (let k = 0; k < 60 * 6; k++) { C.brake = 1; C.throttle = 0; if (S.W.alarm) C.hazard = true; S.step(DT); } C.brake = 0; C.hazard = false; go("after the alarm", [[C.x, C.y], ...Q([1362, 660])], 4); }
+C.sig = -1;
+go("to the garage", Q([1362, 660], [1355, 620], [1320, 600], [1250, 605], [1200, 610], [1180, 640], [1178, 700]), 3.5);
+progress("at the garage");
+{ const b = px(1228, 920); put(b[0], b[1], Math.atan2(...(() => { const p = px(1178, 920), q = px(1228, 920); return [p[1] - q[1], p[0] - q[0]]; })()) ); for (let k = 0; k < 60 * 3; k++) S.step(DT); progress("in the box"); }
+C.brake = 0; C.sig = 1; { const a = px(1178, 700), b = px(1178, 600); put(a[0], a[1], Math.atan2(b[1] - a[1], b[0] - a[0])); } for (let k = 0; k < 60 * 2; k++) S.step(DT); progress("out of the garage");
+C.sig = 0;
+go("to the junction from the east", Q([1178, 700], [1176, 630], [1150, 590], [1100, 572], [900, 572], [790, 576], [700, 577], [500, 577], [200, 577], [130, 585], [95, 620], [80, 680], [78, 715]), 4.5);
+go("8 railway crossing", Q([78, 715], [78, 900], [78, 1000], [90, 1060], [140, 1080], [189, 1081]), 4);
+go("9 speed lane", Q([189, 1081], [400, 1081], [560, 1081]), 6);
 for (let k = 0; k < 60 * 4; k++) { C.brake = 1; C.throttle = 0; S.step(DT); } C.brake = 0;
-progress("after the speed lane");
-go("round the plaza to the north arm", [[52.4, -24.7], [58, -29], [52, -36], [30, -36], [10, -34.5], [0, -32.5], [-1.75, -29]], 4);
-go("junction from the north (left turn)", [[-1.75, -29], [-1.75, -14], [-1.2, -5], [3, -0.5], [10, 1.75], [30, 1.75], [50, 1.75], [64, 1.75]], 4);
+go("to the junction from the south", Q([560, 1081], [640, 1078], [690, 1040], [711, 980], [712, 800]), 4);
+go("junction straight, NE road", Q([712, 800], [712, 600], [712, 450], [718, 360], [740, 320], [800, 312], [860, 312]), 4.5);
+go("11 parking", Q([860, 312], [1000, 312]), 3);
+{ const p = px(965, 342), q = px(1065, 342); put(p[0], p[1], Math.atan2(q[1] - p[1], q[0] - p[0])); }
+for (let k = 0; k < 60 * 3; k++) S.step(DT); progress("in the parking box");
+C.brake = 0; C.sig = 1;
+go("12 to the finish", Q([1000, 330], [1120, 314], [1240, 312]), 3.5);
 progress("end");
-console.log("state", S.state, "total", S.total, "passed", S.state === "done");
+console.log("state", S.state, "total", S.total);
 console.log("penalties:", log.join(", "));
 console.log("assists (stuck against a kerb):", assists.length ? assists.join("; ") : "none");

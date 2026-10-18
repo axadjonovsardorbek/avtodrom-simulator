@@ -30,7 +30,7 @@ kerak bo'lsa qo'lini silkitadi, yaxshi bajarilgan mashqda bosh barmog'ini ko'tar
 Menyuda "Instruktor" tanlanadi:
 
 - **Jahldor** — qattiq gapiradi, lekin so'kinmaydi;
-- **Jahldor, so'kinadi (18+)** — faqat `src/instructor/source/*.ogg` dagi yozuvlar, har xatoda aralash tartibda
+- **Jahldor, so'kinadi (18+)** — faqat `src/instructor/source/*.mp3` dagi yozuvlar, har xatoda aralash tartibda
   (`public/audio/uz/ins/rude/*.mp3` ga o'girilgan, ovoz balandligi tenglashtirilgan; ro'yxat — `src/instructor/instructor.js`, `RUDE_CLIPS`);
 - **Yumshoq** — xotirjam maslahat beradi;
 - **Yo'q** — instruktor yo'q, xatolarni imtihon tizimi ovozi aytadi.

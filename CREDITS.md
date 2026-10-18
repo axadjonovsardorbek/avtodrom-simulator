@@ -29,7 +29,7 @@ Ko'rib chiqilib ishlatilmagan modellar: "2019 Chevrolet Malibu LS Sedan" (Ddiaz 
 - `public/audio/uz/*.mp3`, `public/audio/uz/ins/calm|angry/*.mp3`: Microsoft Edge neyron ovozlari
   (`uz-UZ-MadinaNeural`, `uz-UZ-SardorNeural`) bilan `edge-tts` orqali yozilgan (`tools/make_voice.py`).
   Microsoft xizmat shartlari amal qiladi.
-- `public/audio/uz/ins/rude/*.mp3`, `public/audio/uz/clips/*.mp3` (manba: `src/instructor/source/*.ogg`)
+- `public/audio/uz/ins/rude/*.mp3`, `public/audio/uz/clips/*.mp3` (manba: `src/instructor/source/*.mp3`)
   va `public/sedayanoch.mp3`: loyiha egasi qo'shgan yozuvlar. Ularning huquqlari asl egalariga tegishli.
 - `public/models/train.glb`: "Little train" (bug lokomotivi, `Small train.3ds/.obj`), loyiha egasi yuklab olgan; muallifi va litsenziyasi aniqlanmagan.
   Kabina plastinkasidagi rasm (burgut belgisi) o'chirilgan, geometriya soddalashtirilgan (`tools/convert-train.py`, `tools/make-train.mjs`).

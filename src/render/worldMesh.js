@@ -86,6 +86,9 @@ function mergeGeos(geos) {
   return out;
 }
 
+// blocks of flats round the exam ground: [x, y, width, depth, height]
+const BLOCKS_AROUND = [[-30, -98, 46, 18, 22], [32, -100, 40, 16, 28], [-112, -20, 18, 50, 24], [-110, 45, 16, 40, 18], [112, -10, 18, 46, 30], [110, 55, 16, 36, 22], [-20, 95, 50, 16, 20], [45, 98, 34, 16, 26]];
+
 export function buildWorldMeshes(W, quality) {
   const group = new THREE.Group();
   const h = (x, y) => W.heightAt(x, y);
@@ -98,7 +101,8 @@ export function buildWorldMeshes(W, quality) {
   const asphaltMat = new THREE.MeshStandardMaterial({ map: asph, roughness: 0.92, metalness: 0, polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -1 });
   const padMat = asphaltMat.clone(); padMat.polygonOffsetFactor = -2; padMat.polygonOffsetUnits = -2;
   const concMat = new THREE.MeshStandardMaterial({ map: conc, roughness: 0.95 });
-  const padLightMat = new THREE.MeshStandardMaterial({ map: conc, color: 0xdfe6e8, roughness: 0.9, polygonOffset: true, polygonOffsetFactor: -3, polygonOffsetUnits: -3 });
+  // the exercise lanes are asphalt like the roads (a shade lighter, newer); their white edge lines are painted over them
+  const padLightMat = new THREE.MeshStandardMaterial({ map: asph, color: 0xd8dce0, roughness: 0.9, polygonOffset: true, polygonOffsetFactor: -3, polygonOffsetUnits: -3 });
   const paintMat = c => new THREE.MeshStandardMaterial({ color: c, roughness: 0.7, polygonOffset: true, polygonOffsetFactor: -4, polygonOffsetUnits: -4 });
   const white = paintMat(0xeeece4), yellow = paintMat(0xf2b632);
 
@@ -133,6 +137,41 @@ export function buildWorldMeshes(W, quality) {
     addMerged(group, kerbGeos, kerbMat);
     const padG = bd.pads.map(p => flatPoly(p, h, 0.03, 7));
     addMerged(group, padG, padLightMat);
+
+    // low round bushes on the islands, as on the ground itself
+    const inside = (poly, x, y) => { let c = false; for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) if ((poly[i][1] > y) !== (poly[j][1] > y) && x < (poly[j][0] - poly[i][0]) * (y - poly[i][1]) / (poly[j][1] - poly[i][1]) + poly[i][0]) c = !c; return c; };
+    const edgeD = (poly, x, y) => { let d = 1e9; for (let i = 0; i < poly.length; i++) { const a = poly[i], b2 = poly[(i + 1) % poly.length], dx = b2[0] - a[0], dy = b2[1] - a[1], L = dx * dx + dy * dy || 1, t = Math.max(0, Math.min(1, ((x - a[0]) * dx + (y - a[1]) * dy) / L)); d = Math.min(d, Math.hypot(a[0] + dx * t - x, a[1] + dy * t - y)); } return d; };
+    const bushGeo = (() => { const g = new THREE.IcosahedronGeometry(0.6, 1), p = g.attributes.position, v = new THREE.Vector3(); for (let i = 0; i < p.count; i++) { v.fromBufferAttribute(p, i); const n = 1 + 0.18 * Math.sin(v.x * 7) * Math.sin(v.y * 6 + 1) * Math.sin(v.z * 8 + 2); p.setXYZ(i, v.x * n, Math.max(-0.1, v.y * n * 0.8), v.z * n); } g.computeVertexNormals(); return g; })();
+    const rand = (() => { let s = 777; return () => ((s = (s * 1664525 + 1013904223) >>> 0) / 4294967296); })();
+    const spots = [], per = quality === "low" ? 22 : quality === "mid" ? 12 : 8;      // m² of island per bush
+    for (const isl of bd.islands) {
+      const xs = isl.grass.map(q => q[0]), ys = isl.grass.map(q => q[1]), x0 = Math.min(...xs), x1 = Math.max(...xs), y0 = Math.min(...ys), y1 = Math.max(...ys);
+      const n = Math.round((x1 - x0) * (y1 - y0) / per);
+      for (let k = 0; k < n * 3 && spots.length < 4000; k++) { const x = x0 + rand() * (x1 - x0), y = y0 + rand() * (y1 - y0); if (inside(isl.grass, x, y) && edgeD(isl.grass, x, y) > 1.1) spots.push([x, y]); if (k > n * 3) break; }
+    }
+    const bushes = new THREE.InstancedMesh(bushGeo, new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.95 }), spots.length);
+    const bm = new THREE.Matrix4(), bq = new THREE.Quaternion(), bs = new THREE.Vector3(), bv = new THREE.Vector3(), bc = new THREE.Color();
+    spots.forEach(([x, y], i) => { const s = 0.7 + rand() * 0.9; bm.compose(bv.set(x, 0.1 + 0.25 * s, y), bq.setFromAxisAngle(new THREE.Vector3(0, 1, 0), rand() * 6), bs.set(s, s * (0.8 + rand() * 0.4), s)); bushes.setMatrixAt(i, bm); bushes.setColorAt(i, bc.setHSL(0.27 + rand() * 0.06, 0.45 + rand() * 0.15, 0.17 + rand() * 0.08)); });
+    bushes.castShadow = quality === "high"; bushes.receiveShadow = true; group.add(bushes);
+
+    // a mesh fence round the ground, a little way out from its edge
+    { const f = bd.frame.map(([x, y]) => [x + Math.sign(x) * 2.5, y + Math.sign(y) * 2.5]), postGeo = new THREE.BoxGeometry(0.08, 2.2, 0.08), posts = [], panels = [];
+      const meshMat = new THREE.MeshStandardMaterial({ color: 0x3f5a46, transparent: true, opacity: 0.32, side: THREE.DoubleSide, roughness: 0.8, depthWrite: false });
+      for (let i = 0; i < 4; i++) { const a = f[i], c = f[(i + 1) % 4], L = Math.hypot(c[0] - a[0], c[1] - a[1]), n = Math.ceil(L / 3);
+        for (let k = 0; k <= n; k++) posts.push([a[0] + (c[0] - a[0]) * k / n, a[1] + (c[1] - a[1]) * k / n]);
+        const pl = new THREE.PlaneGeometry(L, 2); pl.rotateY(-Math.atan2(c[1] - a[1], c[0] - a[0])); pl.translate((a[0] + c[0]) / 2, 1.1, (a[1] + c[1]) / 2); panels.push(pl); }
+      const pm = new THREE.InstancedMesh(postGeo, new THREE.MeshStandardMaterial({ color: 0x4d5a52, roughness: 0.6, metalness: 0.4 }), posts.length);
+      posts.forEach(([x, y], i) => { bm.compose(bv.set(x, 1.1, y), bq.identity(), bs.set(1, 1, 1)); pm.setMatrixAt(i, bm); });
+      group.add(pm); addMerged(group, panels, meshMat, false); }
+
+    // blocks of flats beyond the fence, like the ones round the centre
+    { const fac = facadeTexture(); fac.wrapS = fac.wrapT = THREE.RepeatWrapping;
+      const blocks = BLOCKS_AROUND;
+      for (const [x, y, w, d, hgt] of blocks) {
+        const mat = new THREE.MeshStandardMaterial({ map: fac.clone(), roughness: 0.85 }); mat.map.repeat.set(Math.max(w, d) / 16, hgt / 9); mat.map.needsUpdate = true;
+        const m = new THREE.Mesh(new THREE.BoxGeometry(w, hgt, d), [mat, mat, new THREE.MeshStandardMaterial({ color: 0x8c8f93 }), mat, mat, mat]);
+        m.position.set(x, hgt / 2, y); m.castShadow = quality === "high"; group.add(m); wall(x - w / 2, y - d / 2, x + w / 2, y - d / 2, 0.3, 1); wall(x - w / 2, y + d / 2, x + w / 2, y + d / 2, 0.3, 1);
+      } }
   }
 
   // roads and pads
@@ -177,6 +216,17 @@ export function buildWorldMeshes(W, quality) {
 
   // estakada side walls and railings
   for (const r of W.ramps) {
+    { // the deck: a concrete road surface that climbs and comes down again
+      const pos = [], idx = [], uv = [];
+      for (let s = r.s0, i = 0; s <= r.s3 + 1e-6; s += 0.5, i++) {
+        const hh = W.heightAt(...toWorld(r.pose, s, 0)) + 0.025;
+        for (const l of [-r.halfW, r.halfW]) { const [x, y] = toWorld(r.pose, s, l); pos.push(x, hh, y); uv.push(l / 3, s / 3); }
+        if (i) { const a = (i - 1) * 2; idx.push(a, a + 2, a + 1, a + 1, a + 2, a + 3); }
+      }
+      const g = new THREE.BufferGeometry(); g.setAttribute("position", new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute("uv", new THREE.Float32BufferAttribute(uv, 2)); g.setIndex(idx); g.computeVertexNormals();
+      if (g.attributes.normal.getY(0) < 0) { const ix = g.index.array; for (let k = 0; k < ix.length; k += 3) { const t = ix[k + 1]; ix[k + 1] = ix[k + 2]; ix[k + 2] = t; } g.computeVertexNormals(); }
+      const deck = new THREE.Mesh(g, new THREE.MeshStandardMaterial({ map: conc, color: 0xb9b6ae, roughness: 0.9 })); deck.receiveShadow = true; group.add(deck);
+    }
     for (const sg of [-1, 1]) {
       const top = [], pos = [];
       for (let s = r.s0; s <= r.s3 + 1e-6; s += 0.5) {
@@ -320,6 +370,7 @@ export function buildWorldMeshes(W, quality) {
     for (let i = 0; i < W.routePts.length; i += 3) { const p = W.routePts[i]; if (Math.abs(p[0] - x) < 9 && Math.abs(p[1] - y) < 9 && Math.hypot(p[0] - x, p[1] - y) < 9) return true; }
     for (const p of W.pads) { const xs = p.poly.map(q => q[0]), ys = p.poly.map(q => q[1]); if (x > Math.min(...xs) - 5 && x < Math.max(...xs) + 5 && y > Math.min(...ys) - 5 && y < Math.max(...ys) + 5) return true; }
     if (Math.abs(x) < 40 && Math.abs(y) < 40) return true;
+    if (W.board && BLOCKS_AROUND.some(([bx, by, w, d]) => Math.abs(x - bx) < w / 2 + 4 && Math.abs(y - by) < d / 2 + 4)) return true;
     if (W.board) { const f = W.board.frame; if (x > f[0][0] - 6 && x < f[1][0] + 6 && y > f[0][1] - 6 && y < f[2][1] + 6) return true; }
     return false;
   };
@@ -407,9 +458,10 @@ export function buildWorldMeshes(W, quality) {
   if (W.name === "full") {
     // exam centre building north of the track: two storeys, glazing, a canopy over the
     // entrance, the sign, flag poles with the Uzbek flag and a camera tower at the corner
-    const B = new THREE.Group(); B.position.set(40, 0, -160); group.add(B);
-    wall(40 - 18, -160 - 6.5, 40 + 18, -160 - 6.5, 0.3, 1); wall(40 - 18, -160 + 6.5, 40 + 18, -160 + 6.5, 0.3, 1); wall(40 - 18, -160 - 6.5, 40 - 18, -160 + 6.5, 0.3, 1); wall(40 + 18, -160 - 6.5, 40 + 18, -160 + 6.5, 0.3, 1);
-    solid(40 - 4.2, -160 + 9.6, 0.16); solid(40 + 4.2, -160 + 9.6, 0.16);
+    const BY = W.board ? -78 : -160, BX = W.board ? 95 : 40;
+    const B = new THREE.Group(); B.position.set(BX, 0, BY); group.add(B);
+    wall(BX - 18, BY - 6.5, BX + 18, BY - 6.5, 0.3, 1); wall(BX - 18, BY + 6.5, BX + 18, BY + 6.5, 0.3, 1); wall(BX - 18, BY - 6.5, BX - 18, BY + 6.5, 0.3, 1); wall(BX + 18, BY - 6.5, BX + 18, BY + 6.5, 0.3, 1);
+    solid(BX - 4.2, BY + 9.6, 0.16); solid(BX + 4.2, BY + 9.6, 0.16);
     const wallM = new THREE.MeshStandardMaterial({ color: 0xe6e2da, roughness: 0.85 });
     const darkM = new THREE.MeshStandardMaterial({ color: 0x2b3038, roughness: 0.4, metalness: 0.4 });
     const glassM = new THREE.MeshPhysicalMaterial({ color: 0x5f7f99, roughness: 0.08, metalness: 0.2, clearcoat: 1, envMapIntensity: 1.4 });

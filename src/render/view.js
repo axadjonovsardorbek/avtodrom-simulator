@@ -455,7 +455,7 @@ export class View {
       const w = this.instructorWanted && this.carView.hasDoors ? this.walker : null;       // he only walks in where there is a door to open
       const dw = this.carView.hasDoors ? this.driverWalker : null;
       for (const x of [this.walker, this.driverWalker]) if (x && x.root.parent !== root) root.add(x.root);       // the car model can arrive after the start
-      const A0 = P(seatX + 3.6, 1.55, 6.4), A1 = P(seatX + 3.6, 1.55, -6.4);
+      const A0 = P(seatX + 3.8, 1.55, 4.6), A1 = P(seatX + 3.8, 1.55, -4.6);      // close in: the start lane runs beside the fence
       const L0 = P(seatX + 0.2, 0.95, 2.3), L1 = P(seatX + 0.2, 0.95, -2.3);
       if (u < 0.3) { cam.position.copy(A0); cam.lookAt(L0); }
       else if (u < 0.55) { const k = smooth((u - 0.3) / 0.25); cam.position.copy(A0.clone().lerp(A1, k)); cam.lookAt(L0.clone().lerp(L1, k)); }

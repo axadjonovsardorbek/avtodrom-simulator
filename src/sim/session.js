@@ -118,14 +118,22 @@ export class Session {
       const onRails = corners.some(([s, l]) => s > r.s - 2.5 && s < r.s + 4 && Math.abs(l) < 6);
       if (T.pos === null) {
         T.timer += dt;
-        if (T.timer > 70 && !onRails) { T.pos = T.dir > 0 || r.deadEnd ? r.l0 - HALF : r.l1 + HALF; T.dir = r.deadEnd ? 1 : T.dir; T.hit = false; T.timer = 0; T.wait = 0; }
+        if (T.timer > 70 && !onRails) {
+          // a dead-end line: the train comes in from its open end (r.from: -1 the l0 side, +1 the l1 side)
+          const f = r.deadEnd ? r.from : 0;
+          T.dir = r.deadEnd ? -f : T.dir; T.pos = (f || -T.dir) < 0 ? r.l0 - HALF : r.l1 + HALF; T.hit = false; T.timer = 0; T.wait = 0; T.back = false;
+        }
         continue;
       }
-      // a dead-end line (the plan's crossing ends at an island): in to the buffer stop, a short wait, and back out
-      if (r.deadEnd && T.dir > 0 && T.pos >= r.l1 - HALF) { T.pos = r.l1 - HALF; T.wait = (T.wait || 0) + dt; if (T.wait > 4) T.dir = -1; }
-      else T.pos += T.dir * V * (r.deadEnd && T.dir > 0 ? Math.max(0.25, Math.min(1, (r.l1 - HALF - T.pos) / 25)) : 1) * dt;
-      if (r.deadEnd && T.dir < 0 && T.pos < r.l0 - HALF) { T.pos = null; T.dir = 1; continue; }
-      if (!r.deadEnd && (T.dir > 0 ? T.pos > r.l1 + HALF : T.pos < r.l0 - HALF)) { T.pos = null; T.dir = -T.dir; continue; }
+      if (r.deadEnd) {
+        const stop = r.from < 0 ? r.l1 - HALF : r.l0 + HALF, toStop = (stop - T.pos) * T.dir;
+        if (!T.back && toStop <= 0) { T.pos = stop; T.wait += dt; if (T.wait > 4) { T.back = true; T.dir = -T.dir; } }
+        else T.pos += T.dir * V * (T.back ? 1 : Math.max(0.25, Math.min(1, toStop / 25))) * dt;
+        if (T.back && (r.from < 0 ? T.pos < r.l0 - HALF : T.pos > r.l1 + HALF)) { T.pos = null; continue; }
+      } else {
+        T.pos += T.dir * V * dt;
+        if (T.dir > 0 ? T.pos > r.l1 + HALF : T.pos < r.l0 - HALF) { T.pos = null; T.dir = -T.dir; continue; }
+      }
       // run over the car: the train is not stopped, the car is thrown back
       if (!T.hit && corners.some(([s, l]) => Math.abs(s - (r.s + 0.76)) < 1.8 && Math.abs(l - T.pos) < HALF)) {
         T.hit = true; this.emit("bump", { strength: 1, what: "car" }); this.pen("crash");

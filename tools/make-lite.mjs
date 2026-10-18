@@ -16,7 +16,7 @@ const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 const KIND = ["lite", "mid"].includes(process.argv[2]) ? process.argv[2] : "lite";
 const args = process.argv.slice(["lite", "mid"].includes(process.argv[2]) ? 3 : 2);
 const ids = args.length ? args : ["cobalt", "malibu-premier", "malibu-2019", "monza", "matiz", "damas"];
-const SET = { lite: { ratio: 0.05, error: 0.012, tex: 256, q: 70 }, mid: { ratio: 0.28, error: 0.004, tex: 1024, q: 82 } }[KIND];
+const SET = { lite: { ratio: 0.15, error: 0.004, tex: 512, q: 78 }, mid: { ratio: 0.28, error: 0.004, tex: 1024, q: 82 } }[KIND];
 await MeshoptSimplifier.ready; await MeshoptEncoder.ready; await MeshoptDecoder.ready;
 const io = new NodeIO().registerExtensions(ALL_EXTENSIONS).registerDependencies({ "meshopt.encoder": MeshoptEncoder, "meshopt.decoder": MeshoptDecoder });
 for (const id of ids) {

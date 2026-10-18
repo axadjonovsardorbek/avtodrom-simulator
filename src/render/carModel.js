@@ -390,10 +390,15 @@ export function rigCar(root) {
     const sx = dims.wheelbase * 0.45;
     carNode.updateMatrixWorld(true);
     const parts = [];
-    root.traverse(o => { if (o.isMesh && o.visible && o.name !== "shadow_proxy" && !/glass/i.test([].concat(o.material)[0]?.name || "")) parts.push(o); });
+    root.traverse(o => { if (o.isMesh && o.visible && o.name !== "shadow_proxy") parts.push(o); });      // glass too: a glass roof is still the roof
     const rc = new THREE.Raycaster(carNode.localToWorld(new THREE.Vector3(sx, dims.roofY + 1, 0)), new THREE.Vector3(0, -1, 0));
-    const hit = rc.intersectObjects(parts, false)[0];
-    const roof = hit ? carNode.worldToLocal(hit.point.clone()).y : dims.roofY;
+    // the highest surface across the roof width (a sunroof or a dip in the middle must not pull the sign into the cabin)
+    let roof = -Infinity;
+    for (const dz of [-0.35, -0.15, 0, 0.15, 0.35]) for (const dx of [-0.25, 0, 0.25]) {
+      rc.set(carNode.localToWorld(new THREE.Vector3(sx + dx, dims.roofY + 1, dz)), new THREE.Vector3(0, -1, 0));
+      const hit = rc.intersectObjects(parts, false)[0]; if (hit) roof = Math.max(roof, carNode.worldToLocal(hit.point.clone()).y);
+    }
+    if (!isFinite(roof)) roof = dims.roofY;
     const sign = new THREE.Mesh(new THREE.PlaneGeometry(0.4, 0.4), new THREE.MeshStandardMaterial({ map: signTexture("learner"), transparent: true, side: THREE.DoubleSide, roughness: 0.6 }));
     sign.name = "learner_sign"; sign.position.set(sx, roof + 0.22, 0); sign.rotation.y = Math.PI / 2; carNode.add(sign);
     const base = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.05, 0.3), new THREE.MeshStandardMaterial({ color: 0x131416 })); base.position.set(sx, roof + 0.02, 0); carNode.add(base);

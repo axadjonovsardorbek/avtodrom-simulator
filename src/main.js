@@ -367,9 +367,9 @@ function carDims(exam) { const d = carById(settings.car).dims; return { length: 
 // car model: generated Cobalt right away, then the .glb file once it has loaded
 let carModelId = null;
 // load a car model and dress it (paint, plates, Cobalt facelift parts)
-// the full model (a third of a million triangles and more) only on the high setting; phones and "O'rta"/"Yengil" get
+// the full model everywhere except the "Yengil" setting, which gets
 // the -mid copy (tools/make-lite.mjs mid): about a third of the triangles, the same textures at 1024 px
-const modelVariant = () => settings.quality === "high" ? "" : "-mid";
+const modelVariant = () => settings.quality === "low" ? "-mid" : "";
 function prepareCar(car, onProgress) {
   return loadCarModel(car.model.replace(/\.glb$/, modelVariant() + ".glb"), onProgress).then(cv => {
     if (car.id === "cobalt") dressCobalt(cv); else addPaint(cv);
