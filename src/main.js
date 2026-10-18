@@ -21,6 +21,8 @@ import { CARS } from "./cars/index.js";
 import { recordAttempt, keyFor } from "./sim/history.js";
 import { Tutorial } from "./ui/tutorial.js";
 import { Recorder } from "./sim/replay.js";
+import { unlock } from "./sim/achievements.js";
+import { loadHistory } from "./sim/history.js";
 import { buildDriver } from "./render/driverFigure.js";
 import { loadPeople, realInstructor, realDriver, realKid, realPedestrian } from "./render/people.js";
 
@@ -215,7 +217,10 @@ function handleEvent(ev) {
         rec.next = 0; rec.sample(s);
         if (mode !== "practice") acts.splice(acts.length - 1, 0, ["Bayonnoma", "protocol"]);
         if (rec.duration > 1) acts.splice(acts.length - 1, 0, ["Takroriy ko'rish", "replay"]);
-        lastResult = [s, ev, acts, recordAttempt(s, { passed, key: keyFor(mode, elementId) })];
+        if (mode === "exam" && passed) acts.splice(acts.length - 1, 0, ["Sertifikat", "certificate"]);
+        const hist = recordAttempt(s, { passed, key: keyFor(mode, elementId) });
+        hist.fresh = unlock(loadHistory(), hist.rec, { elements: ELEMENTS.map(e => e.id) });
+        lastResult = [s, ev, acts, hist];
         hud.showResult(...lastResult);
       }, 1200);
       break;
@@ -252,6 +257,7 @@ function startReplay() {
 
 function resultAction(id) {
   if (id === "replay") return startReplay();
+  if (id === "certificate") { const [s, , , h] = lastResult, car = carById(settings.car); return hud.showCertificate(s, h.stars, { date: new Date(), car: car.name, plate: settings.plate || DEFAULT_PLATE }); }
   if (id === "protocol") {
     const [s, ev] = lastResult, car = carById(settings.car);
     return hud.showProtocol(s, ev.passed, { date: new Date(), modeLabel: mode === "exam" ? "Amaliy imtihon (to'liq avtodrom)" : "Trening (to'liq avtodrom)", car: car.name, plate: settings.plate || DEFAULT_PLATE });

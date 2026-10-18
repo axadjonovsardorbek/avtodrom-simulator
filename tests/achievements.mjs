@@ -1,0 +1,11 @@
+const store = {};
+globalThis.localStorage = { getItem: k => store[k] ?? null, setItem: (k, v) => { store[k] = String(v); }, removeItem: k => { delete store[k]; } };
+const { unlock, loadAchievements } = await import("../src/sim/achievements.js");
+const ok = (c, m) => { if (!c) { console.error("FAIL", m); process.exit(1); } console.log("ok  ", m); };
+const H = [], add = (key, passed, total) => { const r = { key, passed, total }; H.push(r); return unlock(H, r, { elements: ["parkovka", "boks"] }).map(a => a.id); };
+let f = add("exam", false, 150); ok(f.includes("first_try") && f.includes("first_exam") && !f.includes("first_pass"), "first failed exam");
+f = add("exam", true, 0); ok(f.includes("first_pass") && f.includes("clean_exam"), "clean pass");
+f = add("exam", true, 10); ok(f.length === 0, "nothing is unlocked twice");
+f = add("practice:parkovka", true, 0); ok(f.includes("clean_parkovka") && !f.includes("all_elements"), "clean parking");
+f = add("practice:boks", true, 5); ok(f.includes("all_elements"), "all elements");
+ok(Object.keys(loadAchievements()).length >= 6, "persisted");

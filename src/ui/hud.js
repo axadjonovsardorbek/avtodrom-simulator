@@ -3,6 +3,8 @@
 import { PASS_LIMIT } from "../sim/penalties.js";
 import { analyse, clearHistory } from "../sim/history.js";
 import { drawProtocol } from "./protocol.js";
+import { drawCertificate } from "./certificate.js";
+import { ACHIEVEMENTS, loadAchievements } from "../sim/achievements.js";
 import { ELEMENTS } from "../world/tracks.js";
 import { CARS } from "../cars/index.js";
 
@@ -378,14 +380,21 @@ export class Hud {
   }
   toggleMinimap() { if (this.root.classList.contains("touch")) { this.mm.hidden = false; this.root.classList.toggle("showmap"); } else this.mm.hidden = !this.mm.hidden; }
 
-  /* ---------- protocol sheet ---------- */
+  /* ---------- protocol sheet and certificate ---------- */
   // info: { date, modeLabel, car, plate }
   showProtocol(s, passed, info) {
+    this.showSheet({ eyebrow: "Imtihon bayonnomasi", file: "imtihon-bayonnomasi.png", landscape: false,
+      build: name => drawProtocol({ ...info, name, time: s.t, total: s.total, passed, log: s.log }) });
+  }
+  showCertificate(s, stars, info) {
+    this.showSheet({ eyebrow: "Sertifikat", file: "sertifikat.png", landscape: true,
+      build: name => drawCertificate({ name, date: info.date, total: s.total, time: s.t, car: info.car, plate: info.plate, stars }) });
+  }
+  showSheet({ eyebrow, build, file, landscape }) {
     const res = $("#result", this.root), S = this.h.settings;
-    const build = () => drawProtocol({ ...info, name: S.name || "", time: s.t, total: s.total, passed, log: s.log });
     res.innerHTML = `
       <div class="panel result proto">
-        <span class="eyebrow">Imtihon bayonnomasi</span>
+        <span class="eyebrow">${eyebrow}</span>
         <label class="protoname"><span class="lbl">Nomzodning ismi</span><input id="protoName" maxlength="40" autocomplete="off" placeholder="Ism familiya"></label>
         <div class="protoimg" id="protoImg"></div>
         <div class="acts"><button class="btn primary" data-p="save">Rasm sifatida saqlash</button><button class="btn" data-p="print">Chop etish</button><button class="btn" data-p="back">Orqaga</button></div>
@@ -393,17 +402,17 @@ export class Hud {
     const img = $("#protoImg", res), name = $("#protoName", res);
     name.value = S.name || "";
     let canvas = null;
-    const render = () => { canvas = build(); canvas.className = "protocanvas"; img.replaceChildren(canvas); };
+    const render = () => { canvas = build(S.name || ""); canvas.className = "protocanvas"; img.replaceChildren(canvas); };
     render();
     name.oninput = () => { S.name = name.value.trim(); this.h.save && this.h.save(); render(); };
     res.querySelector('[data-p="back"]').onclick = () => this.h.protocolBack && this.h.protocolBack();
     res.querySelector('[data-p="save"]').onclick = () => {
-      const a = document.createElement("a"); a.download = "imtihon-bayonnomasi.png"; a.href = canvas.toDataURL("image/png"); a.click();
+      const a = document.createElement("a"); a.download = file; a.href = canvas.toDataURL("image/png"); a.click();
     };
     res.querySelector('[data-p="print"]').onclick = () => {
       const w = window.open("", "_blank");
       if (!w) return;
-      w.document.write(`<title>Imtihon bayonnomasi</title><style>@page{size:A4;margin:0}body{margin:0}img{width:100%;display:block}</style><img src="${canvas.toDataURL("image/png")}">`);
+      w.document.write(`<title>${eyebrow}</title><style>@page{size:A4${landscape ? " landscape" : ""};margin:0}body{margin:0}img{width:100%;display:block}</style><img src="${canvas.toDataURL("image/png")}">`);
       w.document.close(); w.onload = () => w.print();
     };
     res.hidden = false;
@@ -460,6 +469,15 @@ export class Hud {
   }
 
   /* ---------- result ---------- */
+  // per element: done or not, time and the points lost there
+  taskReport(s) {
+    const pts = {}; for (const e of s.log) pts[e.task] = (pts[e.task] || 0) + e.pts;
+    const rows = s.W.tasks.map(t => {
+      const d = s.done.find(x => x.task === t), p = pts[t.short] || 0;
+      return `<tr><td>${t.short}</td><td class="${d ? (d.ok ? "okc" : "badc") : "mutedc"}">${d ? (d.ok ? "bajarildi" : "o'tkazib yuborildi") : "yetib bormadi"}</td><td class="num">${d ? fmt(d.t) : "–"}</td><td class="num">${p ? "+" + p : "0"}</td></tr>`;
+    }).join("");
+    return `<h3 class="sub">Mashqlar bo'yicha</h3><div class="tblwrap"><table><thead><tr><th>Mashq</th><th>Holat</th><th>Vaqt</th><th>Ball</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+  }
   histBlock(h) {
     const stars = [1, 2, 3].map(i => `<span class="${i <= h.stars ? "on" : ""}">★</span>`).join("");
     const d = h.prev ? h.rec.total - h.prev.total : null;
@@ -481,6 +499,8 @@ export class Hud {
         ${bars ? `<div class="tblwrap"><table class="mist"><tbody>${bars}</tbody></table></div>` : `<p class="lead">Birorta ham xato qayd etilmagan.</p>`}
         <h3>Mashqlar bo'yicha</h3>
         <div class="tblwrap"><table><thead><tr><th>Mashq</th><th>Urinish</th><th>O'tgan</th><th>Eng yaxshi</th><th>So'nggi natijalar</th></tr></thead><tbody>${keys}</tbody></table></div>` : `<p class="lead">Imtihon yoki mashq topshiring: har bir urinish shu yerda saqlanadi.</p>`}
+        <h3>Yutuqlar</h3>
+        <div class="achgrid">${ACHIEVEMENTS.map(a => { const on = loadAchievements()[a.id]; return `<div class="ach${on ? " on" : ""}"><span>${on ? "🏆" : "🔒"}</span><b>${a.name}</b><small>${a.text}</small></div>`; }).join("")}</div>
         <div class="acts"><button class="btn primary" data-s="close">Yopish</button>${a.total ? `<button class="btn" data-s="clear">Tarixni tozalash</button>` : ""}</div>
       </div>`;
     res.hidden = false;
@@ -499,7 +519,9 @@ export class Hud {
         <span class="eyebrow">${s.mode === "practice" ? "Mashq natijasi" : s.mode === "exam" ? "Imtihon protokoli" : "Trening natijasi"}</span>
         <h1 class="${passed ? "ok" : "bad"}">${title}</h1>
         ${hist ? this.histBlock(hist) : ""}
+        ${hist && hist.fresh && hist.fresh.length ? `<div class="newach">${hist.fresh.map(a => `<div><span>🏆</span><b>Yangi yutuq: ${a.name}</b><small>${a.text}</small></div>`).join("")}</div>` : ""}
         <div class="sum"><div><small>Jarima</small><b>${s.total}</b><em>/ ${PASS_LIMIT}</em></div><div><small>Vaqt</small><b>${fmt(s.t)}</b></div><div><small>Bajarilgan mashqlar</small><b>${s.done.filter(d => d.ok).length}/${s.W.tasks.length}</b></div></div>
+        ${s.full ? this.taskReport(s) : ""}
         ${rows ? `<div class="tblwrap"><table><thead><tr><th>№</th><th>Xato</th><th>Mashq</th><th>Vaqt</th><th>Ball</th></tr></thead><tbody>${rows}</tbody></table></div>` : `<p class="lead">Birorta ham xato qayd etilmadi.</p>`}
         <div class="acts">${handlers.map(([label, id, primary]) => `<button class="btn${primary ? " primary" : ""}" data-r="${id}">${label}</button>`).join("")}</div>
       </div>`;

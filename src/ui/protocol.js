@@ -5,6 +5,7 @@ import { PEN, PASS_LIMIT } from "../sim/penalties.js";
 const W = 1240, PAD = 70;                                   // A4 at 150 dpi
 const INK = "#1b1f24", MUTED = "#5a626b", RULE = "#c9ced4", RED = "#c62828", GREEN = "#1b7f3c";
 
+const p2 = n => String(n).padStart(2, "0");
 function wrap(g, text, maxW) {
   const out = []; let line = "";
   for (const w of text.split(" ")) {
@@ -43,7 +44,7 @@ export function drawProtocol(d) {
   g.textAlign = "left";
   const info = [
     ["Nomzod", d.name || "________________________"],
-    ["Sana", d.date.toLocaleDateString("uz-UZ", { day: "2-digit", month: "2-digit", year: "numeric" }) + "  " + d.date.toLocaleTimeString("uz-UZ", { hour: "2-digit", minute: "2-digit" })],
+    ["Sana", `${p2(d.date.getDate())}.${p2(d.date.getMonth() + 1)}.${d.date.getFullYear()}  ${p2(d.date.getHours())}:${p2(d.date.getMinutes())}`],
     ["Imtihon turi", d.modeLabel], ["Avtomobil", `${d.car} · ${d.plate}`], ["Davomiyligi", `${Math.floor(d.time / 60)} daq ${String(Math.floor(d.time % 60)).padStart(2, "0")} s`]
   ];
   let y = 222;

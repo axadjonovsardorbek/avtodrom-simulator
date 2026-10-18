@@ -14,9 +14,9 @@ Bajarilganini `[x]` bilan belgilang.
 
 ## 2. O'yin hissi
 
-- [ ] **Natija ekrani:** yulduzchalar (1–3), eng yaxshi natija va oldingisi bilan solishtirish tayyor; mashqlar bo'yicha qisqacha hisobot qoldi.
-- [ ] **Yutuqlar:** "Birinchi imtihon", "Xatosiz parkovka", "Hammasi 0 ball bilan" va boshqalar.
-- [ ] **Sertifikat:** o'tgan imtihon uchun yuklab olinadigan rasm.
+- [x] **Natija ekrani:** yulduzchalar (1–3), eng yaxshi natija, oldingisi bilan solishtirish, mashqlar bo'yicha hisobot.
+- [x] **Yutuqlar:** "Birinchi imtihon", "Xatosiz parkovka", "Hammasi 0 ball bilan" va boshqalar.
+- [x] **Sertifikat:** o'tgan imtihon uchun yuklab olinadigan rasm.
 - [ ] **Mashinaga o'tirish animatsiyasi:** eshik ochiladi, kamar taqiladi, kalit buraladi.
 - [ ] **Kunlik vazifa:** masalan, "Bugun 3 marta parallel parkovka qiling".
 
