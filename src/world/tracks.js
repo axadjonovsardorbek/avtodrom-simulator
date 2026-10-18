@@ -112,7 +112,7 @@ export function buildFull(car) {
   T.fwd(D * 0.1);                                  // the longer run between the crossing and the overpass
   const tE = estakada(W, T, { s0: 1, s1: 13, s2: 24, s3: 36, h: 1.92, stopS: 9, len: 37 });
   // the decorative lane signs of the board must not stand on the overpasses
-  W.signs = W.signs.filter(g => !W.ramps.some(r => { const [a, l] = toLocal(r.pose, g.x, g.y); return a > r.s0 - 2 && a < r.s3 + 2 && Math.abs(l) < r.halfW + 1.5; }));
+  W.signs = W.signs.filter(g => g.ramp || !W.ramps.some(r => { const [a, l] = toLocal(r.pose, g.x, g.y); return a > r.s0 - 2 && a < r.s3 + 2 && Math.abs(l) < r.halfW + 1.5; }));
 
   // ---- 4: the 90-degree turns on the second zigzag pad: in from the road on its west side, out at the top towards the east
   const tB = padExercise(W, {

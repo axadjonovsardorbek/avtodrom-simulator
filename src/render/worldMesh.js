@@ -166,6 +166,11 @@ export function buildWorldMeshes(W, quality) {
       for (let i = 0; i < 4; i++) { const a = f[i], c = f[(i + 1) % 4], L = Math.hypot(c[0] - a[0], c[1] - a[1]) + 0.35, bx = new THREE.BoxGeometry(L, 0.5, 0.35);
         bx.rotateY(-Math.atan2(c[1] - a[1], c[0] - a[0])); bx.translate((a[0] + c[0]) / 2, 0.25, (a[1] + c[1]) / 2); geos.push(bx); }
       addMerged(group, geos, kerbMat); }
+    // the red-roofed shelter by the start, behind the fence (as on the video)
+    if (W.start) { const sh = new THREE.Group(), red = new THREE.MeshStandardMaterial({ color: 0xb3262a, roughness: 0.6 }), pm = new THREE.MeshStandardMaterial({ color: 0x8a8f94, metalness: 0.5, roughness: 0.5 });
+      for (const [px_, pz] of [[-5, -1.6], [5, -1.6], [-5, 1.6], [5, 1.6]]) { const p_ = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.07, 2.8, 8), pm); p_.position.set(px_, 1.4, pz); sh.add(p_); }
+      const roof = new THREE.Mesh(new THREE.BoxGeometry(11, 0.18, 4.2), red); roof.position.y = 2.9; roof.rotation.x = 0.12; roof.castShadow = true; sh.add(roof);
+      sh.position.set(W.start.x - 6, 0, bd.frame[0][1] - 6); group.add(sh); }
     // a mesh fence round the ground, a little way out from its edge
     { const f = bd.frame.map(([x, y]) => [x + Math.sign(x) * 2.5, y + Math.sign(y) * 2.5]), postGeo = new THREE.BoxGeometry(0.08, 2.2, 0.08), posts = [], panels = [];
       const meshMat = new THREE.MeshStandardMaterial({ color: 0x3f5a46, transparent: true, opacity: 0.32, side: THREE.DoubleSide, roughness: 0.8, depthWrite: false });
@@ -290,6 +295,11 @@ export function buildWorldMeshes(W, quality) {
       sleepers.push(g);
     }
     addMerged(group, sleepers, wood);
+    // the crossing itself (where the road is): black rails flush with a deck of white boards, as on the video
+    { const deck = [], bars = [], a = Math.max(r.l0, -5), b = Math.min(r.l1, 5), L = b - a, m = (a + b) / 2;
+      for (const [ds, w] of [[-0.45, 0.5], [0.76, 1.3], [1.97, 0.5]]) { const [x, y] = toWorld(r.pose, r.s + ds, m), g = new THREE.BoxGeometry(w, 0.04, L); g.applyMatrix4(new THREE.Matrix4().makeRotationY(-r.pose.th).setPosition(x, 0.03, y)); deck.push(g); }
+      for (const ds of [0, 1.52]) { const [x, y] = toWorld(r.pose, r.s + ds, m), g = new THREE.BoxGeometry(0.16, 0.06, L + 0.6); g.applyMatrix4(new THREE.Matrix4().makeRotationY(-r.pose.th).setPosition(x, 0.04, y)); bars.push(g); }
+      addMerged(group, deck, new THREE.MeshStandardMaterial({ color: 0xe9e7e0, roughness: 0.8 })); addMerged(group, bars, new THREE.MeshStandardMaterial({ color: 0x1b1c1e, roughness: 0.6 })); }
   }
 
   // locomotives: an empty holder per crossing, the model is put in by View.setTrainModel
@@ -315,7 +325,7 @@ export function buildWorldMeshes(W, quality) {
     const base = new THREE.Mesh(baseGeo, baseMat); base.position.y = 0.11; g.add(base);                // the square concrete footing of the video
     const plate = new THREE.Mesh(new THREE.PlaneGeometry(sz, sz), plateMat(s.kind)); plate.position.y = y0; plate.castShadow = true; g.add(plate);
     (s.plates || []).forEach((k, i) => { const pl = new THREE.Mesh(new THREE.PlaneGeometry(sz * 0.8, sz * 0.8), plateMat(k)); pl.position.y = y0 - sz * 0.55 - i * sz * 0.42; g.add(pl); });
-    g.position.set(s.x, 0.14, s.y); g.rotation.y = Math.atan2(Math.cos(s.th), Math.sin(s.th));
+    g.position.set(s.x, s.ramp ? 0 : 0.14, s.y); g.rotation.y = Math.atan2(Math.cos(s.th), Math.sin(s.th));
     group.add(g);
   }
 

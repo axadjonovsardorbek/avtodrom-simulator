@@ -71,8 +71,10 @@ export function piyoda(W, T, len = 34, opt = {}) {
   stopPaint(W, pose, stopS);
   if (opt.zebra !== false) for (let l = -HL + 0.2; l < HL - 0.2; l += 0.9) W.addPaint(rect(pose, z0, z1, l, Math.min(l + 0.5, HL - 0.1)));   // the board draws its own zebra when opt.zebra is false
   if (opt.pave !== false) { W.addPad(rect(pose, 10, 25, -5.4, -HL - 0.35), "concrete"); W.addPad(rect(pose, 10, 25, HL + 0.35, 5.4), "concrete"); }
-  W.signs.push({ ...at(pose, 13, 2.9), th: pose.th + Math.PI, kind: "zebra" });
-  W.signs.push({ ...at(pose, 21.5, -2.9), th: pose.th, kind: "zebra" });
+  if (opt.l0 === undefined) {                       // a road of its own: a sign on each side; on the ground the plan places them
+    W.signs.push({ ...at(pose, 13, 2.9), th: pose.th + Math.PI, kind: "zebra" });
+    W.signs.push({ ...at(pose, 21.5, -2.9), th: pose.th, kind: "zebra" });
+  }
   const l0 = opt.l0 ?? -4.4, l1 = opt.l1 ?? 4.8;      // where the pedestrian waits and where he walks to
   const ped = { x: 0, y: 0, th: pose.th + Math.PI / 2, visible: opt.l0 !== undefined || Math.random() < 0.85, l: l0, walking: false, phase: 0 };
   const place = () => { const [x, y] = toWorld(pose, cross, ped.l); ped.x = x; ped.y = y; };
@@ -114,7 +116,13 @@ export function estakada(W, T, opt = {}) {
   { const [x, y] = toWorld(pose, 0, -(2 * (HL + 0.4) + 0.5)); W.ramps.push({ pose: { x, y, th: pose.th }, s0, s1, s2, s3, h, halfW: HL + 0.4, extra: true }); }
   stopPaint(W, pose, stopS);
   W.texts.push({ ...at(pose, stopS - 1.6, 0), th: pose.th, text: "STOP", size: 1.0 });
-  W.signs.push({ ...at(pose, Math.max(1, s0 - 3), 2.9), th: pose.th + Math.PI, kind: "hill" });
+  // each overpass as on the video: the climb sign at its foot, STOP at its stop line, the descent sign at the top
+  const hw = HL + 0.4, side = [hw + 0.7, -(3 * hw + 0.5) - 0.7];
+  for (const l of side) {
+    W.signs.push({ ...at(pose, Math.max(0.5, s0 - 2), l), th: pose.th + Math.PI, kind: "hill", ramp: true });
+    W.signs.push({ ...at(pose, stopS, l), th: pose.th + Math.PI, kind: "stop", ramp: true, h: 2.3 + h * 0.5 });
+    W.signs.push({ ...at(pose, s2, l), th: pose.th + Math.PI, kind: "descent", ramp: true, h: 2.3 + h });
+  }
   return task({
     id: "estakada", mapNo: 3, name: "To'xtash va tik balandlikka ko'tarilish (estakada)", short: "Estakada", pose,
     stages: [{
@@ -313,8 +321,9 @@ export function temir(W, T, opt = {}) {
   T.fwd(36);
   stopPaint(W, pose, stopS);
   W.rails.push({ pose, s: r0, l0: opt.l0 ?? -22, l1: opt.l1 ?? 22, deadEnd: !!opt.deadEnd, from: opt.from || -1, train: { pos: null, timer: 55, dir: 1, hit: false } });   // a steam locomotive crosses now and then (src/sim/session.js trainStep)
-  W.signs.push({ ...at(pose, 11.2, 2.9), th: pose.th + Math.PI, kind: "stop" });
-  W.signs.push({ ...at(pose, 8.5, 2.9), th: pose.th + Math.PI, kind: "rail" });
+  // as on the video: STOP with the St Andrew's cross under it at the line, the locomotive sign before it
+  W.signs.push({ ...at(pose, 11.2, 2.9), th: pose.th + Math.PI, kind: "stop", plates: ["rail"] });
+  W.signs.push({ ...at(pose, 3, 2.9), th: pose.th + Math.PI, kind: "train", big: true });
   return task({
     id: "temir", mapNo: 8, name: "Temir yo'l kesishmasi", short: "Temir yo'l", pose,
     stages: [{

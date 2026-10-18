@@ -68,12 +68,25 @@ export function signTexture(kind) {
     g.beginPath(); g.arc(128, 128, 118, 0, 7); g.fillStyle = "#c8261e"; g.fill();
     g.beginPath(); g.arc(128, 128, 88, 0, 7); g.fillStyle = "#fff"; g.fill();
     g.fillStyle = "#111"; g.font = "bold 100px Arial, sans-serif"; g.fillText(kind === "limit20" ? "20" : "40", 128, 134);
+  } else if (kind === "descent") {
+    tri("#fff", "#c8261e");
+    g.fillStyle = "#111"; g.beginPath(); g.moveTo(60, 196); g.lineTo(196, 196); g.lineTo(60, 110); g.closePath(); g.fill();
+    g.fillStyle = "#fff"; g.font = "bold 40px Arial, sans-serif"; g.fillText("16%", 100, 172);
+  } else if (kind === "train") {
+    tri("#fff", "#c8261e");
+    g.fillStyle = "#111";
+    g.fillRect(70, 150, 96, 34); g.fillRect(140, 112, 40, 72); g.fillRect(84, 124, 14, 26); g.fillRect(176, 140, 18, 44);
+    for (const x of [88, 120, 152]) { g.beginPath(); g.arc(x, 192, 11, 0, 7); g.fill(); }
+    g.beginPath(); g.arc(80, 106, 9, 0, 7); g.arc(66, 92, 7, 0, 7); g.fill();
   } else if (kind === "noEntry") {
     g.beginPath(); g.arc(128, 128, 118, 0, 7); g.fillStyle = "#c8261e"; g.fill(); g.fillStyle = "#fff"; g.fillRect(40, 108, 176, 40);
   } else if (kind === "bend") {
     tri("#fff", "#c8261e");
     g.strokeStyle = "#111"; g.lineWidth = 16; g.lineCap = "round"; g.beginPath(); g.moveTo(112, 200); g.bezierCurveTo(112, 160, 150, 160, 150, 130); g.bezierCurveTo(150, 105, 112, 105, 116, 80); g.stroke();
     g.fillStyle = "#111"; g.beginPath(); g.moveTo(116, 54); g.lineTo(98, 86); g.lineTo(134, 86); g.closePath(); g.fill();
+  } else if (kind === "startPlate") {
+    g.fillStyle = "#f4f4f2"; g.fillRect(14, 84, 228, 88); g.lineWidth = 6; g.strokeStyle = "#222"; g.strokeRect(17, 87, 222, 82);
+    g.fillStyle = "#111"; g.font = "bold 60px Arial, sans-serif"; g.fillText("START", 128, 130);
   } else if (kind === "car" || kind === "truck") {
     g.fillStyle = "#f4f4f2"; g.fillRect(14, 70, 228, 116); g.lineWidth = 6; g.strokeStyle = "#222"; g.strokeRect(17, 73, 222, 110);
     g.fillStyle = "#111";

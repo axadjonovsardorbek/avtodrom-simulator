@@ -34,15 +34,31 @@ function hatch(W, poly, step = 14) {
     for (let i = 0; i + 1 < hits.length; i += 2) W.addLine([P(...hits[i]), P(...hits[i + 1])], "paint", { width: 0.22 });
   }
 }
-// a lane arrow lying on the asphalt: centre (x, y) of the plan, pointing along `deg` (0 east, 90 south); kind: "S" straight,
-// "R"/"L" turn right/left, "SR"/"SL" straight or turn (v > 0 is the driver's right)
-const ARROW = {
-  S: [[[-28, -3], [8, -3], [8, -11], [28, 0], [8, 11], [8, 3], [-28, 3]]],
-  R: [[[-28, -3], [3, -3], [3, 12], [11, 12], [0, 24], [-11, 12], [-3, 12], [-3, 3], [-28, 3]]],
-  SR: [[[-28, -3], [8, -3], [8, -11], [28, 0], [8, 11], [8, 3], [-28, 3]], [[-14, 2], [-8, 2], [-8, 13], [-2, 13], [-11, 23], [-20, 13], [-14, 13]]]
+// a lane arrow lying on the asphalt (the 1.18 markings of the video): centre (x, y) of the plan, pointing along `deg`
+// (0 east, 90 south). kind: "S" straight, "R"/"L" a turn (the shaft bends round to the right/left), "SR"/"SL" straight
+// with a turn branching off it, "LR" both turns. In arrow units: u forward, v to the driver's right; 56 units long.
+const AW = 2.6, AH = 7.5, AHL = 13;
+function ribbonArrow(c) {                          // centre line -> outline with a head at its end
+  const n = c.length, L = [], R = [];
+  for (let i = 0; i < n; i++) {
+    const a = c[Math.max(0, i - 1)], b = c[Math.min(n - 1, i + 1)], dx = b[0] - a[0], dy = b[1] - a[1], l = Math.hypot(dx, dy) || 1, nx = -dy / l, ny = dx / l;
+    L.push([c[i][0] + nx * AW, c[i][1] + ny * AW]); R.push([c[i][0] - nx * AW, c[i][1] - ny * AW]);
+  }
+  const e = c[n - 1], p = c[n - 2], dx = e[0] - p[0], dy = e[1] - p[1], l = Math.hypot(dx, dy) || 1, tx = dx / l, ty = dy / l, nx = -ty, ny = tx;
+  return [...L, [e[0] + nx * AH, e[1] + ny * AH], [e[0] + tx * AHL, e[1] + ty * AHL], [e[0] - nx * AH, e[1] - ny * AH], ...R.reverse()];
+}
+const bend = (u0, sg, r = 11, ext = 3) => {        // from (u0, 0) round a quarter circle to the side sg (+1 right)
+  const pts = []; for (let i = 0; i <= 8; i++) { const a = Math.PI / 2 * i / 8; pts.push([u0 + r * Math.sin(a), sg * (r - r * Math.cos(a))]); }
+  pts.push([u0 + r, sg * (r + ext)]); return pts;
 };
-ARROW.L = ARROW.R.map(p => p.map(([u, v]) => [u, -v]).reverse());
-ARROW.SL = ARROW.SR.map(p => p.map(([u, v]) => [u, -v]).reverse());
+const ARROW = {
+  S: [ribbonArrow([[-28, 0], [15, 0]])],
+  R: [ribbonArrow([[-28, 0], ...bend(-8, 1)])],
+  L: [ribbonArrow([[-28, 0], ...bend(-8, -1)])],
+  SR: [ribbonArrow([[-28, 0], [15, 0]]), ribbonArrow(bend(-16, 1, 10, 2))],
+  SL: [ribbonArrow([[-28, 0], [15, 0]]), ribbonArrow(bend(-16, -1, 10, 2))],
+  LR: [ribbonArrow([[-28, 0], ...bend(-8, 1)]), ribbonArrow([[-28, 0], ...bend(-8, -1)])]
+};
 function arrow(W, x, y, deg, len = 56, kind = "S") {
   const a = deg * Math.PI / 180, c = Math.cos(a), s = Math.sin(a), k = len / 56;
   for (const shape of ARROW[kind]) W.addPaint(shape.map(([u, v]) => P(x + (u * c - v * s) * k, y + (u * s + v * c) * k)));
@@ -107,8 +123,18 @@ export function addBoard(W) {
   hatch(W, [[1337, 365], [1385, 365], [1385, 495], [1337, 495]]);
   hatch(W, [[662, 1085], [714, 1030], [714, 1085]], 12);
   // lane arrows (the way each lane runs, as on the plan)
-  for (const [x, y, d, kind] of [[850 + D, 55, 180], [850 + D, 100, 180], [1250, 48, 180], [1250, 95, 180], [770, 310, 0], [1060, 305, 0], [1055, 350, 0], [1040, 575, 180, "SR"], [1160, 575, 180], [1310, 575, 180], [1030, 527, 180, "SL"], [1150, 527, 180], [1310, 527, 180],
-    [100, 340, 90], [78, 470, 90], [250, 1090, 0], [640, 1095, 0, "SL"], [975, 1105, 0], [1350, 690, -90], [1318, 965, 90, "R"], [700, 740, -90, "SR"], [680, 440, 90, "SR"], [575, 212, 0], [580, 352, 0], [155, 92, 180, "L"], [155, 130, 180, "L"]]) arrow(W, x, y, d, 56, kind);
+  // the arrows of the plan, lane by lane (deg: the way the lane runs; 0 east, 90 south)
+  for (const [x, y, d, kind] of [
+    [850 + D, 59, 180], [850 + D, 102, 180], [1230, 47, 180], [1230, 92, 180],                     // start box and the road behind it
+    [178, 88, 180, "L"], [178, 131, 180, "L"],                                                   // top road, turning south at the west end
+    [103, 345, 90, "SL"], [75, 465, 90, "SL"],                                                    // west road
+    [565, 212, 0, "R"], [570, 355, 0, "R"], [672, 440, 90], [150, 582, 180, "L"],               // north-west quarter
+    [770, 312, 0, "SR"], [1050, 305, 0], [1050, 345, 0], [717, 400, -90, "R"],                     // north-east road
+    [995, 520, 180, "SR"], [1165, 520, 180, "SR"], [1315, 520, 180, "SR"], [980, 572, 180], [1165, 572, 180], [1315, 572, 180], [820, 567, 180, "L"],
+    [570, 615, 0], [210, 665, -90, "R"], [452, 640, -90, "R"], [90, 1040, 90, "L"], [255, 1090, 0], [475, 1055, 180, "L"], [625, 1052, 180, "SR"], [675, 970, 90, "SL"], [645, 1095, 0],
+    [835, 605, 0, "SR"], [1135, 602, 0, "SR"], [1255, 635, 0, "R"], [1355, 670, -90, "L"], [1315, 935, 90, "R"], [710, 725, -90, "L"],
+    [770, 1042, 180, "L"], [935, 1072, 180, "SR"], [1160, 1077, 180, "SR"], [975, 1107, 0], [1250, 1115, 0, "L"]
+  ]) arrow(W, x, y, d, 56, kind);
   // road signs where the plan has them (px of the plan): each stands on the island next to that spot, 0.6 m in from the
   // kerb, its face turned to the road; a spot outside the frame faces into the ground
   const sign = (x, y, th, kind, extra = {}) => W.signs.push({ x, y, th, kind, ...extra });
@@ -126,14 +152,17 @@ export function addBoard(W) {
       const inside = inPoly(n.g, x, y), ux = (n.q[0] - x) / (n.d || 1), uy = (n.q[1] - y) / (n.d || 1);
       th = inside ? Math.atan2(uy, ux) : Math.atan2(-uy, -ux);                    // towards the road
       const ox = Math.cos(th), oy = Math.sin(th); x = n.q[0] - ox * 0.6; y = n.q[1] - oy * 0.6;
-    } else th = 0;
+    } else {                                                                     // on open asphalt: to the nearest edge of the ground
+      const dx = fx - Math.abs(x), dy = fy - Math.abs(y);
+      if (dy < dx) { y = Math.sign(y) * (fy + 1.4); th = -Math.sign(y) * Math.PI / 2; } else { x = Math.sign(x) * (fx + 1.4); th = x > 0 ? Math.PI : 0; }
+    }
     kinds.forEach((k, i) => sign(x + Math.cos(th + Math.PI / 2) * 0.75 * (i - (kinds.length - 1) / 2) * (extra.stack ? 0 : 1), y + Math.sin(th + Math.PI / 2) * 0.75 * (i - (kinds.length - 1) / 2) * (extra.stack ? 0 : 1), th, k,
       { h: extra.stack ? 2.55 - i * 0.95 : undefined, plates: extra.plates && (!extra.stack || i === kinds.length - 1) ? extra.plates : undefined }));
   };
   const Y = (x, y, arrow = "right") => place(x, y, ["yield", arrow], { stack: true });
   const PK = (x, y) => place(x, y, ["park"], { plates: ["car", "truck"] });
   // north fence (the top road), west and east fence
-  place(390, 22, ["noStop"]); place(428, 20, ["limit20"]); place(595, 22, ["zebra"]); place(680, 20, ["zebra"]); place(748 + D, 20, ["limit20", "noStop"]);
+  place(390, 22, ["noStop"]); place(428, 20, ["limit20"]); place(595, 22, ["zebra"]); place(680, 20, ["zebra"]); place(760 + D, 20, ["limit20"], { plates: ["startPlate"] }); place(700 + D, 20, ["zebra"]);
   place(33, 328, ["ahead", "aheadRight"], { plates: ["truck"] }); place(43, 460, ["right"]); place(47, 762, ["yield"]); place(55, 1035, ["left"]); place(1305, 1162, ["noStop"]); place(1390, 520, ["ahead", "aheadRight"], { plates: ["car"] });
   // north-west quarter (the zigzags)
   place(572, 260, ["right"]); place(600, 288, ["noEntry"]); Y(590, 390); place(155, 455, ["noEntry"]); place(185, 538, ["left"]); place(615, 505, ["zebra"]);
@@ -146,7 +175,7 @@ export function addBoard(W) {
   Y(797, 975); place(752, 992, ["left"]); PK(872, 985); Y(1062, 990); PK(1142, 990);
   // the paired lane signs along the north fence, as on the video
   for (const x of [-48, -22]) { sign(x, -57.6, Math.PI / 2, "ahead", { plates: ["truck"] }); sign(x + 0.9, -57.6, Math.PI / 2, "aheadRight", { plates: ["car"] }); }
-  W.texts.push({ ...(([x, y]) => ({ x, y }))(P(945 + D, 80)), th: -Math.PI / 2, text: "START", size: 3.6 });
+  W.texts.push({ ...(([x, y]) => ({ x, y }))(P(900 + D, 80)), th: -Math.PI / 2, text: "START", size: 2.2 });
 }
 
 // which edges of a pad are open to the asphalt (no grass beside them): the exercise outline leaves them out
