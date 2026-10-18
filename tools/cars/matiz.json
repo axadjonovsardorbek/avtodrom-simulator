@@ -1,0 +1,18 @@
+{
+ "id": "matiz",
+ "src": "~/Downloads/daewoo-matiz-full-interior/matiz-closed.glb",
+ "length": 3.495,
+ "forward": "-z",
+ "tyre": "^material_7",
+ "wheelParts": "^material_7",
+ "wheelNodes": ["Object_677", "Object_867", "Object_642"],
+ "paint": "^material_8$",
+ "head": "^material_11$",
+ "tail": "^material_9$|^material_6$",
+ "credit": "3D model: \"Daewoo Matiz [FULL INTERIOR]\" by ALEX MILOS (Sketchfab), CC BY 4.0, modified",
+ "source": "https://sketchfab.com/3d-models/daewoo-matiz-full-interior-c2bb5406a5f8484d9e76e0deb044f5b5",
+ "license": "CC-BY-4.0",
+ "fix": [
+  ["^material_8$", { "color": "#f2f3f1", "metal": 0.2, "rough": 0.3 }]
+ ]
+}

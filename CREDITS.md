@@ -9,6 +9,8 @@ Dastur kodi: MIT (`LICENSE`). Quyidagi fayllar o'z litsenziyasida qoladi.
 | `public/models/cobalt.glb` | [Chevrolet Cobalt LTZ 2014](https://sketchfab.com/3d-models/chevrolet-cobalt-ltz-2014-f91cbef731444f939e263041400216ca) | [Q.SARDOR](https://sketchfab.com/qsardor57913) | [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/) |
 | `public/models/malibu-2019.glb` | 2019 Chevrolet Malibu Premier (Sketchfab) | muallif ko'rsatilishi kerak | Sketchfab litsenziyasi (aniqlanmoqda) |
 | `public/models/monza.glb` | 2023 Chevrolet Monza (Sketchfab) | muallif ko'rsatilishi kerak | Sketchfab litsenziyasi (aniqlanmoqda) |
+| `public/models/matiz.glb` | [Daewoo Matiz [FULL INTERIOR]](https://sketchfab.com/3d-models/daewoo-matiz-full-interior-c2bb5406a5f8484d9e76e0deb044f5b5) | [ALEX MILOS (TEDIORE)](https://sketchfab.com/TEDIORE) | [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/) |
+| `public/models/damas.glb` | Chevrolet Damas (Sketchfab) | muallif ko'rsatilishi kerak | litsenziya aniqlanmoqda |
 | `public/models/malibu-premier.glb` | [2021 Chevrolet Malibu 2LZ Premier](https://sketchfab.com/3d-models/2021-chevrolet-malibu-2lz-premier-c1e8e127ce114b14a166e93100642424) | [twr422](https://sketchfab.com/twr422) | [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/) |
 
 Hamma modellar o'zgartirilgan (`tools/prepare-cobalt.mjs`, `tools/prepare-malibu-premier.mjs`).

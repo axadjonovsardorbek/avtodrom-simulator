@@ -46,8 +46,9 @@ const RIGHT = new THREE.Vector3(0, 0, 1).applyMatrix4(new THREE.Matrix4().copy(R
   const wre = new RegExp(CFG.wheelParts || "tyre|tire|rim", "i"), sb = getBounds(scene);
   const cx = (sb.min[0] + sb.max[0]) / 2, cz = (sb.min[2] + sb.max[2]) / 2;
   let split = 0;
+  const only = CFG.wheelNodes ? new Set(CFG.wheelNodes) : null;       // explicit node names when materials are shared with the body
   for (const n of [...root.listNodes()]) {
-    if (!n.getMesh() || !n.getMesh().listPrimitives().some(p => wre.test(p.getMaterial()?.getName() || ""))) continue;
+    if (!n.getMesh() || (only ? !only.has(n.getName()) : !n.getMesh().listPrimitives().some(p => wre.test(p.getMaterial()?.getName() || "")))) continue;
     const b = getBounds(n), h = b.max[1] - b.min[1];
     if (b.max[0] - b.min[0] < 2.2 * h && b.max[2] - b.min[2] < 2.2 * h) continue;      // already one wheel
     const m = new THREE.Matrix4().fromArray(n.getWorldMatrix());

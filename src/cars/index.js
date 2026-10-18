@@ -6,8 +6,13 @@ import COBALT from "./cobalt-dims.json";
 import PREMIER from "./malibu-premier-dims.json";
 import MALIBU19 from "./malibu-2019-dims.json";
 import MONZA from "./monza-dims.json";
+import MATIZ from "./matiz-dims.json";
+import DAMAS from "./damas-dims.json";
 
 // Monza 1.5 (113 hp): a little more torque than the Cobalt's
+// 0.8 litre engines of the Matiz and the Damas
+const NA08 = [[0, 30], [1000, 58], [2000, 66], [3000, 70], [4000, 72], [5000, 68], [6000, 55], [6500, 0]];
+const NA08_DAMAS = [[0, 28], [1000, 52], [2000, 60], [3000, 62], [3800, 62], [4800, 56], [5500, 0]];
 const NA15 = [[0, 55], [1000, 112], [2000, 132], [3000, 140], [4000, 146], [5000, 140], [6000, 118], [6600, 0]];
 // 1.5 turbo of the Malibu: flat torque from low revs
 const TURBO = [[0, 60], [1000, 150], [1500, 235], [2500, 250], [4000, 250], [5000, 228], [5600, 200], [6200, 0]];
@@ -51,6 +56,25 @@ export const CARS = [
     spec: { mass: 1320, wb: MONZA.wheelbase, rOh: MONZA.rOh, fOh: MONZA.fOh, width: 1.80, track: MONZA.track, wheelR: MONZA.wheelR, torque: NA15, clutchCap: 300, autoForce: 4700 },
     sound: NA,
     voice: { url: "monzachila_shottamisila.mp3", from: 0, dur: 1.3 }          // only the first second
+  },
+  {
+    id: "matiz", name: "Daewoo Matiz", model: "models/matiz.glb", info: "0.8 · 51 o.k. · 3,50 m",
+    credit: "3D model: \"Daewoo Matiz [FULL INTERIOR]\" by ALEX MILOS (Sketchfab), CC BY 4.0, modified",
+    creditUrl: "https://sketchfab.com/3d-models/daewoo-matiz-full-interior-c2bb5406a5f8484d9e76e0deb044f5b5",
+    dims: MATIZ, eye: [1.05, 1.13, -0.331], seat: [1.2, 0.42, 0.331],
+    mirrors: { center: [1.6, 1.22, 0], left: [1.95, 0.95, -0.85], right: [1.95, 0.95, 0.85] },
+    spec: { mass: 850, wb: MATIZ.wheelbase, rOh: MATIZ.rOh, fOh: MATIZ.fOh, width: 1.6, track: MATIZ.track, wheelR: MATIZ.wheelR, torque: NA08, clutchCap: 130, autoForce: 2600, maxRpm: 6200 },
+    sound: { ...NA, filter: [800, 2800] },
+    voice: { url: "matiz.m4a", from: 0, dur: 4 }
+  },
+  {
+    id: "damas", name: "Chevrolet Damas", model: "models/damas.glb", info: "0.8 · 38 o.k. · 3,50 m",
+    credit: "3D model: \"Chevrolet Damas\" (Sketchfab), modified", creditUrl: "",
+    dims: DAMAS, eye: [1.5, 1.4, -0.332], seat: [1.62, 0.7, 0.332],
+    mirrors: { center: [2.1, 1.55, 0], left: [2.16, 1.4, -0.82], right: [2.16, 1.4, 0.82] },
+    spec: { mass: 900, wb: DAMAS.wheelbase, rOh: DAMAS.rOh, fOh: DAMAS.fOh, width: 1.5, track: DAMAS.track, wheelR: DAMAS.wheelR, torque: NA08_DAMAS, clutchCap: 110, autoForce: 2300, maxRpm: 5800 },
+    sound: { ...NA, filter: [800, 2800] },
+    voice: { url: "damas.mp3", from: 33, dur: 4 }
   }
 ];
 // "malibu" was the Malibu XL model, now replaced by the Premier
