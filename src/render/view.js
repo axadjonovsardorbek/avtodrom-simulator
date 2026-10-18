@@ -187,7 +187,9 @@ export class View {
     if (this.cabinLight.visible) this.cabinLight.position.copy(root.localToWorld(new THREE.Vector3(1.2, 1.12, 0)));
     updateWorldMeshes(this.W, this.dyn, session.clock, now);
     for (const d of this.dyn.peds) if (d.fig) {
-      d.fig.update(dt, d.p.walking && d.p.visible);
+      // walks only while actually moving (he stops on the far pavement)
+      const moving = d.lastL !== undefined && Math.abs(d.p.l - d.lastL) > 1e-4; d.lastL = d.p.l;
+      d.fig.update(dt, moving && d.p.visible);
       // the pavements are raised 0.14 m
       d.fig.root.position.y = this.W.pads.some(q => q.surface === "concrete" && inPoly(q.poly, [d.p.x, d.p.y])) ? 0.14 : 0;
     }

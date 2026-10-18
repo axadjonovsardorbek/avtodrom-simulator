@@ -119,6 +119,7 @@ export function realInstructor(gltf) {
   all.forEach(a => { a.play(); a.setEffectiveWeight(0); });
   A.talk.setEffectiveWeight(1);
   let cur = "talk", yaw = 0;
+  const door = new THREE.Plane(), roof = new THREE.Plane();
   const neck = P.bones(/Neck$/);
   return {
     root: P.root,
@@ -128,7 +129,14 @@ export function realInstructor(gltf) {
       if (want !== cur) { A[want].reset().setEffectiveWeight(1).fadeIn(0.35); A[cur].fadeOut(0.35); cur = want; }
       A.talk.timeScale = talking ? 1 : 0.35;
       P.mixer.update(dt);
-      P.clipFloor();
+      // the waving arms stay inside the cabin: cut at the passenger door glass and the roof lining
+      const host = P.root.parent;
+      if (host) {
+        const n = (x, y, z) => V().set(x, y, z).transformDirection(host.matrixWorld);
+        door.setFromNormalAndCoplanarPoint(n(0, 0, -1), host.localToWorld(V().set(0, 0, 0.62)));   // the glass leans in towards the roof
+        roof.setFromNormalAndCoplanarPoint(n(0, -1, 0), host.localToWorld(V().set(0, 1.36, 0)));
+      }
+      P.clipFloor([door, roof]);
       // look at the driver while speaking
       yaw += ((talking || gesture ? -0.6 : 0) - yaw) * Math.min(1, dt * 5);
       if (neck) { neck.updateMatrixWorld(true); setWorldQuat(neck, Q().setFromAxisAngle(new THREE.Vector3(0, 1, 0), yaw).multiply(neck.getWorldQuaternion(Q()))); }
@@ -208,14 +216,16 @@ export function realKid(gltf) {
     root: P.root,
     update(dt, state) {
       t += dt;
-      if (state === "walk") { walk.paused = false; P.mixer.update(dt); P.root.rotation.x = 0; if (P.head) P.head.scale.setScalar(1.22); }
+      if (state === "walk") { walk.timeScale = 1; P.mixer.update(dt); P.root.rotation.x = P.root.rotation.z = 0; if (P.head) P.head.scale.setScalar(1.22); }
       else {
-        walk.paused = true; walk.time = standT; P.mixer.update(0); if (P.head) P.head.scale.setScalar(1.22);
+        // standing: the walk held at the feet-together frame and re-applied every frame,
+        // so the head turns below never add up
+        walk.timeScale = 0; walk.time = standT; P.mixer.update(dt); if (P.head) P.head.scale.setScalar(1.22);
         if (state === "sing") {
           // stands facing the driver's window, sways to the song with small nods, head tipped up
           P.root.rotation.x = Math.sin(t * 2.2) * 0.03;
-          if (head) { head.rotateX(Math.sin(t * 4.4) * 0.07); head.rotateZ(0.22); }
-        } else P.root.rotation.x = 0;
+          P.root.rotation.z = Math.sin(t * 4.4) * 0.02;            // small bob to the beat
+        } else P.root.rotation.x = P.root.rotation.z = 0;
       }
     }
   };
@@ -232,9 +242,9 @@ export function realPedestrian(gltf) {
   return {
     root: P.root,
     update(dt, walking) {
-      walk.paused = !walking;
+      walk.timeScale = walking ? 1 : 0;
       if (!walking) walk.time = standT;
-      P.mixer.update(walking ? dt : 0);
+      P.mixer.update(dt);
     }
   };
 }
