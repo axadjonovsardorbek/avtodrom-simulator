@@ -30,7 +30,7 @@ function noiseTex(base, specks, seed, size = 512) {
   return t;
 }
 
-export const asphaltTexture = () => noiseTex("#575c63", [["rgba(0,0,0,0.18)", 9000, 2.2], ["rgba(255,255,255,0.06)", 7000, 1.6], ["rgba(120,110,95,0.10)", 2500, 2.5]], 7);
+export const asphaltTexture = () => noiseTex("#6b7077", [["rgba(0,0,0,0.18)", 9000, 2.2], ["rgba(255,255,255,0.06)", 7000, 1.6], ["rgba(120,110,95,0.10)", 2500, 2.5]], 7);
 export const grassTexture = () => noiseTex("#4b6a33", [["rgba(30,50,15,0.35)", 12000, 3], ["rgba(140,170,80,0.18)", 9000, 2.2], ["rgba(110,95,60,0.12)", 1500, 3]], 11);
 // leaves of a shrub: dark gaps and lit leaf tips (tinted per bush)
 export const bushTexture = () => noiseTex("#4a7a3a", [["rgba(10,30,8,0.55)", 5000, 2.4], ["rgba(150,200,90,0.35)", 4000, 1.8], ["rgba(20,45,15,0.4)", 3000, 3.2]], 3, 256);
@@ -150,4 +150,26 @@ export function facadeTexture() {
   const t = new THREE.CanvasTexture(c);
   t.colorSpace = THREE.SRGBColorSpace;
   return t;
+}
+
+// a modern block like the brown one behind the start on the video: terracotta panels in a cream frame grid
+export function modernTexture() {
+  const [c, g] = canvas(512, 256);
+  g.fillStyle = "#efe6d6"; g.fillRect(0, 0, 512, 256);
+  for (let r = 0; r < 3; r++) for (let i = 0; i < 8; i++) {
+    const x = 8 + i * 63, y = 10 + r * 82;
+    g.fillStyle = "#a5583a"; g.fillRect(x, y, 52, 70);
+    g.fillStyle = "#2c3238"; g.fillRect(x + 8, y + 10, 36, 50);
+    g.fillStyle = "rgba(255,255,255,0.2)"; g.fillRect(x + 8, y + 10, 36, 8);
+  }
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t;
+}
+// the dark glass tower on the video
+export function towerTexture() {
+  const [c, g] = canvas(256, 256);
+  g.fillStyle = "#2b3138"; g.fillRect(0, 0, 256, 256);
+  for (let i = 0; i < 8; i++) { g.fillStyle = "#4d5560"; g.fillRect(i * 32, 0, 5, 256); }
+  for (let r = 0; r < 4; r++) { g.fillStyle = "#59616b"; g.fillRect(0, r * 64, 256, 4); }
+  for (let i = 0; i < 40; i++) { g.fillStyle = "rgba(160,190,220,0.18)"; g.fillRect(Math.floor(Math.random() * 8) * 32 + 5, Math.floor(Math.random() * 4) * 64 + 4, 27, 60); }
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t;
 }

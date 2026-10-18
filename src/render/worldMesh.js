@@ -3,7 +3,7 @@
 import * as THREE from "three";
 import { mergeVertices, mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js";
 import { offsetPolyline, untangle, toWorld, polylineLength } from "../sim/geom.js";
-import { asphaltTexture, grassTexture, concreteTexture, signTexture, textTexture, facadeTexture, bushTexture } from "./textures.js";
+import { asphaltTexture, grassTexture, concreteTexture, signTexture, textTexture, facadeTexture, bushTexture, modernTexture, towerTexture } from "./textures.js";
 
 const Y_ROAD = 0.0, Y_PAD = 0.006, Y_PAINT = 0.05, Y_LINE = 0.055;      // the plan's layers (grass, kerb band, pads) lie between 0.02 and 0.04
 
@@ -181,14 +181,25 @@ export function buildWorldMeshes(W, quality) {
       posts.forEach(([x, y], i) => { bm.compose(bv.set(x, 1.1, y), bq.identity(), bs.set(1, 1, 1)); pm.setMatrixAt(i, bm); });
       group.add(pm); addMerged(group, panels, meshMat, false); }
 
-    // blocks of flats beyond the fence, like the ones round the centre
-    { const fac = facadeTexture(); fac.wrapS = fac.wrapT = THREE.RepeatWrapping;
-      const blocks = BLOCKS_AROUND;
-      for (const [x, y, w, d, hgt] of blocks) {
-        const mat = new THREE.MeshStandardMaterial({ map: fac.clone(), roughness: 0.85 }); mat.map.repeat.set(Math.max(w, d) / 16, hgt / 9.6); mat.map.needsUpdate = true;
-        const m = new THREE.Mesh(new THREE.BoxGeometry(w, hgt, d), [mat, mat, new THREE.MeshStandardMaterial({ color: 0x8c8f93 }), mat, mat, mat]);
-        m.position.set(x, hgt / 2, y); m.castShadow = quality === "high"; group.add(m); wall(x - w / 2, y - d / 2, x + w / 2, y - d / 2, 0.3, 1); wall(x - w / 2, y + d / 2, x + w / 2, y + d / 2, 0.3, 1);
-      } }
+    // the buildings round the ground on the video: cream classical blocks with grey mansard roofs, brown modern blocks
+    // with a cream frame grid, and a dark glass tower
+    { const kinds = [facadeTexture(), modernTexture(), towerTexture()];
+      kinds.forEach(t => { t.wrapS = t.wrapT = THREE.RepeatWrapping; });
+      const roofMat = new THREE.MeshStandardMaterial({ color: 0x8e979c, roughness: 0.6 }), corniceMat = new THREE.MeshStandardMaterial({ color: 0xf3eee4, roughness: 0.8 });
+      BLOCKS_AROUND.forEach(([x, y, w, d, hgt], i) => {
+        const kind = [0, 1, 0, 1, 0, 2, 0, 1][i % 8], tex = kinds[kind].clone(); tex.needsUpdate = true;
+        const H_ = kind === 2 ? hgt * 2.2 : hgt;
+        tex.repeat.set(Math.max(w, d) / (kind === 2 ? 8 : 16), H_ / (kind === 2 ? 12 : 9.6));
+        const mat = new THREE.MeshStandardMaterial({ map: tex, roughness: kind === 2 ? 0.3 : 0.85, metalness: kind === 2 ? 0.3 : 0 });
+        const m = new THREE.Mesh(new THREE.BoxGeometry(w, H_, d), [mat, mat, roofMat, mat, mat, mat]);
+        m.position.set(x, H_ / 2, y); m.castShadow = quality === "high"; group.add(m);
+        if (kind === 0) {                                                     // cornice and mansard roof
+          const cor = new THREE.Mesh(new THREE.BoxGeometry(w + 0.8, 0.6, d + 0.8), corniceMat); cor.position.set(x, H_ + 0.3, y); group.add(cor);
+          const rg = new THREE.CylinderGeometry(0.62, 1, 1, 4, 1); rg.rotateY(Math.PI / 4); const roof = new THREE.Mesh(rg, roofMat);
+          roof.scale.set((w + 0.4) / Math.SQRT2, 3.2, (d + 0.4) / Math.SQRT2); roof.position.set(x, H_ + 0.6 + 1.6, y); group.add(roof);
+        }
+        wall(x - w / 2, y - d / 2, x + w / 2, y - d / 2, 0.3, 1); wall(x - w / 2, y + d / 2, x + w / 2, y + d / 2, 0.3, 1);
+      }); }
   }
 
   // roads and pads

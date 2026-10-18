@@ -106,6 +106,9 @@ export function addBoard(W) {
   // the start box and the line at its end
   W.addLine(polyline([[745 + D, 35], [915 + D, 35], [915 + D, 125], [745 + D, 125], [745 + D, 35]]), "paint", { width: 0.25 });
   W.addLine(polyline([[915 + D, 35], [915 + D, 125]]), "paint", { width: 0.3 });
+  // the angled parking bays south of the start road (0:35 of the video): parallel slanted lines and the line at their ends
+  W.addLine(polyline([[760, 210], [1190, 210]]), "paint", { width: 0.16 });
+  for (let k = 0; k < 10; k++) { const cx = 770 + 44 * k; W.addLine(polyline([[cx, 210], [cx + 38, 150]]), "paint", { width: 0.14 }); }
   // the north-east road: its outline, the line at its end, the dashed middle
   W.addLine(polyline([[735, 286], [1232, 286], [1232, 365]]), "paint", { width: 0.2 });
   W.addLine(polyline([[705, 400], [705, 335], ...arc(740, 335, 35, Math.PI, Math.PI * 1.5, 8).slice(0, -1), [735, 286]]), "paint", { width: 0.2 });
