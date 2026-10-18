@@ -364,6 +364,24 @@ export function rigCar(root) {
   // separate materials per lamp so they can switch independently
   for (const m of [...indL, ...indR, ...rev, ...hazard]) m.material = m.material.clone();
   const cluster = clusterCanvas();
+  // doors that really hang on hinges (models with separate door parts, e.g. the Cobalt): each door part is
+  // moved under a pivot at its front edge; setDoor(side, 0..1) swings it open
+  const doors = {};
+  {
+    const carN = root.name === "car" ? root : root.getObjectByName("car") || root;
+    root.updateMatrixWorld(true);
+    for (const side of ["lf", "rf", "lr", "rr"]) {
+      const part = root.getObjectByName(`door_${side}_dummy`) || root.getObjectByName(`door_${side}_ok`);
+      if (!part) continue;
+      const b = new THREE.Box3().setFromObject(part), lo = carN.worldToLocal(b.min.clone()), hi = carN.worldToLocal(b.max.clone());
+      const minX = Math.min(lo.x, hi.x), maxX = Math.max(lo.x, hi.x), zc = (lo.z + hi.z) / 2, yc = (lo.y + hi.y) / 2;
+      const pivot = new THREE.Object3D(); pivot.position.set(maxX - 0.03, yc, zc);
+      carN.add(pivot); carN.updateMatrixWorld(true);
+      pivot.attach(part);
+      doors[side] = { pivot, sign: zc < 0 ? -1 : 1 };           // left doors swing towards -z, right doors towards +z
+    }
+  }
+  const setDoor = (side, k) => { const d = doors[side]; if (d) d.pivot.rotation.y = d.sign * Math.max(0, Math.min(1, k)) * 1.05; };
   const carNode = root.name === "car" ? root : root.getObjectByName("car");
   const full = !!(carNode && carNode.userData.fullInterior);        // a real model: cabin and shell belong together
   const dims = carNode && carNode.userData.dims;
@@ -383,7 +401,7 @@ export function rigCar(root) {
   for (const o of [...find(/^ind_[LR]_(front|rear)$/)]) { o.position.z *= 0.88; o.position.x += /front/.test(o.name) ? -0.04 : 0.04; }
   let lastCluster = 0;
   return {
-    root, interior, setCockpit, clusterTex: cluster.tex,
+    root, interior, setCockpit, clusterTex: cluster.tex, setDoor, hasDoors: Object.keys(doors).length > 0,
     update(car, now) {
       for (const p of pivots) p.rotation.y = -car.steer;
       for (const w of spins) w.rotation.z = -car.wheelSpin;

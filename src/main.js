@@ -26,7 +26,7 @@ import { unlock } from "./sim/achievements.js";
 import { loadHistory } from "./sim/history.js";
 import { dailyTask } from "./sim/daily.js";
 import { buildDriver } from "./render/driverFigure.js";
-import { loadPeople, realInstructor, realDriver, realKid, realPedestrian } from "./render/people.js";
+import { loadPeople, realInstructor, realDriver, realKid, realPedestrian, realWalker } from "./render/people.js";
 
 const coarse = matchMedia("(pointer: coarse)").matches;
 const settings = { transmission: "manual", quality: coarse ? "mid" : "high", traffic: coarse ? "simple" : "real", mouseSteer: false, muted: false, voice: true, car: "cobalt", instructor: "angry", color: "white", plate: DEFAULT_PLATE, size: "real" };
@@ -62,6 +62,7 @@ loadPeople().then(P => {
   view.setDriver(realDriver(P.driver));
   kidShow.setKid(realKid(P.kid));
   view.setPedestrianMaker(() => realPedestrian(P.kid));
+  view.setWalker(realWalker(P.instructor, P.kid));
   if (import.meta.env.DEV) window.__sim.fig = instructorFig;
 }).catch(e => console.warn("people not loaded, keeping the simple figures:", e.message));
 const controls = new Controls(hud.canvas, onAction);

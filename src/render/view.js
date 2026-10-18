@@ -156,7 +156,7 @@ export class View {
     fig.position.set(...(this.seat || [1.5, 0.46, 0.36]));
     this.carView.root.add(fig);
   }
-  setInstructorVisible(on) { if (this.instructor) this.instructor.visible = on; }
+  setInstructorVisible(on) { this.instructorWanted = on; if (this.instructor) this.instructor.visible = on; }
 
   // the learner at the wheel; hands follow the steering wheel
   setDriver(d) { this.driver = d; this.placeDriver(); }
@@ -311,8 +311,18 @@ export class View {
     this.scene.add(g);
   }
 
-  startBoarding() { if (this.mode === "cockpit") { this.boarding = { t: 0, dur: 3.2 }; this.carView.setCockpit(false); if (this.driver) this.driver.root.visible = false; } }
-  skipBoarding() { if (this.boarding) { this.boarding = null; this.carView.setCockpit(this.mode === "cockpit"); if (this.driver) this.driver.root.visible = true; } }
+  startBoarding() {
+    if (this.mode !== "cockpit") return;
+    this.boarding = { t: 0, dur: 6.2 }; this.carView.setCockpit(false); if (this.driver) this.driver.root.visible = false;
+    if (this.walker && !this.walker.root.parent) this.carView.root.add(this.walker.root);
+    if (this.walker && this.walker.root.parent !== this.carView.root) this.carView.root.add(this.walker.root);
+  }
+  setWalker(w) { this.walker = w; }
+  skipBoarding() {
+    if (this.boarding) {
+      this.boarding = null; if (this.carView.setDoor) { this.carView.setDoor("lf", 0); this.carView.setDoor("rf", 0); }
+      if (this.walker) this.walker.root.visible = false;
+      if (this.instructor) this.instructor.visible = !!this.instructorWanted; this.carView.setCockpit(this.mode === "cockpit"); if (this.driver) this.driver.root.visible = true; } }
 
   setMode(mode) {
     this.mode = mode; if (this.boarding) this.skipBoarding();
@@ -365,19 +375,46 @@ export class View {
     const shake = Math.min(1, Math.abs(car.v) / 12) * 0.0035, tt = now / 1000;
     if (this.boarding && this.mode !== "cockpit") this.boarding = null;
     if (this.boarding) {
-      // getting in: walk up to the driver's door, duck in and sit down
+      // getting in. 0-0.55: from the front corner the instructor walks to the passenger door, gets in and it is
+      // shut; 0.45-1: the camera walks round to the driver's door, he ducks in and sits down
       const b = this.boarding; b.t += dt;
-      const u = Math.min(1, b.t / b.dur), e = u * u * (3 - 2 * u), [ex, ey, ez] = this.eye || [1.2, 1.22, -0.37];
+      const u = Math.min(1, b.t / b.dur), [ex, ey, ez] = this.eye || [1.2, 1.22, -0.37];
+      const smooth = x => { x = Math.max(0, Math.min(1, x)); return x * x * (3 - 2 * x); };
       const P = (x, y, z) => root.localToWorld(new THREE.Vector3(x, y, z));
       const S = P(ex - 0.6, 1.62, ez - 2.1), C = P(ex - 0.1, 1.5, ez - 0.75), E = P(ex, ey, ez);
-      cam.position.copy(S.multiplyScalar((1 - e) * (1 - e)).addScaledVector(C, 2 * (1 - e) * e).addScaledVector(E, e * e));
-      const look0 = P(ex + 0.1, 0.95, ez - 0.2), look1 = P(ex + 10, ey - 0.45, ez);
-      cam.lookAt(look0.lerp(look1, Math.pow(e, 1.4)));
+      const seatX = (this.seat || [1.5, 0.46, 0.36])[0];
+      const w = this.instructorWanted && this.carView.hasDoors ? this.walker : null;       // he only walks in where there is a door to open
+      if (u < 0.45) {
+        // overview from the front-right while the instructor boards
+        const A0 = P(seatX + 3.6, 1.55, 6.4), k = smooth((u - 0.3) / 0.15);
+        cam.position.copy(A0.lerp(S, k));
+        cam.lookAt(P(seatX + 0.2 - k * 0.2, 0.95, 2.3 - k * 1.9));
+      } else {
+        const e = smooth((u - 0.45) / 0.55);
+        cam.position.copy(S.clone().multiplyScalar((1 - e) * (1 - e)).addScaledVector(C, 2 * (1 - e) * e).addScaledVector(E, e * e));
+        const look0 = P(ex + 0.1, 0.95, ez - 0.2), look1 = P(ex + 10, ey - 0.45, ez);
+        cam.lookAt(look0.lerp(look1, Math.pow(e, 1.4)));
+      }
       if (cam.fov !== 68) { cam.fov = 68; cam.updateProjectionMatrix(); }
+      // the instructor: a walker until he reaches the door, then he is in his seat
+      const wk = smooth(u / 0.34);
+      if (w) {
+        const arrived = u >= 0.36;
+        w.root.visible = !arrived;
+        w.root.position.set(seatX + 0.05, 0, 4.4 + (1.15 - 4.4) * wk); w.root.rotation.y = Math.PI / 2;
+        if (!arrived) w.update(dt, true);
+      }
+      if (this.instructor) this.instructor.visible = !w || u >= 0.36 ? !!this.instructorWanted : false;
+      // doors: the passenger door opens as he comes up and is pushed shut; the driver's opens for the camera
+      const pk = u < 0.22 ? 0 : u < 0.3 ? (u - 0.22) / 0.08 : u < 0.46 ? 1 : Math.max(0, (0.52 - u) / 0.06);
+      const dk = u < 0.5 ? 0 : u < 0.58 ? (u - 0.5) / 0.08 : u < 0.86 ? 1 : Math.max(0, (0.95 - u) / 0.09);
+      if (this.carView.setDoor) { this.carView.setDoor("rf", pk); this.carView.setDoor("lf", dk); }
+      if (!b.thud1 && u > 0.5) { b.thud1 = true; if (this.onDoor) this.onDoor(); }
+      if (!b.thudded && u > 0.95) { b.thudded = true; if (this.onDoor) this.onDoor(); }
       // the outside of the car shows until the head is through the door
-      this.carView.setCockpit(u > 0.62); if (this.driver) this.driver.root.visible = u > 0.62;
-      if (!b.thudded && u > 0.8) { b.thudded = true; if (this.onDoor) this.onDoor(); }
-      if (u >= 1) { this.boarding = null; this.carView.setCockpit(true); if (this.driver) this.driver.root.visible = true; }
+      const inside = u > 0.72;
+      this.carView.setCockpit(inside); if (this.driver) this.driver.root.visible = inside;
+      if (u >= 1) this.skipBoarding();
     } else if (this.mode === "cockpit") {
       const [ex0, ey0, ez0] = this.eye || [1.2, 1.22, -0.37];
       const ex = ex0 + this.head.x, ey = ey0 + Math.sin(tt * 31) * shake + Math.sin(tt * 17.3) * shake * 0.6, ez = ez0 + this.head.z;
@@ -478,7 +515,7 @@ export class View {
     // the sun's shadow map is redrawn every other frame (the car moves little in 1/30 s)
     r.shadowMap.autoUpdate = false;
     if (r.shadowMap.enabled && this.frame % 2 === 0) r.shadowMap.needsUpdate = true;
-    const mirrors = this.mode === "cockpit";
+    const mirrors = this.mode === "cockpit" && !this.boarding;
     if (mirrors) {
       // one mirror per frame, in turn: each still updates 20 times a second at 60 fps
       const m = this.mirrors[this.frame % this.mirrors.length];

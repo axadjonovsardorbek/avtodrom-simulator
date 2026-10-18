@@ -37,6 +37,15 @@ Bajarilganini `[x]` bilan belgilang.
 - [ ] **Hisoblar (akkaunt) va admin panel:** foydalanuvchi kirishi, natijalar tarixi serverda saqlanadi (hozir faqat brauzerda), admin panelda foydalanuvchilar va ularning natijalarini ko'rish. Oxirida qilinadi.
 - [ ] **Statistika va reyting:** foydalanuvchilar soni, eng yaxshi natijalar jadvali (server kerak).
 
+## 5. Realistiklik (navbatdagi katta ishlar)
+
+- [x] **Mashinaga kirish:** Cobalt'da haqiqiy eshiklar: instruktor yo'lovchi eshigidan yurib kirib o'tiradi, eshik yopiladi, keyin haydovchi eshigi ochiladi va kamera kiradi.
+- [ ] **Tushish:** mashq tugagach eshiklar ochilib, instruktor va haydovchi tushishi.
+- [ ] **Boshqa mashinalarda eshiklar:** Cobalt'dan boshqa modellarda eshik alohida qism emas; Monza, Malibu, Matiz, Damas uchun eshiklarni model ichidan ajratib ishlash kerak.
+- [ ] **Fizika:** shinalarning ushlashi, og'irlik ko'chishi, tormoz yo'li (nam yo'l), qiyalikda orqaga siljish, dvigatel tormozi, ABS.
+- [ ] **Avtodrom:** haqiqiy imtihon markazi o'lchamlari va belgilari, asfalt chiziqlar, to'siqlar, binolar, daraxtlar (aniq sxema kerak).
+- [ ] **Boshqa mashinalar:** chap burilishda qarshi mashinaga yo'l berish qoidasi, ko'proq oqim.
+
 ## Hal qilinishi kerak bo'lgan masalalar
 
 Sayt ommaviy ekan, bular ochiq turibdi:

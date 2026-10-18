@@ -268,6 +268,19 @@ export function realKid(gltf) {
   };
 }
 
+// The instructor on his feet: his own model with the boy's walking clip (the Mixamo rigs share bone names),
+// used when he walks up to the car and gets in. Walks on the spot; the code moves him.
+export function realWalker(instructorGltf, kidGltf) {
+  const clip = kidGltf.animations[0];
+  const P = rigPerson({ scene: instructorGltf.scene, animations: [clip] }, { torso: 0.6, seated: false });
+  dress(P.scene, {
+    Hat: { tint: 0x4f5f43 }, Jacket: { tint: 0xc4b69c, sleeves: { k: 0.36, open: 0.09, tint: 0x4f78bf } },
+    Pants: { tint: 0x4a4b4f }, Shoes: { tint: 0x3a2c22 }
+  });
+  const walk = P.actions[clip.name], pin = pinHips(P), standT = standingFrame(P, walk, clip);
+  return { root: P.root, update(dt, walking) { walk.timeScale = walking ? 0.9 : 0; if (!walking) walk.time = standT; P.mixer.update(dt); pin(); } };
+}
+
 // Pedestrian at the crossing: the same Mixamo walker at adult size in a dark jacket and jeans.
 export function realPedestrian(gltf) {
   const clip = gltf.animations[0];
