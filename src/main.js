@@ -78,6 +78,22 @@ for (const ev of ["pointerdown", "keydown", "touchstart"]) addEventListener(ev, 
 // phones and tablets get the on-screen controls (?mobile forces them for testing)
 const touchUi = coarse || (navigator.maxTouchPoints > 0 && Math.min(innerWidth, innerHeight) < 900) || /[?&]mobile/.test(location.search);
 if (touchUi) app.classList.add("touch");
+// phones held upright: where the browser can lock the screen to landscape it is asked to (after the first touch);
+// where it cannot (iPhone), the whole interface is turned a quarter so it is always played sideways
+const canLock = !!(screen.orientation && screen.orientation.lock) && !/[?&]rot/.test(location.search);
+function applyRot() { app.classList.toggle("rot", touchUi && !canLock && innerHeight > innerWidth); }
+addEventListener("resize", applyRot); addEventListener("orientationchange", applyRot); applyRot();
+if (touchUi) addEventListener("pointerdown", () => goFullscreen(), { once: true, capture: true });
+// a quarter-turned interface cannot be scrolled by the browser the usual way: drag the panel under the finger
+document.addEventListener("touchstart", e => { scrollState = rotated() && e.touches.length === 1 ? { x: e.touches[0].clientX, y: e.touches[0].clientY } : null; }, { passive: true });
+let scrollState = null;
+document.addEventListener("touchmove", e => {
+  if (!scrollState) return;
+  let el = e.target; while (el && el !== document.body && !(el.scrollHeight > el.clientHeight + 2 && /(auto|scroll)/.test(getComputedStyle(el).overflowY))) el = el.parentElement;
+  if (!el || el === document.body) return;
+  const t = e.touches[0]; el.scrollTop += t.clientX - scrollState.x;
+  scrollState = { x: t.clientX, y: t.clientY }; e.preventDefault();
+}, { passive: false });
 function goFullscreen() {
   const el = document.documentElement;
   const req = el.requestFullscreen || el.webkitRequestFullscreen;
@@ -414,22 +430,26 @@ const bump = {
 };
 let countdown = -1;
 
+// the screen point in the interface's own coordinates (the interface is turned a quarter when the phone is upright)
+const rotated = () => app.classList.contains("rot");
+const ui = (e, cv) => { const r = cv.getBoundingClientRect(); return rotated() ? [e.clientY - r.top, r.right - e.clientX] : [e.clientX - r.left, e.clientY - r.top]; };
+
 // drag to look around (cockpit) or orbit the car (360); wheel / pinch to zoom
 {
   const cv = hud.canvas, pts = new Map();
   let pinch = 0;
   const mir = new Map();       // pointer id -> the mirror being adjusted
   cv.addEventListener("pointerdown", e => {
-    const r = cv.getBoundingClientRect(), m = !inShowroom && !inGarage && view.mirrorAt(e.clientX - r.left, e.clientY - r.top);
-    if (m) { mir.set(e.pointerId, m); try { cv.setPointerCapture(e.pointerId); } catch (_) {} pts.set(e.pointerId, [e.clientX, e.clientY]); return; }
+    const u = ui(e, cv), m = !inShowroom && !inGarage && view.mirrorAt(u[0], u[1]);
+    if (m) { mir.set(e.pointerId, m); try { cv.setPointerCapture(e.pointerId); } catch (_) {} pts.set(e.pointerId, u); return; }
     if (controls.mouseSteer && view.mode === "cockpit" && !inShowroom) return;
-    pts.set(e.pointerId, [e.clientX, e.clientY]);
+    pts.set(e.pointerId, u);
     try { cv.setPointerCapture(e.pointerId); } catch (_) {}
   });
   cv.addEventListener("pointermove", e => {
     const p = pts.get(e.pointerId); if (!p) return;
-    const dx = e.clientX - p[0], dy = e.clientY - p[1];
-    pts.set(e.pointerId, [e.clientX, e.clientY]);
+    const u = ui(e, cv), dx = u[0] - p[0], dy = u[1] - p[1];
+    pts.set(e.pointerId, u);
     const am = mir.get(e.pointerId); if (am) { view.adjustMirror(am, dx, dy); return; }
     if (inGarage) { const b = garage.bays[garage.index]; garageDrag = (garageDrag ?? b.turn.rotation.y) + dx * 0.008; return; }
     if (pts.size === 2) {
@@ -453,7 +473,7 @@ let countdown = -1;
     view.orbit.dist = Math.min(18, Math.max(3, view.orbit.dist * (e.deltaY > 0 ? 1.1 : 0.9)));
   }, { passive: false });
   cv.addEventListener("dblclick", e => {
-    const r = cv.getBoundingClientRect(), m = view.mirrorAt(e.clientX - r.left, e.clientY - r.top);
+    const u = ui(e, cv), m = view.mirrorAt(u[0], u[1]);
     if (m) view.resetMirror(m); else view.drag = { yaw: 0, pitch: 0 };
   });
   view.isDragging = () => pts.size > 0;

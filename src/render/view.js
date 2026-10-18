@@ -34,7 +34,7 @@ const MIRRORS = [
 ];
 
 // per quality tier: highest render scale, mirror texture scale, shadow map size, MSAA samples, bloom
-const MAXRATIO = { low: 1, mid: 1.5, high: 2 };
+const MAXRATIO = { low: 1.25, mid: 2, high: 2 };
 const TIER = { low: { mirror: 0.5, shadow: 1024, aa: 0, bloom: false }, mid: { mirror: 0.65, shadow: 1024, aa: 4, bloom: false }, high: { mirror: 1, shadow: 2048, aa: 4, bloom: true } };
 
 export class View {

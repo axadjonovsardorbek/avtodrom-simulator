@@ -552,3 +552,13 @@ tr:last-child td { border-bottom: 0; }
 .daily.done { border-color: rgba(61, 220, 132, .6); background: rgba(61, 220, 132, .08); }
 .daily.done .di { background: rgba(61, 220, 132, .25); color: #3ddc84; }
 .daily.done small { color: #3ddc84; } .daily.done .dbar i { background: #3ddc84; }
+
+/* on-screen steering wheel */
+.wheelpad { width: 150px; height: 150px; border-radius: 50%; color: #d8dce2; touch-action: none; user-select: none; -webkit-user-select: none; background: rgba(20, 22, 26, .55); border: 1px solid rgba(255, 255, 255, .16); display: grid; place-items: center; backdrop-filter: blur(4px); }
+.wheelpad svg { width: 92%; height: 92%; pointer-events: none; }
+#app.touch .wheelpad { width: 132px; height: 132px; }
+@media (max-height: 420px) { #app.touch .wheelpad { width: 112px; height: 112px; } }
+
+/* an upright phone without screen-lock support (iPhone): the interface is turned a quarter and played sideways */
+#app.rot { inset: auto; left: 0; top: 0; width: 100vh; height: 100vw; width: 100dvh; height: 100dvw; transform-origin: 0 0; transform: rotate(90deg) translateY(-100%); }
+#app.rot .rotate { display: none !important; }

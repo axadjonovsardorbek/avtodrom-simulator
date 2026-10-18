@@ -72,8 +72,7 @@ export class Hud {
       </section>
       <section class="touchpad" id="touchpad">
         <div class="tp-steer">
-          <button class="rnd steer" data-hold="left" aria-label="Chapga"><svg viewBox="0 0 24 24"><path d="M15 5 8 12l7 7"/></svg></button>
-          <button class="rnd steer" data-hold="right" aria-label="O'ngga"><svg viewBox="0 0 24 24"><path d="m9 5 7 7-7 7"/></svg></button>
+          <div class="wheelpad" id="wheelpad" aria-label="Rul: aylantiring"><svg viewBox="0 0 120 120" id="wheelSvg"><circle cx="60" cy="60" r="52" fill="none" stroke="currentColor" stroke-width="9"/><circle cx="60" cy="60" r="15" fill="currentColor"/><path d="M60 60 L12 56 M60 60 L108 56 M60 60 L60 110" stroke="currentColor" stroke-width="8" stroke-linecap="round"/><path d="M52 4 h16" stroke="#f2b632" stroke-width="7" stroke-linecap="round"/></svg></div>
         </div>
         <div class="tp-mid">
           <div class="row">
@@ -299,6 +298,7 @@ export class Hud {
     const blink = Math.floor(performance.now() / 380) % 2 === 0;
     set("tSigL", (car.sig === -1 || car.hazard) && blink); set("tSigR", (car.sig === 1 || car.hazard) && blink);
     set("tHaz", car.hazard); set("tBelt", car.belt); set("tEng", car.engineOn); set("tHand", car.handbrake);
+    const wh = r.querySelector("#wheelSvg"); if (wh) wh.style.transform = `rotate(${car.sw.toFixed(1)}deg)`;
     const g = r.querySelector("#tGear"); if (g && g.textContent !== String(car.gear)) g.textContent = car.gear;
     const sp = r.querySelector("#tSpd"), k = String(Math.round(car.kmh)); if (sp && sp.textContent !== k) sp.textContent = k;
   }

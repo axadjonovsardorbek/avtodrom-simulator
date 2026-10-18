@@ -38,7 +38,24 @@ export class Controls {
     addEventListener("gamepaddisconnected", () => { this.padIndex = null; });
   }
 
+  // on-screen steering wheel: drag round it like a real wheel (the angle you turn it through is the steering angle)
+  bindWheel(el) {
+    if (!el) return;
+    let id = null, a0 = 0, sw0 = 0, last = 0;
+    const ang = e => { const r = el.getBoundingClientRect(); return Math.atan2(e.clientY - (r.top + r.height / 2), e.clientX - (r.left + r.width / 2)) * 180 / Math.PI; };
+    el.addEventListener("pointerdown", e => { e.preventDefault(); id = e.pointerId; try { el.setPointerCapture(id); } catch (_) {} a0 = last = ang(e); sw0 = this.wheelSw ?? this.curSw ?? 0; this.wheelSw = sw0; });
+    el.addEventListener("pointermove", e => {
+      if (e.pointerId !== id) return;
+      let a = ang(e), d = a - last; if (d > 180) d -= 360; else if (d < -180) d += 360;      // continue past the +-180 seam
+      last = a; this.wheelSw = clamp((this.wheelSw ?? 0) + d * 1.35, -540, 540);
+    });
+    const up = e => { if (e.pointerId === id) { id = null; this.wheelSw = null; } };
+    el.addEventListener("pointerup", up); el.addEventListener("pointercancel", up); el.addEventListener("lostpointercapture", up);
+    el.addEventListener("contextmenu", e => e.preventDefault());
+  }
+
   bindTouch(root) {
+    this.bindWheel(root.querySelector("#wheelpad"));
     root.querySelectorAll("[data-hold]").forEach(b => {
       const k = b.dataset.hold;
       const on = e => { e.preventDefault(); this.touch[k] = true; b.classList.add("held"); try { b.setPointerCapture(e.pointerId); } catch (_) {} };
@@ -80,7 +97,9 @@ export class Controls {
 
     // hands cannot spin the wheel instantly: every input chases its target at a human rate
     const toward = (target, rate) => { const d = target - car.sw; car.sw += Math.sign(d) * Math.min(Math.abs(d), rate * dt); };
-    if (padSteer != null) toward(Math.sign(padSteer) * padSteer * padSteer * 540, 1400 / (1 + Math.abs(car.v) / 12));
+    this.curSw = car.sw;
+    if (this.wheelSw != null) toward(this.wheelSw, 2600);
+    else if (padSteer != null) toward(Math.sign(padSteer) * padSteer * padSteer * 540, 1400 / (1 + Math.abs(car.v) / 12));
     else if (this.mouseSteer) toward(clamp((this.mouseX - 0.5) * 2 * 1.15, -1, 1) * 540, 1400);
     else if (steerDir) {
       // a tap nudges the wheel, holding winds it faster (hand over hand); reversing direction is quick
