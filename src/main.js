@@ -109,7 +109,7 @@ function start(m, el) {
   if (inShowroom) { inShowroom = false; hud.showShowroom(false); }
   audio.start(); audio.setMuted(settings.muted); audio.voiceOn = settings.voice;
   saveSettings();
-  stopCarVoice(0.3);
+  stopCarVoice(0.3); view.cancelExit();
   mode = m; elementId = el || null; ended = false;
   if (touchUi) goFullscreen();
   app.classList.toggle("auto", settings.transmission === "auto");
@@ -237,7 +237,7 @@ function handleEvent(ev) {
     case "end":
       ended = true;
       audio.prompt(mode === "practice" ? (ev.passed ? "practice_pass" : "practice_fail") : (ev.passed ? "exam_pass" : "exam_fail"), null, true);
-      setTimeout(() => {
+      const showResult = () => {
         paused = true;
         const s = session, passed = ev.passed;
         const acts = mode === "practice"
@@ -245,14 +245,17 @@ function handleEvent(ev) {
           : [["Qayta topshirish", "retry", true], ["Menyu", "menu"]];
         rec.next = 0; rec.sample(s);
         if (mode !== "practice") acts.splice(acts.length - 1, 0, ["Bayonnoma", "protocol"]);
-        if (rec.duration > 1) acts.splice(acts.length - 1, 0, ["Takroriy ko'rish", "replay"]);
         if (mode === "exam" && passed) acts.splice(acts.length - 1, 0, ["Sertifikat", "certificate"]);
         const hist = recordAttempt(s, { passed, key: keyFor(mode, elementId) });
         { const all = loadHistory(), dt = dailyTask(new Date(), ELEMENTS); if (dt.progress(all) >= dt.goal && dt.progress(all.slice(0, -1)) < dt.goal) hist.daily = dt.text; }
         hist.fresh = unlock(loadHistory(), hist.rec, { elements: ELEMENTS.map(e => e.id) });
+        if (rec.duration > 1) acts.splice(acts.length - 1, 0, ["Takroriy ko'rish", "replay"]);
         lastResult = [s, ev, acts, hist];
         hud.showResult(...lastResult);
-      }, 1200);
+      };
+      // the car with real doors: the doors open and the people get out first
+      if (view.canExit() && mode !== "practice") setTimeout(() => { if (ended) view.startExit(showResult); }, 900);
+      else setTimeout(showResult, 1200);
       break;
   }
 }

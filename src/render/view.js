@@ -318,6 +318,21 @@ export class View {
     if (this.walker && this.walker.root.parent !== this.carView.root) this.carView.root.add(this.walker.root);
   }
   setWalker(w) { this.walker = w; }
+  // true when there is something to show (a car with real doors, in the cabin view)
+  canExit() { return this.mode === "cockpit" && !!this.carView.hasDoors; }
+  startExit(done) {
+    this.exiting = { t: 0, dur: 5.2, done };
+    if (this.walker && this.walker.root.parent !== this.carView.root) this.carView.root.add(this.walker.root);
+  }
+  cancelExit() { if (this.exiting) { this.exiting.done = null; this.finishExit(); } }
+  finishExit() {
+    const x = this.exiting; this.exiting = null;
+    if (this.carView.setDoor) { this.carView.setDoor("lf", 0); this.carView.setDoor("rf", 0); }
+    if (this.walker) this.walker.root.visible = false;
+    if (this.instructor) this.instructor.visible = !!this.instructorWanted;
+    this.carView.setCockpit(this.mode === "cockpit"); if (this.driver) this.driver.root.visible = true;
+    if (x && x.done) x.done();
+  }
   bump(strength) { this.kick = Math.max(this.kick || 0, 0.4 + strength * 1.4); }
   skipBoarding() {
     if (this.boarding) {
@@ -374,8 +389,40 @@ export class View {
     this.head.x += (THREE.MathUtils.clamp(-accel * 0.012, -0.07, 0.05) - this.head.x) * k;
     this.head.z += (THREE.MathUtils.clamp(lat * 0.006, -0.05, 0.05) - this.head.z) * k;
     const shake = Math.min(1, Math.abs(car.v) / 12) * 0.0035, tt = now / 1000;
-    if (this.boarding && this.mode !== "cockpit") this.boarding = null;
-    if (this.boarding) {
+    if (this.exiting && this.mode !== "cockpit") this.finishExit();
+    if (this.exiting) {
+      // getting out: the driver's door opens and the camera steps out of the car; the instructor leaves by his door and walks away
+      const x = this.exiting; x.t += dt;
+      const u = Math.min(1, x.t / x.dur), [ex, ey, ez] = this.eye || [1.2, 1.22, -0.37];
+      const smooth = q => { q = Math.max(0, Math.min(1, q)); return q * q * (3 - 2 * q); };
+      const P = (a, b, c) => root.localToWorld(new THREE.Vector3(a, b, c));
+      const S = P(ex - 0.6, 1.62, ez - 2.1), C = P(ex - 0.1, 1.5, ez - 0.75), E = P(ex, ey, ez);
+      const seatX = (this.seat || [1.5, 0.46, 0.36])[0], w = this.instructorWanted ? this.walker : null;
+      if (u < 0.4) {
+        const e = smooth(u / 0.4);
+        cam.position.copy(E.clone().multiplyScalar((1 - e) * (1 - e)).addScaledVector(C, 2 * (1 - e) * e).addScaledVector(S, e * e));
+        cam.lookAt(P(ex + 10 * (1 - e) + 0.1 * e, ey - 0.45 * (1 - e) + 0.95 * e, ez * (1 - e) + (ez - 0.2) * e));
+      } else {
+        const k = smooth((u - 0.4) / 0.5), A0 = P(seatX + 3.6, 1.55, 6.4);
+        cam.position.copy(S.clone().lerp(A0, k));
+        cam.lookAt(P(seatX + 0.1 * (1 - k), 0.95, (ez - 0.2) + (2.3 - (ez - 0.2)) * k));
+      }
+      if (cam.fov !== 68) { cam.fov = 68; cam.updateProjectionMatrix(); }
+      const outside = u > 0.12;
+      this.carView.setCockpit(!outside); if (this.driver) this.driver.root.visible = !outside;
+      const dk = u < 0.12 ? u / 0.12 : u < 0.8 ? 1 : Math.max(0, (0.92 - u) / 0.12);
+      const pk = u < 0.3 ? 0 : u < 0.38 ? (u - 0.3) / 0.08 : u < 0.62 ? 1 : Math.max(0, (0.7 - u) / 0.08);
+      if (this.carView.setDoor) { this.carView.setDoor("lf", dk); this.carView.setDoor("rf", pk); }
+      if (w) {
+        const out = u >= 0.36;
+        if (this.instructor) this.instructor.visible = !out && !!this.instructorWanted;
+        w.root.visible = out;
+        if (out) { const wk = smooth((u - 0.36) / 0.55); w.root.position.set(seatX + 0.05, 0, 1.15 + (5.6 - 1.15) * wk); w.root.rotation.y = -Math.PI / 2; w.update(dt, true); }
+      }
+      if (!x.thud && u > 0.9) { x.thud = true; if (this.onDoor) this.onDoor(); }
+      if (u >= 1) this.finishExit();
+    } else if (this.boarding && this.mode !== "cockpit") this.boarding = null;
+    if (this.exiting) { /* the camera is placed above */ } else if (this.boarding) {
       // getting in. 0-0.55: from the front corner the instructor walks to the passenger door, gets in and it is
       // shut; 0.45-1: the camera walks round to the driver's door, he ducks in and sits down
       const b = this.boarding; b.t += dt;
@@ -522,7 +569,7 @@ export class View {
     // the sun's shadow map is redrawn every other frame (the car moves little in 1/30 s)
     r.shadowMap.autoUpdate = false;
     if (r.shadowMap.enabled && this.frame % 2 === 0) r.shadowMap.needsUpdate = true;
-    const mirrors = this.mode === "cockpit" && !this.boarding;
+    const mirrors = this.mode === "cockpit" && !this.boarding && !this.exiting;
     if (mirrors) {
       // one mirror per frame, in turn: each still updates 20 times a second at 60 fps
       const m = this.mirrors[this.frame % this.mirrors.length];
