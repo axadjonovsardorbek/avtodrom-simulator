@@ -1,0 +1,27 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>Poligon maketi</title>
+<style>html,body{margin:0;height:100%;background:#111;overflow:hidden;font:13px sans-serif;color:#fff}
+#bar{position:fixed;top:8px;left:8px;display:flex;gap:6px;flex-wrap:wrap;z-index:2}
+button{padding:6px 10px;border:0;border-radius:6px;background:#2a2f36;color:#fff;cursor:pointer}</style></head>
+<body><div id="bar"></div><script type="module">
+import * as THREE from "three";
+import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
+import { buildFull } from "/src/world/tracks.js";
+import { buildWorldMeshes } from "/src/render/worldMesh.js";
+const W = buildFull({ length: 4.4, rOh: 0.9, k: 1 });
+const { group } = buildWorldMeshes(W, "high");
+const r = new THREE.WebGLRenderer({ antialias: true }); r.setSize(innerWidth, innerHeight); document.body.append(r.domElement);
+const sc = new THREE.Scene(); sc.background = new THREE.Color(0x9fc4e6); sc.add(group);
+sc.add(new THREE.HemisphereLight(0xffffff, 0x556644, 1.1)); const sun = new THREE.DirectionalLight(0xffffff, 1.6); sun.position.set(60, 120, 40); sc.add(sun);
+const cam = new THREE.PerspectiveCamera(55, innerWidth / innerHeight, 0.3, 3000), ctl = new OrbitControls(cam, r.domElement);
+const b = W.bounds, cx = (b.minX + b.maxX) / 2, cy = (b.minY + b.maxY) / 2;
+// world (x,y) -> three (x, h, -y) or similar: find the mapping from the group by using the same one as View
+const to = (x, y, h = 0) => new THREE.Vector3(x, h, y);
+const go = (x, y, h, tx, ty, th) => { cam.position.copy(to(x, y, h)); ctl.target.copy(to(tx, ty, th)); ctl.update(); };
+const views = { "Tepadan": () => go(cx, cy, 330, cx, cy + 0.01, 0), "Qiya": () => go(cx, cy - 180, 160, cx, cy, 0), "Chorraha": () => go(0, -40, 30, 0, 0, 0), "Estakada": () => go(cx + 80, cy, 40, cx + 80, cy + 30, 0) };
+const bar = document.getElementById("bar");
+for (const k in views) { const e = document.createElement("button"); e.textContent = k; e.onclick = views[k]; bar.append(e); }
+views.Qiya();
+addEventListener("resize", () => { r.setSize(innerWidth, innerHeight); cam.aspect = innerWidth / innerHeight; cam.updateProjectionMatrix(); });
+r.setAnimationLoop(() => r.render(sc, cam));
+</script></body></html>
