@@ -17,7 +17,7 @@ Bajarilganini `[x]` bilan belgilang.
 - [x] **Natija ekrani:** yulduzchalar (1–3), eng yaxshi natija, oldingisi bilan solishtirish, mashqlar bo'yicha hisobot.
 - [x] **Yutuqlar:** "Birinchi imtihon", "Xatosiz parkovka", "Hammasi 0 ball bilan" va boshqalar.
 - [x] **Sertifikat:** o'tgan imtihon uchun yuklab olinadigan rasm.
-- [ ] **Mashinaga o'tirish animatsiyasi:** eshik ochiladi, kamar taqiladi, kalit buraladi.
+- [x] **Mashinaga o'tirish animatsiyasi:** kamera eshikka yaqinlashib, mashinaga kiradi va o'tiradi (eshik yopilish ovozi bilan). Istalgan tugma bosilsa, o'tkazib yuboriladi. Eshikning ochilishi va kamar/kalit animatsiyasi modelda eshik bo'lmagani uchun qilinmagan.
 - [x] **Kunlik vazifa:** masalan, "Bugun 3 marta parallel parkovka qiling".
 
 ## 3. Poligon va dunyo

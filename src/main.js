@@ -71,7 +71,8 @@ const muteBtn = document.getElementById("muteBtn");
 const showMute = () => { muteBtn.textContent = settings.muted ? "Ovoz o'chiq" : "Ovoz yoniq"; muteBtn.classList.toggle("off", settings.muted); };
 showMute();
 // browsers only allow sound after a user gesture: (re)start audio on any interaction
-for (const ev of ["pointerdown", "keydown", "touchstart"]) addEventListener(ev, () => { audio.start(); audio.setMuted(settings.muted); audio.resume(); }, { capture: true });
+view.onDoor = () => audio.thump(0.9);          // the door closes as he sits down
+for (const ev of ["pointerdown", "keydown", "touchstart"]) addEventListener(ev, () => { view.skipBoarding(); audio.start(); audio.setMuted(settings.muted); audio.resume(); }, { capture: true });
 // phones and tablets get the on-screen controls (?mobile forces them for testing)
 const touchUi = coarse || (navigator.maxTouchPoints > 0 && Math.min(innerWidth, innerHeight) < 900) || /[?&]mobile/.test(location.search);
 if (touchUi) app.classList.add("touch");
@@ -101,6 +102,7 @@ function start(m, el) {
   view.setZonesVisible(m !== "exam");            // the 1 m stop zones are a training aid only
   view.setWorld(W, settings.quality);
   view.setMode(settings.camera || "cockpit");
+  if (m !== "practice" && settings.boarding !== false) { view.drag = { yaw: 0, pitch: 0 }; view.startBoarding(); }
   hud.reset(session, m === "practice" ? ELEMENTS.find(e => e.id === el).name : TITLES[m]);
   session.on(handleEvent);
   hud.hideMenu();

@@ -283,8 +283,11 @@ export class View {
     this.scene.add(g);
   }
 
+  startBoarding() { if (this.mode === "cockpit") { this.boarding = { t: 0, dur: 3.2 }; this.carView.setCockpit(false); if (this.driver) this.driver.root.visible = false; } }
+  skipBoarding() { if (this.boarding) { this.boarding = null; this.carView.setCockpit(this.mode === "cockpit"); if (this.driver) this.driver.root.visible = true; } }
+
   setMode(mode) {
-    this.mode = mode;
+    this.mode = mode; if (this.boarding) this.skipBoarding();
     this.carView.setCockpit(mode === "cockpit" || mode === "interiorRear");
     if (this.driver) this.driver.setCockpit(mode === "cockpit");
     this.cam.up.set(0, 1, 0);
@@ -332,7 +335,22 @@ export class View {
     this.head.x += (THREE.MathUtils.clamp(-accel * 0.012, -0.07, 0.05) - this.head.x) * k;
     this.head.z += (THREE.MathUtils.clamp(lat * 0.006, -0.05, 0.05) - this.head.z) * k;
     const shake = Math.min(1, Math.abs(car.v) / 12) * 0.0035, tt = now / 1000;
-    if (this.mode === "cockpit") {
+    if (this.boarding && this.mode !== "cockpit") this.boarding = null;
+    if (this.boarding) {
+      // getting in: walk up to the driver's door, duck in and sit down
+      const b = this.boarding; b.t += dt;
+      const u = Math.min(1, b.t / b.dur), e = u * u * (3 - 2 * u), [ex, ey, ez] = this.eye || [1.2, 1.22, -0.37];
+      const P = (x, y, z) => root.localToWorld(new THREE.Vector3(x, y, z));
+      const S = P(ex - 0.6, 1.62, ez - 2.1), C = P(ex - 0.1, 1.5, ez - 0.75), E = P(ex, ey, ez);
+      cam.position.copy(S.multiplyScalar((1 - e) * (1 - e)).addScaledVector(C, 2 * (1 - e) * e).addScaledVector(E, e * e));
+      const look0 = P(ex + 0.1, 0.95, ez - 0.2), look1 = P(ex + 10, ey - 0.45, ez);
+      cam.lookAt(look0.lerp(look1, Math.pow(e, 1.4)));
+      if (cam.fov !== 68) { cam.fov = 68; cam.updateProjectionMatrix(); }
+      // the outside of the car shows until the head is through the door
+      this.carView.setCockpit(u > 0.62); if (this.driver) this.driver.root.visible = u > 0.62;
+      if (!b.thudded && u > 0.8) { b.thudded = true; if (this.onDoor) this.onDoor(); }
+      if (u >= 1) { this.boarding = null; this.carView.setCockpit(true); if (this.driver) this.driver.root.visible = true; }
+    } else if (this.mode === "cockpit") {
       const [ex0, ey0, ez0] = this.eye || [1.2, 1.22, -0.37];
       const ex = ex0 + this.head.x, ey = ey0 + Math.sin(tt * 31) * shake + Math.sin(tt * 17.3) * shake * 0.6, ez = ez0 + this.head.z;
       const eye = root.localToWorld(new THREE.Vector3(ex, ey, ez));
