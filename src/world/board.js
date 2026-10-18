@@ -87,20 +87,39 @@ export function addBoard(W) {
   for (const isl of ISLANDS) W.addLine(closed(isl.kerb), "edge", { width: 0.2, hidden: true });
   W.addLine(closed(FRAME), "edge", { width: 0.3 });
   // (the plan draws a second outline 0.6 m out from every kerb: that is the kerb itself, the video has no line there)
-  // the inner loop roads of the quarters, outlined as on the plan
-  for (const [x0, y0, x1, y1, r] of [[100, 598, 668, 1062, 45], [712, 598, 1318, 1080, 50]]) W.addLine(closed(rrect(x0, y0, x1, y1, r)), "paint", { width: 0.16 });
-  // pads: a solid yellow line just inside the kerb, a dashed yellow line across the open mouth (as on the video)
-  for (const p of PADS) {
-    const ins = insetPoly(p, PAD_INSET), open = padOpen(p);
-    let run = [];
-    const flush = () => { if (run.length > 1) W.addLine(run, "paint", { width: 0.18, color: "yellow" }); run = []; };
-    for (let i = 0; i < p.length; i++) {
-      const a = p[i], b = p[(i + 1) % p.length];
-      if (open((a[0] + b[0]) / 2, (a[1] + b[1]) / 2)) { flush(); W.addLine([ins[i], ins[(i + 1) % p.length]], "paint", { width: 0.15, color: "yellow", dash: [1.0, 0.8] }); continue; }
-      if (!run.length) run.push(ins[i]);
-      run.push(ins[(i + 1) % p.length]);
+  // the yellow lines of the exercises (as on the video): painted 0.2 m out from the kerb wherever the kerb lines an
+  // exercise lane: a narrow corridor (another kerb within 5.5 m across it) or a pad of the plan; a short dashed yellow
+  // line across the mouth of each pad
+  {
+    const inPoly = (g, x, y) => { let c = false; for (let i = 0, j = g.length - 1; i < g.length; j = i++) if ((g[i][1] > y) !== (g[j][1] > y) && x < (g[j][0] - g[i][0]) * (y - g[i][1]) / (g[j][1] - g[i][1]) + g[i][0]) c = !c; return c; };
+    for (const isl of ISLANDS) {
+      const k = isl.kerb, n = k.length; let ar = 0;
+      for (let i = 0; i < n; i++) { const a = k[i], b = k[(i + 1) % n]; ar += a[0] * b[1] - b[0] * a[1]; }
+      const pts = [];                                         // [x, y, yellow?] along the kerb, 0.2 m out
+      for (let i = 0; i < n; i++) {
+        const a = k[i], b = k[(i + 1) % n], dx = b[0] - a[0], dy = b[1] - a[1], L = Math.hypot(dx, dy); if (L < 1e-6) continue;
+        const ox = dy / L * Math.sign(ar), oy = -dx / L * Math.sign(ar), m = Math.max(1, Math.round(L / 0.5));
+        for (let j = 0; j < m; j++) {
+          const t = j / m, x = a[0] + dx * t, y = a[1] + dy * t;
+          let narrow = false; for (let r = 1; r <= 5.5; r += 0.25) if (onIsland(x + ox * r, y + oy * r)) { narrow = true; break; }
+          const pad = PADS.some(g => inPoly(g, x + ox * 0.6, y + oy * 0.6));
+          pts.push([x + ox * 0.2, y + oy * 0.2, (narrow || pad) && !onIsland(x + ox * 0.3, y + oy * 0.3)]);
+        }
+      }
+      let start = pts.findIndex(q => !q[2]); if (start < 0) start = 0;
+      let run = [];
+      const flush = () => { let L = 0; for (let i = 1; i < run.length; i++) L += Math.hypot(run[i][0] - run[i - 1][0], run[i][1] - run[i - 1][1]); if (L > 1.5) W.addLine(run, "paint", { width: 0.16, color: "yellow" }); run = []; };
+      for (let j = 1; j <= pts.length; j++) { const q = pts[(start + j) % pts.length]; if (q[2]) run.push([q[0], q[1]]); else flush(); }
+      flush();
     }
-    flush();
+    for (const p of PADS) {
+      const ins = insetPoly(p, PAD_INSET), n = p.length; let ar = 0;
+      for (let i = 0; i < n; i++) { const a = p[i], b = p[(i + 1) % n]; ar += a[0] * b[1] - b[0] * a[1]; }
+      const isOpen = p.map((a, i) => { const b = p[(i + 1) % n], dx = b[0] - a[0], dy = b[1] - a[1], L = Math.hypot(dx, dy) || 1, ox = dy / L * Math.sign(ar), oy = -dx / L * Math.sign(ar);
+        return [0.25, 0.5, 0.75].filter(t => !onIsland(a[0] + dx * t + ox, a[1] + dy * t + oy)).length >= 2; });
+      for (let i = 0; i < n; i++) { const a = p[i], b = p[(i + 1) % n], L = Math.hypot(b[0] - a[0], b[1] - a[1]);
+        if (isOpen[i] && !isOpen[(i + n - 1) % n] && !isOpen[(i + 1) % n] && L > 2 && L < 8) W.addLine([ins[i], ins[(i + 1) % n]], "paint", { width: 0.15, color: "yellow", dash: [0.9, 0.7] }); }
+    }
   }
   W.board.pad = name => PADS[PAD[name]];
 
@@ -115,11 +134,8 @@ export function addBoard(W) {
   W.addLine(polyline([[760, 210], [1190, 210]]), "paint", { width: 0.16 });
   for (let k = 0; k < 10; k++) { const cx = 770 + 44 * k; W.addLine(polyline([[cx, 210], [cx + 38, 150]]), "paint", { width: 0.14 }); }
   // the north-east road: its outline, the line at its end, the dashed middle
-  W.addLine(polyline([[735, 286], [1232, 286], [1232, 365]]), "paint", { width: 0.2 });
-  W.addLine(polyline([[705, 400], [705, 335], ...arc(740, 335, 35, Math.PI, Math.PI * 1.5, 8).slice(0, -1), [735, 286]]), "paint", { width: 0.2 });
   W.addLine(polyline([[790, 330], [1215, 330]]), "paint", { width: 0.14, dash: [2.2, 2.2] });
   // the east road (two ways): its outline and the dashed middle
-  W.addLine(polyline([[790, 500], [790, 592], [1235, 598]]), "paint", { width: 0.2 });
   W.addLine(polyline([[810, 545], [1335, 545]]), "paint", { width: 0.14, dash: [2.2, 2.2] });
   // top road: the lane line, and the west road's dashed middle
   W.addLine(polyline([[150, 96], [690, 96]]), "paint", { width: 0.16 });
@@ -187,6 +203,18 @@ export function addBoard(W) {
 }
 
 // which edges of a pad are open to the asphalt (no grass beside them): the exercise outline leaves them out
+// is (x, y) on an island (inside its kerb)?
+function onIsland(x, y) {
+  return ISLANDS.some(({ kerb: g }) => { let c = false; for (let i = 0, j = g.length - 1; i < g.length; j = i++) if ((g[i][1] > y) !== (g[j][1] > y) && x < (g[j][0] - g[i][0]) * (y - g[i][1]) / (g[j][1] - g[i][1]) + g[i][0]) c = !c; return c; });
+}
+// is (x, y) on the edge of an island's kerb (within 1 m of its outline)?
+function nearKerb(x, y) {
+  for (const isl of ISLANDS) for (const g of [isl.kerb, isl.grass]) for (let i = 0; i < g.length; i++) {
+    const a = g[i], b = g[(i + 1) % g.length], dx = b[0] - a[0], dy = b[1] - a[1], L = dx * dx + dy * dy || 1, t = Math.max(0, Math.min(1, ((x - a[0]) * dx + (y - a[1]) * dy) / L));
+    if (Math.hypot(a[0] + dx * t - x, a[1] + dy * t - y) < 1.0) return true;
+  }
+  return false;
+}
 export function padOpen(poly) {
   const grass = ISLANDS.map(i => i.grass);
   const near = (x, y) => grass.some(g => { for (let i = 0; i < g.length; i++) { const a = g[i], b = g[(i + 1) % g.length], dx = b[0] - a[0], dy = b[1] - a[1], L = dx * dx + dy * dy || 1, t = Math.max(0, Math.min(1, ((x - a[0]) * dx + (y - a[1]) * dy) / L)); if (Math.hypot(a[0] + dx * t - x, a[1] + dy * t - y) < 0.7) return true; } return false; });
