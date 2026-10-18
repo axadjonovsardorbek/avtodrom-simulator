@@ -225,7 +225,7 @@ export class CarAudio {
   }
 
   // a music file (e.g. a song) played once from `from` seconds; returns { stop(fade) }
-  song(url, from = 0, onEnd) {
+  song(url, from = 0, onEnd, onError) {
     let src = null, g = null, stopped = false;
     if (this.ctx) {
       this.songs = this.songs || new Map();
@@ -237,7 +237,7 @@ export class CarAudio {
         src.buffer = buf; src.connect(g); g.connect(this.master);
         src.onended = () => { if (!stopped && onEnd) onEnd(); };
         src.start(0, Math.min(from, buf.duration - 0.1));
-      }).catch(e => console.warn("song not loaded:", e.message));
+      }).catch(e => { console.warn("song not loaded:", e.message); if (onError) onError(e); });
     }
     return {
       stop: (fade = 0.6) => {

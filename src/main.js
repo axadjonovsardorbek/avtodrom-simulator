@@ -346,7 +346,7 @@ function selectCar(id) {
   useCar(id);
   stopCarVoice();
   const v = carById(id).voice;
-  if (v && settings.voice !== false && !settings.muted) { audio.start(); carVoice = audio.song(v.url, v.from); }
+  if (v && settings.voice !== false && !settings.muted) { audio.start(); carVoice = audio.song(v.url, v.from, null, () => hud.toast("Mashina ovozi yuklanmadi", "bad")); }
 }
 function useCar(id) {
   const car = carById(id);
