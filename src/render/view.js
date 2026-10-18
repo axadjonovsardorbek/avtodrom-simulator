@@ -4,6 +4,7 @@ import { buildWorldMeshes, updateWorldMeshes } from "./worldMesh.js";
 import { inPoly } from "../sim/geom.js";
 import { Sky } from "three/examples/jsm/objects/Sky.js";
 import { EffectComposer } from "three/examples/jsm/postprocessing/EffectComposer.js";
+import { SMAAPass } from "three/examples/jsm/postprocessing/SMAAPass.js";
 import { RenderPass } from "three/examples/jsm/postprocessing/RenderPass.js";
 import { UnrealBloomPass } from "three/examples/jsm/postprocessing/UnrealBloomPass.js";
 import { ShaderPass } from "three/examples/jsm/postprocessing/ShaderPass.js";
@@ -441,7 +442,7 @@ export class View {
     const c = new EffectComposer(this.renderer, new THREE.WebGLRenderTarget(size.x || 2, size.y || 2, { type: THREE.HalfFloatType, samples: T.aa }));
     c.addPass(new RenderPass(scene, cam));
     if (T.bloom) c.addPass(new UnrealBloomPass(new THREE.Vector2(256, 256), 0.3, 0.5, 1.8));
-    c.addPass(new OutputPass()); c.addPass(new ShaderPass(GradeShader));
+    c.addPass(new OutputPass()); c.addPass(new ShaderPass(GradeShader)); c.addPass(new SMAAPass(1, 1));
     c.setPixelRatio(this.ratio); c.setSize(this.w, this.h);
     return c;
   }
@@ -462,6 +463,7 @@ export class View {
     }
     c.addPass(new OutputPass());               // tone mapping + sRGB
     c.addPass(new ShaderPass(GradeShader));    // the grade works on the final (display) colours
+    c.addPass(new SMAAPass(1, 1));             // edge smoothing that works in every browser (multisampled targets are not honoured everywhere)
     c.setPixelRatio(this.ratio); if (this.w) c.setSize(this.w, this.h);
   }
 

@@ -61,7 +61,7 @@ export const CARS = [
     id: "matiz", name: "Daewoo Matiz", model: "models/matiz.glb", info: "0.8 · 51 o.k. · 3,50 m",
     credit: "3D model: \"Daewoo Matiz [FULL INTERIOR]\" by ALEX MILOS (Sketchfab), CC BY 4.0, modified",
     creditUrl: "https://sketchfab.com/3d-models/daewoo-matiz-full-interior-c2bb5406a5f8484d9e76e0deb044f5b5",
-    dims: MATIZ, eye: [1.05, 1.13, -0.331], seat: [1.2, 0.42, 0.331],
+    dims: MATIZ, eye: [1.05, 1.13, -0.331], seat: [1.06, 0.4, 0.331],
     mirrors: { center: [1.6, 1.22, 0], left: [1.95, 0.95, -0.85], right: [1.95, 0.95, 0.85] },
     spec: { mass: 850, wb: MATIZ.wheelbase, rOh: MATIZ.rOh, fOh: MATIZ.fOh, width: 1.6, track: MATIZ.track, wheelR: MATIZ.wheelR, torque: NA08, clutchCap: 130, autoForce: 2600, maxRpm: 6200 },
     sound: { ...NA, filter: [800, 2800] },
@@ -70,11 +70,11 @@ export const CARS = [
   {
     id: "damas", name: "Chevrolet Damas", model: "models/damas.glb", info: "0.8 · 38 o.k. · 3,50 m",
     credit: "3D model: \"Chevrolet Damas\" (Sketchfab), modified", creditUrl: "",
-    dims: DAMAS, eye: [1.5, 1.4, -0.332], seat: [1.62, 0.7, 0.332],
+    dims: DAMAS, eye: [1.5, 1.4, -0.332], seat: [1.48, 0.66, 0.332],
     mirrors: { center: [2.1, 1.55, 0], left: [2.16, 1.4, -0.82], right: [2.16, 1.4, 0.82] },
     spec: { mass: 900, wb: DAMAS.wheelbase, rOh: DAMAS.rOh, fOh: DAMAS.fOh, width: 1.5, track: DAMAS.track, wheelR: DAMAS.wheelR, torque: NA08_DAMAS, clutchCap: 110, autoForce: 2300, maxRpm: 5800 },
     sound: { ...NA, filter: [800, 2800] },
-    voice: { url: "damas.mp3", from: 33, dur: 4 }
+    voice: { url: "damas.mp3", from: 33, dur: 4.3 }
   }
 ];
 // "malibu" was the Malibu XL model, now replaced by the Premier

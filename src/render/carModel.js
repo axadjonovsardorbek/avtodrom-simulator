@@ -378,6 +378,9 @@ export function rigCar(root) {
   const setCockpit = on => { if (full) return; if (interior) interior.visible = on; if (body) body.visible = !on; };
   setCockpit(false);
   const glow = (list, on, hi, lo = 0.06) => list.forEach(m => { m.material.emissiveIntensity = on ? hi : lo; });
+  // the amber indicator beads are only there while they blink (off, they looked like loose dots beside the body)
+  const bead = (list, on) => list.forEach(m => { m.visible = on; });
+  for (const o of [...find(/^ind_[LR]_(front|rear)$/)]) { o.position.z *= 0.88; o.position.x += /front/.test(o.name) ? -0.04 : 0.04; }
   let lastCluster = 0;
   return {
     root, interior, setCockpit, clusterTex: cluster.tex,
@@ -386,8 +389,8 @@ export function rigCar(root) {
       for (const w of spins) w.rotation.z = -car.wheelSpin;
       if (steering) steering.quaternion.copy(steerBase).multiply(steerTurn.setFromAxisAngle(zAxis, steerSign * car.sw * Math.PI / 180));
       const blink = Math.floor(now / 380) % 2 === 0;
-      glow(indL, (car.hazard || car.sig === -1) && blink, 3);
-      glow(indR, (car.hazard || car.sig === 1) && blink, 3);
+      const lOn = (car.hazard || car.sig === -1) && blink, rOn = (car.hazard || car.sig === 1) && blink;
+      glow(indL, lOn, 3); glow(indR, rOn, 3); bead(indL, lOn); bead(indR, rOn);
       glow(rev, car.gear === "R", 2);
       glow(hazard, car.hazard && blink, 3, 0.15);
       tail.forEach(mt => { mt.emissiveIntensity = car.brake > 0.05 ? 2.6 : car.engineOn ? 0.55 : 0.08; });
