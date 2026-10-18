@@ -57,7 +57,8 @@ export function addBoard(W) {
   // the inner loop roads of the quarters, outlined as on the plan
   for (const [x0, y0, x1, y1, r] of [[100, 598, 668, 1062, 45], [712, 598, 1318, 1080, 50]]) W.addLine(closed(rrect(x0, y0, x1, y1, r)), "paint", { width: 0.16 });
   // pads: a white outline (the exercise code turns the ones that matter into control lines)
-  for (const p of PADS) W.addLine(closed(p), "paint", { width: 0.16 });
+  for (const p of PADS) W.addLine(closed(p), "paint", { width: 0.2, color: "yellow" });
+  { const q = 4; W.addLine(closed([[-q, -q], [q, -q], [q, q], [-q, q]]), "paint", { width: 0.25, color: "yellow" }); W.addLine([[-q, -q], [q, q]], "paint", { width: 0.2, color: "yellow" }); W.addLine([[q, -q], [-q, q]], "paint", { width: 0.2, color: "yellow" }); }
   W.board.pad = name => PADS[PAD[name]];
 
   // zebras of the junction and of the top road
@@ -67,9 +68,6 @@ export function addBoard(W) {
   // the start box and the line at its end
   W.addLine(polyline([[745, 35], [915, 35], [915, 125], [745, 125], [745, 35]]), "paint", { width: 0.25 });
   W.addLine(polyline([[915, 28], [915, 125]]), "paint", { width: 0.3 });
-  // the parking area: its outline (a stadium) and the diamonds
-  W.addLine(polyline([[745, 108], [1215, 108], ...arc(1215, 197, 89, -Math.PI / 2, Math.PI / 2), [735, 286]]), "paint", { width: 0.2 });
-  for (let k = 0; k < 11; k++) { const cx = 760 + 45 * k; W.addLine(polyline([[cx - 40, 170], [cx, 130], [cx + 40, 170], [cx, 210], [cx - 40, 170]]), "paint", { width: 0.14 }); }
   // the north-east road: its outline, the line at its end, the dashed middle
   W.addLine(polyline([[735, 286], [1232, 286], [1232, 365]]), "paint", { width: 0.2 });
   W.addLine(polyline([[705, 400], [705, 335], ...arc(740, 335, 35, Math.PI, Math.PI * 1.5, 8).slice(0, -1), [735, 286]]), "paint", { width: 0.2 });
