@@ -196,11 +196,33 @@ export function realDriver(gltf) {
   return self;
 }
 
+// Walk on the spot, always facing the same way. The clip ("Walking Left Turn") moves and turns
+// the hips; after every mixer update their travel and turn about the vertical are put back to
+// the first frame, keeping the bob, sway and tilt. Works whatever the bone's local axes are.
+function pinHips(P) {
+  const hips = P.hips, parent = hips.parent;
+  parent.updateMatrixWorld(true);
+  const up = V().set(0, 1, 0).transformDirection(parent.matrixWorld.clone().invert());   // world up in the parent frame
+  const ref = { pos: hips.position.clone(), quat: hips.quaternion.clone() };
+  // a hip axis that lies flat at the first frame: its heading tells how far the clip has turned
+  const basis = [V().set(1, 0, 0), V().set(0, 1, 0), V().set(0, 0, 1)];
+  const flat = basis.reduce((a, b) => Math.abs(a.clone().applyQuaternion(ref.quat).dot(up)) <= Math.abs(b.clone().applyQuaternion(ref.quat).dot(up)) ? a : b);
+  const heading = q => { const d = flat.clone().applyQuaternion(q); return d.addScaledVector(up, -d.dot(up)).normalize(); };
+  const h0 = heading(ref.quat), turn = Q();
+  return () => {
+    // position: keep only the component along up
+    const d = hips.position.clone().sub(ref.pos), along = d.dot(up);
+    hips.position.copy(ref.pos).addScaledVector(up, along);
+    // rotation: turn back about up by the heading change since the first frame
+    turn.setFromUnitVectors(heading(hips.quaternion), h0);
+    hips.quaternion.premultiply(turn);
+  };
+}
+
 /* ---------- boy: striped hoodie, grey trousers, small ---------- */
 export function realKid(gltf) {
   const clip = gltf.animations[0];
   // walk on the spot: the boy is moved by the code, not by the clip
-  for (const t of clip.tracks) if (/Hips\.position$/.test(t.name)) for (let i = 0; i < t.values.length; i += 3) { t.values[i] = t.values[0]; t.values[i + 2] = t.values[2]; }
   const P = rigPerson(gltf, { torso: 0.31, seated: false });   // about 1.15 m tall
   dress(P.scene, {
     Hoody: { bands: [0xefe7d2, 0xe8b62a, 0x4a3b31], bandK: 0.06 }, Pants: { tint: 0x777b80 },
@@ -209,6 +231,7 @@ export function realKid(gltf) {
   // a child's head is large for the body
   if (P.head) P.head.scale.setScalar(1.22);
   const walk = P.actions[clip.name];
+  const pin = pinHips(P);
   const head = P.head;
   const standT = standingFrame(P, walk, clip);
   let t = 0;
@@ -216,11 +239,11 @@ export function realKid(gltf) {
     root: P.root,
     update(dt, state) {
       t += dt;
-      if (state === "walk") { walk.timeScale = 1; P.mixer.update(dt); P.root.rotation.x = P.root.rotation.z = 0; if (P.head) P.head.scale.setScalar(1.22); }
+      if (state === "walk") { walk.timeScale = 1; P.mixer.update(dt); pin(); P.root.rotation.x = P.root.rotation.z = 0; if (P.head) P.head.scale.setScalar(1.22); }
       else {
         // standing: the walk held at the feet-together frame and re-applied every frame,
         // so the head turns below never add up
-        walk.timeScale = 0; walk.time = standT; P.mixer.update(dt); if (P.head) P.head.scale.setScalar(1.22);
+        walk.timeScale = 0; walk.time = standT; P.mixer.update(dt); pin(); if (P.head) P.head.scale.setScalar(1.22);
         if (state === "sing") {
           // stands facing the driver's window, sways to the song with small nods, head tipped up
           P.root.rotation.x = Math.sin(t * 2.2) * 0.03;
@@ -234,17 +257,17 @@ export function realKid(gltf) {
 // Pedestrian at the crossing: the same Mixamo walker at adult size in a dark jacket and jeans.
 export function realPedestrian(gltf) {
   const clip = gltf.animations[0];
-  for (const t of clip.tracks) if (/Hips\.position$/.test(t.name)) for (let i = 0; i < t.values.length; i += 3) { t.values[i] = t.values[0]; t.values[i + 2] = t.values[2]; }
   const P = rigPerson(gltf, { torso: 0.6, seated: false });
   dress(P.scene, { Hoody: { tint: 0x2d3a52 }, Pants: { tint: 0x3a4a66 }, Sneakers: { tint: 0xe8e8e6 }, Hair: { tint: 0x1d1612 }, Body: { tint: 0xd9a77f, gain: 6.5 } });
   const walk = P.actions[clip.name];
+  const pin = pinHips(P);
   const standT = standingFrame(P, walk, clip);
   return {
     root: P.root,
     update(dt, walking) {
       walk.timeScale = walking ? 1 : 0;
       if (!walking) walk.time = standT;
-      P.mixer.update(dt);
+      P.mixer.update(dt); pin();
     }
   };
 }

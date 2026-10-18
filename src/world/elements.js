@@ -67,7 +67,7 @@ export function piyoda(W, T) {
     id: "piyoda", mapNo: 2, name: "Piyodalar o'tish joyi", short: "Piyoda", pose,
     tick(ctx) {
       if (!ped.visible) return;
-      if (!ped.walking && ctx.fs > cross - 19) ped.walking = true;
+      if (!ped.walking && ctx.fs > cross - 12) ped.walking = true;   // steps off when the car is ~8 m before the stop line
       if (ped.walking && ped.l < 4.8) {
         const nl = ped.l + 1.15 * ctx.dt;
         if (!polyNearPoint(ctx.P, toWorld(pose, cross, nl + 0.3), 0.6)) { ped.l = nl; ped.phase += ctx.dt; }
