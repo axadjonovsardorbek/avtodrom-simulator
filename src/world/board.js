@@ -109,19 +109,43 @@ export function addBoard(W) {
   // lane arrows (the way each lane runs, as on the plan)
   for (const [x, y, d, kind] of [[850 + D, 55, 180], [850 + D, 100, 180], [1250, 48, 180], [1250, 95, 180], [770, 310, 0], [1060, 305, 0], [1055, 350, 0], [1040, 575, 180, "SR"], [1160, 575, 180], [1310, 575, 180], [1030, 527, 180, "SL"], [1150, 527, 180], [1310, 527, 180],
     [100, 340, 90], [78, 470, 90], [250, 1090, 0], [640, 1095, 0, "SL"], [975, 1105, 0], [1350, 690, -90], [1318, 965, 90, "R"], [700, 740, -90, "SR"], [680, 440, 90, "SR"], [575, 212, 0], [580, 352, 0], [155, 92, 180, "L"], [155, 130, 180, "L"]]) arrow(W, x, y, d, 56, kind);
-  // road signs as on the video: a give-way sign over a blue arrow on the tip of every island, P signs at the corners of the
-  // pads, paired blue lane signs along the north fence, "no stopping" at the start
+  // road signs where the plan has them (px of the plan): each stands on the island next to that spot, 0.6 m in from the
+  // kerb, its face turned to the road; a spot outside the frame faces into the ground
   const sign = (x, y, th, kind, extra = {}) => W.signs.push({ x, y, th, kind, ...extra });
-  ISLANDS.forEach((isl, k) => {
-    const g = isl.grass, cx = g.reduce((a, p) => a + p[0], 0) / g.length, cy = g.reduce((a, p) => a + p[1], 0) / g.length;
-    if (g.length < 8) return;
-    let best = g[0], d = 0; for (const p of g) { const e = Math.hypot(p[0] - cx, p[1] - cy); if (e > d) { d = e; best = p; } }
-    const x = best[0] + (cx - best[0]) * 0.07, y = best[1] + (cy - best[1]) * 0.07, th = Math.atan2(best[1] - cy, best[0] - cx) + Math.PI;
-    sign(x, y, th, "yield", { big: true, h: 2.6 }); sign(x, y, th, ["right", "left", "ahead"][k % 3], { h: 1.5 });
-  });
-  for (const p of PADS) { const a = p[0], b = p[1]; sign((a[0] + b[0]) / 2, (a[1] + b[1]) / 2, Math.atan2(b[1] - a[1], b[0] - a[0]) + Math.PI / 2, "park"); }
-  for (const x of [-48, -22, 4, 55]) { const [X, Y] = [x, -57.4]; sign(X, Y, Math.PI / 2, "ahead", { big: true }); sign(X + 1.2, Y, Math.PI / 2, "aheadRight", { big: true }); }
-  { const [x, y] = P(930 + D, 20); sign(x, y, Math.PI, "noStop", { big: true }); }
+  const near = (x, y) => { let best = null;
+    for (const isl of ISLANDS) { const g = isl.grass; for (let i = 0; i < g.length; i++) { const a = g[i], b = g[(i + 1) % g.length], dx = b[0] - a[0], dy = b[1] - a[1], L = dx * dx + dy * dy || 1, t = Math.max(0, Math.min(1, ((x - a[0]) * dx + (y - a[1]) * dy) / L)), qx = a[0] + dx * t, qy = a[1] + dy * t, d = Math.hypot(qx - x, qy - y);
+      if (!best || d < best.d) best = { d, q: [qx, qy], g }; } }
+    return best; };
+  const inPoly = (g, x, y) => { let c = false; for (let i = 0, j = g.length - 1; i < g.length; j = i++) if ((g[i][1] > y) !== (g[j][1] > y) && x < (g[j][0] - g[i][0]) * (y - g[i][1]) / (g[j][1] - g[i][1]) + g[i][0]) c = !c; return c; };
+  const place = (px_, py_, kinds, extra = {}) => {
+    let [x, y] = P(px_, py_), th;
+    const n = near(x, y), [fx, fy] = FRAME.reduce(([a, b], q) => [Math.min(a, Math.abs(q[0])), Math.min(b, Math.abs(q[1]))], [1e9, 1e9]);
+    const outside = Math.abs(x) > fx - 0.5 || Math.abs(y) > fy - 0.5;
+    if (outside) { x = Math.sign(x) * Math.min(Math.abs(x), fx + 1.4) || x; y = Math.sign(y) * Math.min(Math.abs(y), fy + 1.4) || y; th = Math.atan2(-y, -x); if (Math.abs(y) > fy) th = Math.sign(-y) * Math.PI / 2; else if (Math.abs(x) > fx) th = x > 0 ? Math.PI : 0; }
+    else if (n && n.d < 6) {
+      const inside = inPoly(n.g, x, y), ux = (n.q[0] - x) / (n.d || 1), uy = (n.q[1] - y) / (n.d || 1);
+      th = inside ? Math.atan2(uy, ux) : Math.atan2(-uy, -ux);                    // towards the road
+      const ox = Math.cos(th), oy = Math.sin(th); x = n.q[0] - ox * 0.6; y = n.q[1] - oy * 0.6;
+    } else th = 0;
+    kinds.forEach((k, i) => sign(x + Math.cos(th + Math.PI / 2) * 0.75 * (i - (kinds.length - 1) / 2) * (extra.stack ? 0 : 1), y + Math.sin(th + Math.PI / 2) * 0.75 * (i - (kinds.length - 1) / 2) * (extra.stack ? 0 : 1), th, k,
+      { h: extra.stack ? 2.55 - i * 0.95 : undefined, plates: extra.plates && (!extra.stack || i === kinds.length - 1) ? extra.plates : undefined }));
+  };
+  const Y = (x, y, arrow = "right") => place(x, y, ["yield", arrow], { stack: true });
+  const PK = (x, y) => place(x, y, ["park"], { plates: ["car", "truck"] });
+  // north fence (the top road), west and east fence
+  place(390, 22, ["noStop"]); place(428, 20, ["limit20"]); place(595, 22, ["zebra"]); place(680, 20, ["zebra"]); place(748 + D, 20, ["limit20", "noStop"]);
+  place(33, 328, ["ahead", "aheadRight"], { plates: ["truck"] }); place(43, 460, ["right"]); place(47, 762, ["yield"]); place(55, 1035, ["left"]); place(1305, 1162, ["noStop"]); place(1390, 520, ["ahead", "aheadRight"], { plates: ["car"] });
+  // north-west quarter (the zigzags)
+  place(572, 260, ["right"]); place(600, 288, ["noEntry"]); Y(590, 390); place(155, 455, ["noEntry"]); place(185, 538, ["left"]); place(615, 505, ["zebra"]);
+  // north-east quarter (the parking pockets)
+  place(760, 400, ["zebra"]); place(742, 430, ["left"]); place(765, 492, ["zebra"]); PK(970, 482); PK(1137, 482); PK(1312, 482); PK(780, 405);
+  // south-west quarter (the snakes)
+  place(372, 650, ["noEntry"]); Y(250, 680); Y(465, 670); place(607, 670, ["zebra"]); place(455, 930, ["bend"]); PK(450, 967); place(590, 930, ["bend"]); PK(610, 990);
+  // south-east quarter (the garages)
+  place(845, 652, ["zebra"]); place(765, 680, ["zebra"]); PK(887, 740); Y(977, 685); PK(1122, 647); PK(1145, 735); Y(1220, 697); place(1267, 680, ["left"]);
+  Y(797, 975); place(752, 992, ["left"]); PK(872, 985); Y(1062, 990); PK(1142, 990);
+  // the paired lane signs along the north fence, as on the video
+  for (const x of [-48, -22]) { sign(x, -57.6, Math.PI / 2, "ahead", { plates: ["truck"] }); sign(x + 0.9, -57.6, Math.PI / 2, "aheadRight", { plates: ["car"] }); }
   W.texts.push({ ...(([x, y]) => ({ x, y }))(P(945 + D, 80)), th: -Math.PI / 2, text: "START", size: 3.6 });
 }
 

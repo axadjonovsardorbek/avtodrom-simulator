@@ -307,13 +307,15 @@ export function buildWorldMeshes(W, quality) {
   // signs
   const post = new THREE.MeshStandardMaterial({ color: 0x8a9096, roughness: 0.5, metalness: 0.6 });
   const signCache = {};
+  const baseMat = new THREE.MeshStandardMaterial({ color: 0xd9d6cf, roughness: 0.9 }), baseGeo = new THREE.BoxGeometry(0.34, 0.22, 0.34);
+  const plateMat = kind => new THREE.MeshStandardMaterial({ map: signCache[kind] || (signCache[kind] = signTexture(kind)), transparent: true, side: THREE.DoubleSide, roughness: 0.5 });
   for (const s of W.signs) {
-    const g = new THREE.Group();
-    const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.045, 2.6, 8), post); pole.position.y = 1.3; pole.castShadow = true; g.add(pole);
-    const tex = signCache[s.kind] || (signCache[s.kind] = signTexture(s.kind));
-    const plate = new THREE.Mesh(new THREE.PlaneGeometry(s.big ? 1.2 : 0.9, s.big ? 1.2 : 0.9), new THREE.MeshStandardMaterial({ map: tex, transparent: true, side: THREE.DoubleSide, roughness: 0.5 }));
-    plate.position.y = s.h || 2.3; plate.castShadow = true; g.add(plate);
-    g.position.set(s.x, 0, s.y); g.rotation.y = Math.atan2(Math.cos(s.th), Math.sin(s.th));
+    const g = new THREE.Group(), y0 = s.h || 2.3, sz = s.big ? 1.0 : 0.8;
+    const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.035, y0 + 0.35, 8), post); pole.position.set(0, (y0 + 0.35) / 2, -0.04); pole.castShadow = true; g.add(pole);
+    const base = new THREE.Mesh(baseGeo, baseMat); base.position.y = 0.11; g.add(base);                // the square concrete footing of the video
+    const plate = new THREE.Mesh(new THREE.PlaneGeometry(sz, sz), plateMat(s.kind)); plate.position.y = y0; plate.castShadow = true; g.add(plate);
+    (s.plates || []).forEach((k, i) => { const pl = new THREE.Mesh(new THREE.PlaneGeometry(sz * 0.8, sz * 0.8), plateMat(k)); pl.position.y = y0 - sz * 0.55 - i * sz * 0.42; g.add(pl); });
+    g.position.set(s.x, 0.14, s.y); g.rotation.y = Math.atan2(Math.cos(s.th), Math.sin(s.th));
     group.add(g);
   }
 
