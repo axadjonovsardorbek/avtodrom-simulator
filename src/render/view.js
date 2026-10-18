@@ -271,6 +271,11 @@ export class View {
       cam.lookAt(cp);
       if (cam.fov !== 50) { cam.fov = 50; cam.updateProjectionMatrix(); }
     }
+    // depth precision: the near plane decides it. Inside the cabin things are close, outside
+    // a near plane of 5 cm wastes the depth buffer and close layers of the body (paint over
+    // its inner shell) flicker through each other on 24-bit GPUs ("scratches" on the bumper)
+    const near = this.mode === "cockpit" || this.mode === "interiorRear" ? 0.05 : 0.3;
+    if (cam.near !== near) { cam.near = near; cam.far = 700; cam.updateProjectionMatrix(); }
     // shift the picture sideways (menu: car between the panels) without changing the view
     if (this.viewShift) cam.setViewOffset(this.w, this.h, -this.viewShift, 0, this.w, this.h); else if (cam.view) cam.clearViewOffset();
     this.sun.position.set(car.x + 45, 85, car.y + 30);

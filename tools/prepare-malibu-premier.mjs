@@ -215,12 +215,15 @@ for (const mesh of root.listMeshes()) for (const prim of mesh.listPrimitives()) 
   if (white) { prim.setAttribute("COLOR_0", null); dropped++; }
 }
 console.log("white vertex colours dropped on", dropped, "primitives");
-await doc.transform(weld({ tolerance: 0.0003 }));
+// exact weld only: a tolerance merges vertices across the panel creases and smears their
+// normals into dark scratch-like lines on the paint
+await doc.transform(weld({ tolerance: 0 }));
 const wheelNodes = new Set();
 for (const k of Object.keys(W)) byName("wheel_spin_" + k).traverse(n => wheelNodes.add(n));
 for (const n of root.listNodes()) {
   if (!n.getMesh() || wheelNodes.has(n)) continue;
-  for (const prim of n.getMesh().listPrimitives()) simplifyPrimitive(prim, { simplifier: MeshoptSimplifier, ratio: 0.4, error: 0.0015 });
+  // the painted body is kept as modelled; the rest is simplified with its borders locked
+  for (const prim of n.getMesh().listPrimitives()) if (prim.getMaterial()?.getName() !== "paint") simplifyPrimitive(prim, { simplifier: MeshoptSimplifier, ratio: 0.4, error: 0.0015, lockBorder: true });
 }
 await doc.transform(
   prune(), dedup(),
