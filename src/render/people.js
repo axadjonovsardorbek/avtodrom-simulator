@@ -201,7 +201,8 @@ export function realKid(gltf) {
   // a child's head is large for the body
   if (P.head) P.head.scale.setScalar(1.22);
   const walk = P.actions[clip.name];
-  const armR = P.bones(/RightArm$/), foreR = P.bones(/RightForeArm$/), head = P.head;
+  const head = P.head;
+  const standT = standingFrame(P, walk, clip);
   let t = 0;
   return {
     root: P.root,
@@ -209,16 +210,46 @@ export function realKid(gltf) {
       t += dt;
       if (state === "walk") { walk.paused = false; P.mixer.update(dt); P.root.rotation.x = 0; if (P.head) P.head.scale.setScalar(1.22); }
       else {
-        walk.paused = true; walk.time = 0.05; P.mixer.update(0); if (P.head) P.head.scale.setScalar(1.22);
+        walk.paused = true; walk.time = standT; P.mixer.update(0); if (P.head) P.head.scale.setScalar(1.22);
         if (state === "sing") {
-          // sways to the song with small nods; turns a little to look up at the driver
-          P.root.rotation.x = Math.sin(t * 2.5) * 0.04;
-          if (head) { head.rotateX(Math.sin(t * 5) * 0.08); head.rotateY(0.25); }
-          if (armR) armR.rotateZ(Math.sin(t * 4) * 0.15);
+          // stands facing the driver's window, sways to the song with small nods, head tipped up
+          P.root.rotation.x = Math.sin(t * 2.2) * 0.03;
+          if (head) { head.rotateX(Math.sin(t * 4.4) * 0.07); head.rotateZ(0.22); }
         } else P.root.rotation.x = 0;
       }
     }
   };
+}
+
+// Pedestrian at the crossing: the same Mixamo walker at adult size in a dark jacket and jeans.
+export function realPedestrian(gltf) {
+  const clip = gltf.animations[0];
+  for (const t of clip.tracks) if (/Hips\.position$/.test(t.name)) for (let i = 0; i < t.values.length; i += 3) { t.values[i] = t.values[0]; t.values[i + 2] = t.values[2]; }
+  const P = rigPerson(gltf, { torso: 0.6, seated: false });
+  dress(P.scene, { Hoody: { tint: 0x2d3a52 }, Pants: { tint: 0x3a4a66 }, Sneakers: { tint: 0xe8e8e6 }, Hair: { tint: 0x1d1612 }, Body: { tint: 0xd9a77f, gain: 6.5 } });
+  const walk = P.actions[clip.name];
+  const standT = standingFrame(P, walk, clip);
+  return {
+    root: P.root,
+    update(dt, walking) {
+      walk.paused = !walking;
+      if (!walking) walk.time = standT;
+      P.mixer.update(walking ? dt : 0);
+    }
+  };
+}
+// the frame of the walk where the feet are closest together: used as the standing pose
+function standingFrame(P, walk, clip) {
+  const l = P.bones(/LeftFoot$/), r = P.bones(/RightFoot$/);
+  if (!l || !r) return 0;
+  let best = 0, bestD = Infinity;
+  walk.play();
+  for (let t = 0; t < clip.duration; t += clip.duration / 40) {
+    walk.time = t; P.mixer.update(0); P.root.updateMatrixWorld(true);
+    const a = l.getWorldPosition(V()), b = r.getWorldPosition(V()), d = Math.hypot(a.x - b.x, a.z - b.z);
+    if (d < bestD) { bestD = d; best = t; }
+  }
+  return best;
 }
 
 export async function loadPeople() {

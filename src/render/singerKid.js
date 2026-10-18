@@ -161,7 +161,7 @@ export class KidShow {
       const [x, y] = toWorld(pose, Math.min(cs + 1, 22), -4.9);
       this.pos = [x, y]; kid.root.visible = true;
     }
-    const win = toWorld(car, 1.25, -1.45);          // next to the driver's door
+    const win = toWorld(car, 1.75, -1.35);          // next to the driver's window
     const target = this.state === "leave" ? this.home : win;
     const dx = target[0] - this.pos[0], dy = target[1] - this.pos[1], d = Math.hypot(dx, dy);
     if (this.state === "come" || this.state === "leave") {
@@ -174,7 +174,7 @@ export class KidShow {
       if (this.state === "leave" && d < 0.08) { this.state = "gone"; kid.root.visible = false; }
     }
     if (this.state === "sing") {
-      this.th = Math.atan2(car.y - this.pos[1] + Math.sin(car.th) * 1.3, car.x - this.pos[0] + Math.cos(car.th) * 1.3);
+      this.th = Math.atan2(car.y - this.pos[1] + Math.sin(car.th) * 1.6, car.x - this.pos[0] + Math.cos(car.th) * 1.6);
       if (Math.abs(car.v) > 0.6 || d > 1.5) { this.stopSong(); this.goHome(); }
     }
     if (this.state === "come" && Math.abs(car.v) > 2) this.goHome();

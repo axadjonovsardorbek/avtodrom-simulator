@@ -1,6 +1,7 @@
 // Three.js scene, lighting, cameras and rear-view mirrors.
 import * as THREE from "three";
 import { buildWorldMeshes, updateWorldMeshes } from "./worldMesh.js";
+import { inPoly } from "../sim/geom.js";
 import { buildCar } from "./carModel.js";
 // Outdoor reflection scene: bright sky dome, horizon band, dark green ground.
 function skyEnvironment() {
@@ -125,6 +126,18 @@ export class View {
     this.driver.root.children.length && this.driver.setCockpit(this.mode === "cockpit");
   }
 
+  // swap the simple pedestrian figures for realistic ones (when the people files have loaded)
+  setPedestrianMaker(make) { this.makePed = make; this.dressPedestrians(); }
+  dressPedestrians() {
+    if (!this.makePed || !this.dyn) return;
+    for (const d of this.dyn.peds) {
+      if (d.fig) continue;
+      d.fig = this.makePed();
+      d.g.children.forEach(c => { c.visible = false; });
+      d.g.add(d.fig.root);
+    }
+  }
+
   setWorld(W, quality = "high") {
     if (this.worldGroup) {
       this.scene.remove(this.worldGroup);
@@ -132,6 +145,7 @@ export class View {
     }
     const { group, dyn } = buildWorldMeshes(W, quality);
     this.W = W; this.dyn = dyn; this.worldGroup = group;
+    this.dressPedestrians();
     this.scene.add(group);
     this.renderer.shadowMap.enabled = quality !== "low";
     this.chasePos = null;
@@ -172,6 +186,11 @@ export class View {
     this.cabinLight.visible = this.mode === "cockpit" || this.mode === "interiorRear";
     if (this.cabinLight.visible) this.cabinLight.position.copy(root.localToWorld(new THREE.Vector3(1.2, 1.12, 0)));
     updateWorldMeshes(this.W, this.dyn, session.clock, now);
+    for (const d of this.dyn.peds) if (d.fig) {
+      d.fig.update(dt, d.p.walking && d.p.visible);
+      // the pavements are raised 0.14 m
+      d.fig.root.position.y = this.W.pads.some(q => q.surface === "concrete" && inPoly(q.poly, [d.p.x, d.p.y])) ? 0.14 : 0;
+    }
 
     const f = new THREE.Vector3(Math.cos(car.th), 0, Math.sin(car.th));
     const cp = new THREE.Vector3(car.x, car.h, car.y);

@@ -17,7 +17,7 @@ import { Instructor, lineIds } from "./instructor/instructor.js";
 import { buildInstructor } from "./render/instructorFigure.js";
 import { KidShow } from "./render/singerKid.js";
 import { buildDriver } from "./render/driverFigure.js";
-import { loadPeople, realInstructor, realDriver, realKid } from "./render/people.js";
+import { loadPeople, realInstructor, realDriver, realKid, realPedestrian } from "./render/people.js";
 
 const coarse = matchMedia("(pointer: coarse)").matches;
 const settings = { transmission: "manual", quality: coarse ? "low" : "high", mouseSteer: false, muted: false, voice: true, car: "cobalt", instructor: "angry", color: "white", plate: DEFAULT_PLATE, size: "real" };
@@ -50,6 +50,7 @@ loadPeople().then(P => {
   const oldD = view.driver && view.driver.root; if (oldD && oldD.parent) oldD.parent.remove(oldD);
   view.setDriver(realDriver(P.driver));
   kidShow.setKid(realKid(P.kid));
+  view.setPedestrianMaker(() => realPedestrian(P.kid));
   if (import.meta.env.DEV) window.__sim.fig = instructorFig;
 }).catch(e => console.warn("people not loaded, keeping the simple figures:", e.message));
 const controls = new Controls(hud.canvas, onAction);
