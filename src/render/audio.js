@@ -250,6 +250,28 @@ export class CarAudio {
     };
   }
 
+  // A short voice clip through a plain <audio> element: it starts inside the click that picked the
+  // car (Safari only allows sound started that way) and does not depend on decodeAudioData.
+  // Plays from `from` for `dur` seconds (or to the end); returns { stop(fade) }.
+  carClip(url, from = 0, dur = 0, onError) {
+    const el = new Audio(url); el.preload = "auto"; el.volume = 1; el.muted = !!this.muted;
+    let done = false, timer = 0;
+    const fail = e => { if (!done) { done = true; console.warn("voice not played:", e && (e.message || e.name || e.type)); if (onError) onError(e); } };
+    const seek = () => { try { if (from > 0 && Math.abs(el.currentTime - from) > 0.2) el.currentTime = from; } catch (_) {} };
+    el.addEventListener("loadedmetadata", seek);
+    el.addEventListener("error", () => fail(el.error || new Error("audio error")));
+    el.addEventListener("timeupdate", () => { if (dur && !done && el.currentTime >= from + dur) stop(0.08); });
+    el.addEventListener("playing", () => { seek(); if (dur && !timer) timer = setTimeout(() => stop(0.1), dur * 1000); }, { once: true });
+    const p = el.play(); if (p && p.catch) p.catch(fail);
+    function stop(fade = 0.4) {
+      done = true; clearTimeout(timer);
+      const t0 = performance.now(), v0 = el.volume;
+      const tick = () => { const k = Math.min(1, (performance.now() - t0) / (fade * 1000)); el.volume = v0 * (1 - k); if (k < 1) requestAnimationFrame(tick); else el.pause(); };
+      tick();
+    }
+    return { stop };
+  }
+
   // the "pssh" of the turbo bypass valve when the throttle snaps shut
   blowOff() {
     const c = this.ctx, src = c.createBufferSource(), f = c.createBiquadFilter(), g = c.createGain(), t = c.currentTime;
