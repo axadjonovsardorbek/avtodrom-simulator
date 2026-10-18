@@ -60,14 +60,6 @@ export function buildIntersection(W, A, caps = false, bare = false, flow = {}) {
 }
 
 
-function checker(W, pose, s, halfW) {
-  const q = 0.5;
-  for (let l = -halfW, i = 0; l < halfW - 0.01; l += q, i++)
-    for (let r = 0; r < 2; r++) if ((i + r) % 2 === 0) {
-      const l1 = Math.min(l + q, halfW);
-      W.addPaint([toWorld(pose, s + r * q, l), toWorld(pose, s + (r + 1) * q, l), toWorld(pose, s + (r + 1) * q, l1), toWorld(pose, s + r * q, l1)]);
-    }
-}
 
 // car: { length, rOh } of the car being driven (the parking box is sized to it)
 //
@@ -110,7 +102,7 @@ export function buildFull(car) {
   T.fwd(zebraS - 17.5);
   const tP = piyoda(W, T, 21, { zebra: false, pave: false, l0: -5.4, l1: 2.6 });
   T.fwd(D * 0.1);                                  // the longer run between the crossing and the overpass
-  const tE = estakada(W, T, { s0: 1, s1: 13, s2: 24, s3: 36, h: 1.92, stopS: 9, len: 37 });
+  const tE = estakada(W, T, { s0: 1, s1: 13, s2: 24, s3: 36, h: 1.44, stopS: 9, len: 37 });
   // the decorative lane signs of the board must not stand on the overpasses
   W.signs = W.signs.filter(g => g.ramp || !W.ramps.some(r => { const [a, l] = toLocal(r.pose, g.x, g.y); return a > r.s0 - 2 && a < r.s3 + 2 && Math.abs(l) < r.halfW + 1.5; }));
 
@@ -162,8 +154,10 @@ export function buildFull(car) {
   const fs0 = px(860, 312), fp = { x: fs0[0], y: fs0[1], th: T5.pose.th };
   const fS = Math.hypot(...px(1218, 312).map((v, i) => v - fs0[i]));
   W.finishLine = { pose: fp, s: fS, halfW: 5 };
-  checker(W, fp, fS - 1, 3.5);
-  { const [x, y] = toWorld(fp, fS - 4, 0); W.texts.push({ x, y, th: fp.th, text: "FINISH", size: 1.2 }); }
+  // the finish of the video (5:00-5:11): a white box across both lanes with FINISH written in it
+  { const a = fS - 6, b = fS, hw = 3.6;
+    W.addLine([toWorld(fp, a, -hw), toWorld(fp, b, -hw), toWorld(fp, b, hw), toWorld(fp, a, hw), toWorld(fp, a, -hw)], "paint", { width: 0.25 });
+    const [x, y] = toWorld(fp, (a + b) / 2, 0); W.texts.push({ x, y, th: fp.th - Math.PI / 2, text: "FINISH", size: 2.0 }); }
 
   W.tasks.push(tP, tE, tB, c1, tI, tA, tX, c2, tR, tZ, c3, tK);
   return W.build();

@@ -63,7 +63,7 @@ export function signTexture(kind) {
   } else if (kind === "hill") {
     tri("#fff", "#c8261e");
     g.fillStyle = "#111"; g.beginPath(); g.moveTo(60, 196); g.lineTo(196, 196); g.lineTo(196, 110); g.closePath(); g.fill();
-    g.font = "bold 46px Arial, sans-serif"; g.fillText("16%", 112, 150);
+    g.font = "bold 46px Arial, sans-serif"; g.fillText("12%", 112, 150);
   } else if (kind === "limit40" || kind === "limit20") {
     g.beginPath(); g.arc(128, 128, 118, 0, 7); g.fillStyle = "#c8261e"; g.fill();
     g.beginPath(); g.arc(128, 128, 88, 0, 7); g.fillStyle = "#fff"; g.fill();
@@ -71,7 +71,7 @@ export function signTexture(kind) {
   } else if (kind === "descent") {
     tri("#fff", "#c8261e");
     g.fillStyle = "#111"; g.beginPath(); g.moveTo(60, 196); g.lineTo(196, 196); g.lineTo(60, 110); g.closePath(); g.fill();
-    g.fillStyle = "#fff"; g.font = "bold 40px Arial, sans-serif"; g.fillText("16%", 100, 172);
+    g.fillStyle = "#fff"; g.font = "bold 40px Arial, sans-serif"; g.fillText("12%", 100, 172);
   } else if (kind === "train") {
     tri("#fff", "#c8261e");
     g.fillStyle = "#111";

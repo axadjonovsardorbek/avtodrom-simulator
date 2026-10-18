@@ -97,7 +97,6 @@ export function addBoard(W) {
     }
     flush();
   }
-  { const q = 4; W.addLine(closed([[-q, -q], [q, -q], [q, q], [-q, q]]), "paint", { width: 0.25, color: "yellow" }); W.addLine([[-q, -q], [q, q]], "paint", { width: 0.2, color: "yellow" }); W.addLine([[q, -q], [-q, q]], "paint", { width: 0.2, color: "yellow" }); }
   W.board.pad = name => PADS[PAD[name]];
 
   // zebras of the junction and of the top road
@@ -162,10 +161,11 @@ export function addBoard(W) {
   const Y = (x, y, arrow = "right") => place(x, y, ["yield", arrow], { stack: true });
   const PK = (x, y) => place(x, y, ["park"], { plates: ["car", "truck"] });
   // north fence (the top road), west and east fence
-  place(390, 22, ["noStop"]); place(428, 20, ["limit20"]); place(595, 22, ["zebra"]); place(680, 20, ["zebra"]); place(760 + D, 20, ["limit20"], { plates: ["startPlate"] }); place(700 + D, 20, ["zebra"]);
+  place(390, 22, ["noStop"]); place(428, 20, ["limit20"]); place(595, 22, ["zebra"]); place(680, 20, ["zebra"]); place(760 + D, 20, ["limit20"], { plates: ["startPlate"] }); place(700 + D, 20, ["stop", "zebra"], { stack: true });
   place(33, 328, ["ahead", "aheadRight"], { plates: ["truck"] }); place(43, 460, ["right"]); place(47, 762, ["yield"]); place(55, 1035, ["left"]); place(1305, 1162, ["noStop"]); place(1390, 520, ["ahead", "aheadRight"], { plates: ["car"] });
   // north-west quarter (the zigzags)
   place(572, 260, ["right"]); place(600, 288, ["noEntry"]); Y(590, 390); place(155, 455, ["noEntry"]); place(185, 538, ["left"]); place(615, 505, ["zebra"]);
+  place(330, 500, ["bend"]); place(420, 365, ["bend"]); place(160, 470, ["bend"]);
   // north-east quarter (the parking pockets)
   place(760, 400, ["zebra"]); place(742, 430, ["left"]); place(765, 492, ["zebra"]); PK(970, 482); PK(1137, 482); PK(1312, 482); PK(780, 405);
   // south-west quarter (the snakes)

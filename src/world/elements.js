@@ -339,14 +339,12 @@ export function temir(W, T, opt = {}) {
 export function tezlashish(W, T, L = 75, zone = [L - 19, L - 11]) {
   const pose = T.pose, [z0, z1] = zone;
   T.fwd(L);
-  W.addLine(W2(pose, [[z0, -HL + 0.2], [z1, -HL + 0.2], [z1, HL - 0.2], [z0, HL - 0.2], [z0, -HL + 0.2]]), "paint", { color: "yellow", width: 0.12 });
-  W.texts.push({ ...at(pose, (z0 + z1) / 2, 0), th: pose.th, text: "STOP", size: 1.1, color: "yellow" });
-  W.texts.push({ ...at(pose, 6, 0), th: pose.th, text: "40", size: 1.6 });
+  // the video has nothing painted here: the learner speeds up along the wall and stops where the instructor says
   W.signs.push({ ...at(pose, 2, 2.9), th: pose.th + Math.PI, kind: "limit40" });
   return task({
     id: "tezlashish", mapNo: 9, name: "Tezlashish bo'lagi", short: "Tezlashish", pose, vlim: 40,
     stages: [{
-      text: "Tezlikni oshirib ikkinchi uzatmaga o'ting, 40 km/soatdan oshirmang. So'ng sariq zonada to'xtang.",
+      text: "Tezlikni oshirib ikkinchi uzatmaga o'ting, 40 km/soatdan oshirmang. So'ng to'liq to'xtang.",
       update(ctx) {
         const f = ctx.f;
         if (ctx.car.gearNumber >= 2 && ctx.car.v > 1) f.g2 = true;

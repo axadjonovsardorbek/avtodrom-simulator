@@ -163,8 +163,8 @@ export function buildWorldMeshes(W, quality) {
 
     // a low concrete wall along the edge of the asphalt (the kerb posts of src/world/board.js stand in it)
     { const f = bd.frame.map(([x, y]) => [x + Math.sign(x) * 0.75, y + Math.sign(y) * 0.75]), geos = [];
-      for (let i = 0; i < 4; i++) { const a = f[i], c = f[(i + 1) % 4], L = Math.hypot(c[0] - a[0], c[1] - a[1]) + 0.35, bx = new THREE.BoxGeometry(L, 0.5, 0.35);
-        bx.rotateY(-Math.atan2(c[1] - a[1], c[0] - a[0])); bx.translate((a[0] + c[0]) / 2, 0.25, (a[1] + c[1]) / 2); geos.push(bx); }
+      for (let i = 0; i < 4; i++) { const a = f[i], c = f[(i + 1) % 4], L = Math.hypot(c[0] - a[0], c[1] - a[1]) + 0.35, bx = new THREE.BoxGeometry(L, 0.8, 0.45);
+        bx.rotateY(-Math.atan2(c[1] - a[1], c[0] - a[0])); bx.translate((a[0] + c[0]) / 2, 0.4, (a[1] + c[1]) / 2); geos.push(bx); }
       addMerged(group, geos, kerbMat); }
     // the red-roofed shelter by the start, behind the fence (as on the video)
     if (W.start) { const sh = new THREE.Group(), red = new THREE.MeshStandardMaterial({ color: 0xb3262a, roughness: 0.6 }), pm = new THREE.MeshStandardMaterial({ color: 0x8a8f94, metalness: 0.5, roughness: 0.5 });
@@ -232,6 +232,14 @@ export function buildWorldMeshes(W, quality) {
     group.add(m);
   }
 
+  // the long planter on the far side of the overpasses (0:14-0:16 of the video): a concrete trough with shrubs
+  for (const r of W.ramps.filter(r => r.extra)) {
+    const L = r.s3 - r.s0, [x, y] = toWorld(r.pose, (r.s0 + r.s3) / 2, -(r.halfW + 1.1)), rot = -r.pose.th;
+    const box = new THREE.Mesh(new THREE.BoxGeometry(L, 0.7, 1.4), new THREE.MeshStandardMaterial({ color: 0xd2d0c8, roughness: 0.85 })); box.position.set(x, 0.35, y); box.rotation.y = rot; group.add(box);
+    const soil = new THREE.Mesh(new THREE.BoxGeometry(L - 0.3, 0.05, 1.1), new THREE.MeshStandardMaterial({ map: grassTexture(), roughness: 1 })); soil.position.set(x, 0.71, y); soil.rotation.y = rot; group.add(soil);
+    for (let s = r.s0 + 0.8; s < r.s3 - 0.5; s += 1.1) { const [bx, by] = toWorld(r.pose, s, -(r.halfW + 1.1)), b = new THREE.Mesh(new THREE.SphereGeometry(0.45, 10, 8), new THREE.MeshStandardMaterial({ map: bushTexture(), color: 0x8fbf6a, roughness: 0.9 })); b.scale.y = 0.8; b.position.set(bx, 1.0, by); group.add(b); }
+    wall(...toWorld(r.pose, r.s0, -(r.halfW + 1.1)), ...toWorld(r.pose, r.s3, -(r.halfW + 1.1)), 0.7, 0.7);
+  }
   // estakada side walls and railings
   for (const r of W.ramps) {
     { // the deck: a concrete road surface that climbs and comes down again
