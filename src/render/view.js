@@ -252,10 +252,20 @@ export class View {
     const f = new THREE.Vector3(Math.cos(car.th), 0, Math.sin(car.th));
     const cp = new THREE.Vector3(car.x, car.h, car.y);
     const cam = this.cam;
+    // head motion: the body lags behind acceleration and braking, leans into turns, and the
+    // road surface gives a faint shake that grows with speed
+    const accel = dt > 0 ? (car.v - (this.lastV ?? car.v)) / dt : 0; this.lastV = car.v;
+    const lat = car.v * car.v / 2.8 * Math.tan(car.steer || 0);
+    const k = Math.min(1, dt * 5);
+    this.head = this.head || { x: 0, z: 0 };
+    this.head.x += (THREE.MathUtils.clamp(-accel * 0.012, -0.07, 0.05) - this.head.x) * k;
+    this.head.z += (THREE.MathUtils.clamp(lat * 0.006, -0.05, 0.05) - this.head.z) * k;
+    const shake = Math.min(1, Math.abs(car.v) / 12) * 0.0035, tt = now / 1000;
     if (this.mode === "cockpit") {
-      const [ex, ey, ez] = this.eye || [1.2, 1.22, -0.37];
+      const [ex0, ey0, ez0] = this.eye || [1.2, 1.22, -0.37];
+      const ex = ex0 + this.head.x, ey = ey0 + Math.sin(tt * 31) * shake + Math.sin(tt * 17.3) * shake * 0.6, ez = ez0 + this.head.z;
       const eye = root.localToWorld(new THREE.Vector3(ex, ey, ez));
-      const yaw = this.look + this.drag.yaw, pitch = this.drag.pitch - 0.045;
+      const yaw = this.look + this.drag.yaw, pitch = this.drag.pitch - 0.045 + this.head.x * 0.25;
       const tgt = root.localToWorld(new THREE.Vector3(ex + 10 * Math.cos(yaw) * Math.cos(pitch), ey + 10 * Math.sin(pitch), ez + 10 * Math.sin(yaw) * Math.cos(pitch)));
       cam.position.copy(eye); cam.lookAt(tgt);
       if (cam.fov !== 68) { cam.fov = 68; cam.updateProjectionMatrix(); }
@@ -267,7 +277,9 @@ export class View {
       this.chasePos.lerp(want, 1 - Math.exp(-dt * 4));
       cam.position.copy(this.chasePos);
       cam.lookAt(cp.clone().addScaledVector(f, 2).add(new THREE.Vector3(0, 1, 0)));
-      if (cam.fov !== 55) { cam.fov = 55; cam.updateProjectionMatrix(); }
+      // a wider view as the speed rises
+      const fov = 55 + Math.min(8, Math.abs(car.v) * 0.45);
+      if (Math.abs(cam.fov - fov) > 0.05) { cam.fov += (fov - cam.fov) * Math.min(1, dt * 3); cam.updateProjectionMatrix(); }
     } else if (this.mode === "interiorRear") {
       // like a photo taken from the middle of the rear seat (used to compare with references)
       const eye = root.localToWorld(new THREE.Vector3(0.85, 1.24, 0.0));

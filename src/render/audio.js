@@ -45,6 +45,19 @@ export class CarAudio {
     [g1, g2, subG].forEach(g => g.connect(shaper));
     shaper.connect(this.engFilter); this.engFilter.connect(this.engGain); this.engGain.connect(this.master);
     this.eng.start(); this.eng2.start(); this.sub.start();
+    // exhaust: low noise pulsed at the firing rate (the "putt-putt" of the pipes) and a
+    // slow uneven wobble at half the crank speed, so the idle is not a perfect tone
+    const exSrc = c.createBufferSource(); exSrc.buffer = this.brown; exSrc.loop = true;
+    this.exFilter = c.createBiquadFilter(); this.exFilter.type = "lowpass"; this.exFilter.frequency.value = 180; this.exFilter.Q.value = 0.8;
+    this.exGain = c.createGain(); this.exGain.gain.value = 0;
+    this.exPulse = c.createOscillator(); this.exPulse.type = "square";
+    this.exDepth = c.createGain(); this.exDepth.gain.value = 0;
+    this.exPulse.connect(this.exDepth); this.exDepth.connect(this.exGain.gain);
+    exSrc.connect(this.exFilter); this.exFilter.connect(this.exGain); this.exGain.connect(this.master);
+    exSrc.start(); this.exPulse.start();
+    this.wobble = c.createOscillator(); this.wobble.type = "sine";
+    this.wobDepth = c.createGain(); this.wobDepth.gain.value = 0;
+    this.wobble.connect(this.wobDepth); this.wobDepth.connect(this.engGain.gain); this.wobble.start();
     // turbo whistle (rises with boost) for turbocharged engines
     this.whistle = c.createOscillator(); this.whistle.type = "sine";
     this.whistleGain = c.createGain(); this.whistleGain.gain.value = 0;
@@ -296,6 +309,12 @@ export class CarAudio {
     this.engFilter.frequency.setTargetAtTime(clamp(P.filter[0] + thr * P.filter[1] + rpm * 0.3, 60, 12000), t, 0.04);
     const load = on ? 0.16 + thr * 0.16 + clamp(rpm / 6500, 0, 1) * 0.08 : (rpm > 50 ? 0.08 * rpm / 800 : 0);
     this.engGain.gain.setTargetAtTime(load * P.gain, t, 0.05);
+    const ex = on ? 0.05 + thr * 0.11 : 0;
+    this.exGain.gain.setTargetAtTime(ex, t, 0.06); this.exDepth.gain.setTargetAtTime(ex * 0.8, t, 0.06);
+    this.exPulse.frequency.setTargetAtTime(f, t, 0.02);
+    this.exFilter.frequency.setTargetAtTime(150 + rpm * 0.06 + thr * 260, t, 0.05);
+    this.wobble.frequency.setTargetAtTime(Math.max(2, rpm / 120), t, 0.05);
+    this.wobDepth.gain.setTargetAtTime(on ? load * 0.18 * Math.max(0, 1 - rpm / 2500) : 0, t, 0.1);
     // boost builds with throttle above ~1800 rpm; the whistle follows it
     const boost = P.turbo && on ? clamp(thr * (rpm - 1800) / 2500, 0, 1) : 0;
     this.boost = (this.boost || 0) + (boost - (this.boost || 0)) * 0.08;

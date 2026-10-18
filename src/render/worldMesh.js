@@ -346,11 +346,88 @@ export function buildWorldMeshes(W, quality) {
   }
 
   if (W.name === "full") {
-    const bld = new THREE.Mesh(new THREE.BoxGeometry(34, 9, 12), [concMat, concMat, new THREE.MeshStandardMaterial({ color: 0x9aa3ab }), concMat,
-      new THREE.MeshStandardMaterial({ map: facadeTexture() }), concMat]);
-    bld.position.set(40, 4.5, 162); bld.castShadow = true; bld.receiveShadow = true; group.add(bld);
+    // exam centre building north of the track: two storeys, glazing, a canopy over the
+    // entrance, the sign, flag poles with the Uzbek flag and a camera tower at the corner
+    const B = new THREE.Group(); B.position.set(40, 0, -160); group.add(B);
+    const wallM = new THREE.MeshStandardMaterial({ color: 0xe6e2da, roughness: 0.85 });
+    const darkM = new THREE.MeshStandardMaterial({ color: 0x2b3038, roughness: 0.4, metalness: 0.4 });
+    const glassM = new THREE.MeshPhysicalMaterial({ color: 0x5f7f99, roughness: 0.08, metalness: 0.2, clearcoat: 1, envMapIntensity: 1.4 });
+    const body = new THREE.Mesh(new THREE.BoxGeometry(36, 8, 13), wallM); body.position.y = 4; body.castShadow = body.receiveShadow = true; B.add(body);
+    const roof = new THREE.Mesh(new THREE.BoxGeometry(37, 0.5, 14), darkM); roof.position.y = 8.25; B.add(roof);
+    for (const fy of [2.3, 5.9]) {                         // two bands of windows on the track side
+      const band = new THREE.Mesh(new THREE.BoxGeometry(32, 2.1, 0.12), glassM); band.position.set(0, fy, 6.52); B.add(band);
+      for (let x = -16; x <= 16; x += 2.6) { const mul = new THREE.Mesh(new THREE.BoxGeometry(0.12, 2.2, 0.18), darkM); mul.position.set(x, fy, 6.55); B.add(mul); }
+    }
+    const canopy = new THREE.Mesh(new THREE.BoxGeometry(9, 0.25, 3.4), darkM); canopy.position.set(0, 3.6, 8.1); canopy.castShadow = true; B.add(canopy);
+    for (const x of [-4.2, 4.2]) { const p = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.12, 3.6, 10), darkM); p.position.set(x, 1.8, 9.6); B.add(p); }
+    const door = new THREE.Mesh(new THREE.BoxGeometry(4, 2.8, 0.1), glassM); door.position.set(0, 1.4, 6.56); B.add(door);
     const sign = new THREE.Mesh(new THREE.PlaneGeometry(14, 2.2), new THREE.MeshBasicMaterial({ map: textTexture("IMTIHON MARKAZI", "#1f4f8a", 1024, 160), transparent: true }));
-    sign.position.set(40, 7.6, 155.9); sign.rotation.y = Math.PI; group.add(sign);
+    sign.position.set(0, 7.6, 6.6); B.add(sign);
+    // flags
+    const flagTex = (() => { const c = document.createElement("canvas"); c.width = 192; c.height = 96; const g = c.getContext("2d");
+      g.fillStyle = "#0099b5"; g.fillRect(0, 0, 192, 31); g.fillStyle = "#ce1126"; g.fillRect(0, 31, 192, 3); g.fillStyle = "#fff"; g.fillRect(0, 34, 192, 28);
+      g.fillStyle = "#ce1126"; g.fillRect(0, 62, 192, 3); g.fillStyle = "#1eb53a"; g.fillRect(0, 65, 192, 31);
+      g.fillStyle = "#fff"; g.beginPath(); g.arc(24, 15, 10, 0, 7); g.fill(); g.fillStyle = "#0099b5"; g.beginPath(); g.arc(28, 15, 9, 0, 7); g.fill();
+      const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t; })();
+    dyn.flags = [];
+    for (const x of [-12, -9, 12]) {
+      const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.08, 10, 8), new THREE.MeshStandardMaterial({ color: 0xc8ccd1, metalness: 0.8, roughness: 0.3 }));
+      pole.position.set(x, 5, 12); pole.castShadow = true; B.add(pole);
+      const fg = new THREE.PlaneGeometry(2.4, 1.2, 12, 1); fg.translate(1.2, 0, 0);
+      const flag = new THREE.Mesh(fg, new THREE.MeshStandardMaterial({ map: flagTex, side: THREE.DoubleSide, roughness: 0.8 }));
+      flag.position.set(x, 9.2, 12); B.add(flag); dyn.flags.push(flag);
+    }
+    // camera tower
+    const tw = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.25, 12, 8), darkM); tw.position.set(19.5, 6, 8); B.add(tw);
+    for (const a of [0, 2.1, 4.2]) { const cm = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.25, 0.25), new THREE.MeshStandardMaterial({ color: 0xf2f2f0 })); cm.position.set(19.5 + Math.cos(a) * 0.35, 11.6, 8 + Math.sin(a) * 0.35); cm.rotation.y = -a; B.add(cm); }
+  }
+
+  // raised kerbs along the road edges, broken where other roads or pads join
+  {
+    const curbM = new THREE.MeshStandardMaterial({ color: 0xc9c7c0, roughness: 0.9 });
+    const roadCells = new Map(), key = (x, y) => Math.floor(x) + "," + Math.floor(y);
+    W.roads.forEach((r, ri) => { for (let k = 0; k < r.pts.length; k++) { const [x, y] = r.pts[k], R = r.width / 2 + 0.6;
+      for (let i = Math.floor(x - R); i <= x + R; i++) for (let j = Math.floor(y - R); j <= y + R; j++) if ((i + 0.5 - x) ** 2 + (j + 0.5 - y) ** 2 <= R * R) { const c = i + "," + j; if (!roadCells.has(c)) roadCells.set(c, new Set()); roadCells.get(c).add(ri); } } });
+    const inPad = (x, y) => W.pads.some(p => { let inside = false; const P = p.poly; for (let i = 0, j = P.length - 1; i < P.length; j = i++) if ((P[i][1] > y) !== (P[j][1] > y) && x < (P[j][0] - P[i][0]) * (y - P[i][1]) / (P[j][1] - P[i][1]) + P[i][0]) inside = !inside; return inside; });
+    const pos = [], idx = [];
+    const H = 0.12, W1 = 0.22;
+    W.roads.forEach((r, ri) => {
+      for (const side of [-1, 1]) {
+        const inner = offsetPolyline(r.pts, side * (r.width / 2 + 0.25)), outer = offsetPolyline(r.pts, side * (r.width / 2 + 0.25 + W1));
+        for (let k = 1; k < r.pts.length; k++) {
+          const mx = (inner[k][0] + inner[k - 1][0]) / 2, my = (inner[k][1] + inner[k - 1][1]) / 2;
+          const others = roadCells.get(key(mx, my));
+          if ((others && [...others].some(o => o !== ri)) || inPad(mx, my)) continue;
+          const a = inner[k - 1], b2 = inner[k], c = outer[k], d = outer[k - 1], n = pos.length / 3;
+          const y0 = h(a[0], a[1]);
+          // top face and the face towards the road
+          pos.push(a[0], y0 + H, a[1], b2[0], y0 + H, b2[1], c[0], y0 + H, c[1], d[0], y0 + H, d[1], a[0], y0, a[1], b2[0], y0, b2[1]);
+          if (side > 0) idx.push(n, n + 1, n + 2, n, n + 2, n + 3, n + 4, n + 5, n + 1, n + 4, n + 1, n);
+          else idx.push(n, n + 2, n + 1, n, n + 3, n + 2, n + 4, n + 1, n + 5, n + 4, n, n + 1);
+        }
+      }
+    });
+    const g = new THREE.BufferGeometry(); g.setAttribute("position", new THREE.Float32BufferAttribute(pos, 3)); g.setIndex(idx); g.computeVertexNormals();
+    const curbs = new THREE.Mesh(g, curbM); curbs.receiveShadow = true; curbs.castShadow = quality !== "low"; group.add(curbs);
+  }
+
+  // asphalt repairs: darker patches and a few crack lines scattered on the roads
+  {
+    const tex = (() => { const c = document.createElement("canvas"); c.width = c.height = 256; const g = c.getContext("2d");
+      g.fillStyle = "rgba(20,22,25,0.55)"; g.beginPath(); g.moveTo(20, 30); g.lineTo(230, 18); g.lineTo(240, 220); g.lineTo(30, 236); g.closePath(); g.fill();
+      g.strokeStyle = "rgba(10,10,12,0.9)"; g.lineWidth = 3; g.beginPath(); g.moveTo(40, 120); for (let x = 40; x < 220; x += 18) g.lineTo(x, 120 + (Math.random() - 0.5) * 40); g.stroke();
+      const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t; })();
+    const m = new THREE.MeshStandardMaterial({ map: tex, transparent: true, depthWrite: false, roughness: 0.95, polygonOffset: true, polygonOffsetFactor: -3, polygonOffsetUnits: -3 });
+    const n = quality === "low" ? 25 : 70, patches = new THREE.InstancedMesh(new THREE.PlaneGeometry(1, 1).rotateX(-Math.PI / 2), m, n);
+    let k = 0;
+    for (let t = 0; t < n * 10 && k < n; t++) {
+      const r = W.roads[Math.floor(rand() * W.roads.length)], p = r.pts[Math.floor(rand() * r.pts.length)];
+      if (!p) continue;
+      const sz = 0.8 + rand() * 1.8;
+      mtx.compose(v.set(p[0] + (rand() - 0.5) * (r.width - sz), h(p[0], p[1]) + 0.01, p[1] + (rand() - 0.5) * (r.width - sz)), q.setFromAxisAngle(new THREE.Vector3(0, 1, 0), rand() * 6), sc.set(sz, 1, sz * (0.6 + rand() * 0.6)));
+      patches.setMatrixAt(k++, mtx);
+    }
+    patches.count = k; patches.receiveShadow = true; group.add(patches);
   }
   const fenceMat = new THREE.MeshStandardMaterial({ color: 0xbfc3c7, roughness: 0.6, metalness: 0.4 });
   const fx0 = b.minX - 8, fx1 = b.maxX + 8, fy0 = b.minY - 8, fy1 = b.maxY + 8;
@@ -377,6 +454,8 @@ export function updateWorldMeshes(W, dyn, clock, now) {
     const sw = p.walking ? Math.sin(p.phase * 7) * 0.45 : 0;
     legs[0].rotation.z = sw; legs[1].rotation.z = -sw;
   }
+  // flags flutter
+  if (dyn.flags) for (const f of dyn.flags) { const p = f.geometry.attributes.position; for (let i = 0; i < p.count; i++) { const x = p.getX(i); p.setZ(i, Math.sin(x * 2.2 - now / 260) * 0.12 * (x / 2.4)); } p.needsUpdate = true; }
   for (const { c, m } of dyn.cones) if (c.hit && m.rotation.z === 0) { m.rotation.z = 1.4; m.position.y = 0.15; }
   for (const { ln, mat } of dyn.lines) {
     const hot = clock - ln.flash < 0.8;
