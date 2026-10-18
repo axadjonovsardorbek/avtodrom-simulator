@@ -101,13 +101,15 @@ export function buildFull(car) {
   const at = (x, y, deg) => { const [X, Y] = px(x, y); return new Turtle(W, X, Y, deg, bare); };
 
   // ---- 1-3: start, the crossing and the overpass on the top road (heading west)
-  const T = at(915, 66, heading([915, 66], [100, 66]));
+  const D = 150;                                   // the start box and the crossing stand this far (px) east of the overpass
+  const T = at(915 + D, 66, heading([915, 66], [100, 66]));
   W.startLine = { pose: T.pose, s: 0 };
-  { const [x, y] = px(962, 66); W.start = { x, y, th: T.pose.th }; }
+  { const [x, y] = px(962 + D, 66); W.start = { x, y, th: T.pose.th }; }
   W.addPaint([toWorld(T.pose, -0.3, -HL), toWorld(T.pose, 0, -HL), toWorld(T.pose, 0, HL), toWorld(T.pose, -0.3, HL)]);
-  const zebraS = Math.hypot(...px(716, 66).map((v, i) => v - px(915, 66)[i]));
+  const zebraS = Math.hypot(...px(716, 66).map((v, i) => v - px(915, 66)[i]));  // distance start line to the crossing
   T.fwd(zebraS - 17.5);
   const tP = piyoda(W, T, 21, { zebra: false, pave: false, l0: -5.4, l1: 2.6 });
+  T.fwd(D * 0.1);                                  // the longer run between the crossing and the overpass
   const tE = estakada(W, T, { s0: 1, s1: 13, s2: 24, s3: 36, h: 1.0, stopS: 9, len: 37 });
   // the decorative lane signs of the board must not stand on the overpasses
   W.signs = W.signs.filter(g => !W.ramps.some(r => { const [a, l] = toLocal(r.pose, g.x, g.y); return a > r.s0 - 2 && a < r.s3 + 2 && Math.abs(l) < r.halfW + 1.5; }));

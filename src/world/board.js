@@ -41,6 +41,7 @@ const rrect = (x0, y0, x1, y1, r) => [...arc(x1 - r, y0 + r, r, -Math.PI / 2, 0,
 const polyline = pts => pts.map(p => P(...p));
 const arc = (cx, cy, r, a0, a1, n = 14) => Array.from({ length: n + 1 }, (_, i) => { const a = a0 + (a1 - a0) * i / n; return [cx + r * Math.cos(a), cy + r * Math.sin(a)]; });
 
+const D = 150;                                       // the start box and the crossing: px east of where the plan has them
 export function addBoard(W) {
   W.board = { frame: FRAME, islands: ISLANDS, pads: PADS };
   // the islands cannot be driven over: a row of low kerb posts along the edge of every island and round the whole plan
@@ -64,10 +65,10 @@ export function addBoard(W) {
   // zebras of the junction and of the top road
   zebra(W, 657, 498, 724, 545, "v"); zebra(W, 662, 646, 728, 690, "v");
   zebra(W, 612, 556, 655, 610, "h"); zebra(W, 732, 558, 780, 610, "h");
-  zebra(W, 696, 42, 737, 122, "h");
+  zebra(W, 696 + D, 42, 737 + D, 122, "h");
   // the start box and the line at its end
-  W.addLine(polyline([[745, 35], [915, 35], [915, 125], [745, 125], [745, 35]]), "paint", { width: 0.25 });
-  W.addLine(polyline([[915, 28], [915, 125]]), "paint", { width: 0.3 });
+  W.addLine(polyline([[745 + D, 35], [915 + D, 35], [915 + D, 125], [745 + D, 125], [745 + D, 35]]), "paint", { width: 0.25 });
+  W.addLine(polyline([[915 + D, 35], [915 + D, 125]]), "paint", { width: 0.3 });
   // the north-east road: its outline, the line at its end, the dashed middle
   W.addLine(polyline([[735, 286], [1232, 286], [1232, 365]]), "paint", { width: 0.2 });
   W.addLine(polyline([[705, 400], [705, 335], ...arc(740, 335, 35, Math.PI, Math.PI * 1.5, 8).slice(0, -1), [735, 286]]), "paint", { width: 0.2 });
@@ -84,7 +85,7 @@ export function addBoard(W) {
   hatch(W, [[1337, 365], [1385, 365], [1385, 495], [1337, 495]]);
   hatch(W, [[662, 1085], [714, 1030], [714, 1085]], 12);
   // lane arrows (the way each lane runs, as on the plan)
-  for (const [x, y, d] of [[850, 55, 180], [850, 100, 180], [1085, 48, 180], [1085, 95, 180], [770, 310, 0], [1060, 305, 0], [1055, 350, 0], [1040, 575, 180], [1160, 575, 180], [1310, 575, 180], [1030, 527, 180], [1150, 527, 180], [1310, 527, 180],
+  for (const [x, y, d] of [[850 + D, 55, 180], [850 + D, 100, 180], [1250, 48, 180], [1250, 95, 180], [770, 310, 0], [1060, 305, 0], [1055, 350, 0], [1040, 575, 180], [1160, 575, 180], [1310, 575, 180], [1030, 527, 180], [1150, 527, 180], [1310, 527, 180],
     [100, 340, 90], [78, 470, 90], [250, 1090, 0], [640, 1095, 0], [975, 1105, 0], [1350, 690, -90], [1318, 965, 90], [700, 740, -90], [680, 440, 90], [575, 212, 0], [580, 352, 0], [155, 92, 180], [155, 130, 180]]) arrow(W, x, y, d);
   // road signs as on the video: a give-way sign over a blue arrow on the tip of every island, P signs at the corners of the
   // pads, paired blue lane signs along the north fence, "no stopping" at the start
@@ -97,9 +98,9 @@ export function addBoard(W) {
     sign(x, y, th, "yield", { big: true }); sign(x, y, th, ["right", "left", "ahead"][k % 3], { h: 1.45 });
   });
   for (const p of PADS) { const a = p[0], b = p[1]; sign((a[0] + b[0]) / 2, (a[1] + b[1]) / 2, Math.atan2(b[1] - a[1], b[0] - a[0]) + Math.PI / 2, "park"); }
-  for (const x of [-48, -22, 4, 30]) { const [X, Y] = [x, -52.5]; sign(X, Y, Math.PI / 2, "ahead", { big: true }); sign(X + 1.2, Y, Math.PI / 2, "aheadRight", { big: true }); }
-  { const [x, y] = P(930, 20); sign(x, y, Math.PI, "noStop", { big: true }); }
-  W.texts.push({ ...(([x, y]) => ({ x, y }))(P(928, 75)), th: -Math.PI / 2, text: "START", size: 3.6 });
+  for (const x of [-48, -22, 4, 55]) { const [X, Y] = [x, -52.5]; sign(X, Y, Math.PI / 2, "ahead", { big: true }); sign(X + 1.2, Y, Math.PI / 2, "aheadRight", { big: true }); }
+  { const [x, y] = P(930 + D, 20); sign(x, y, Math.PI, "noStop", { big: true }); }
+  W.texts.push({ ...(([x, y]) => ({ x, y }))(P(945 + D, 80)), th: -Math.PI / 2, text: "START", size: 3.6 });
 }
 
 // which edges of a pad are open to the asphalt (no grass beside them): the exercise outline leaves them out
