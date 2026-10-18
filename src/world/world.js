@@ -31,7 +31,7 @@ export class World {
   }
 
   addLine(pts, kind = "edge", opts = {}) {
-    const ln = { pts, kind, dash: opts.dash || null, width: opts.width || 0.15, color: opts.color || "white", touch: false, lastT: -9, flash: -9 };
+    const ln = { pts, kind, dash: opts.dash || null, width: opts.width || 0.15, color: opts.color || "white", hidden: !!opts.hidden, touch: false, lastT: -9, flash: -9 };
     this.lines.push(ln);
     return ln;
   }

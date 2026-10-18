@@ -3,7 +3,7 @@
 import * as THREE from "three";
 import { mergeVertices, mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js";
 import { offsetPolyline, untangle, toWorld, polylineLength } from "../sim/geom.js";
-import { asphaltTexture, grassTexture, concreteTexture, signTexture, textTexture, facadeTexture } from "./textures.js";
+import { asphaltTexture, grassTexture, concreteTexture, signTexture, textTexture, facadeTexture, bushTexture } from "./textures.js";
 
 const Y_ROAD = 0.0, Y_PAD = 0.006, Y_PAINT = 0.05, Y_LINE = 0.055;      // the plan's layers (grass, kerb band, pads) lie between 0.02 and 0.04
 
@@ -118,7 +118,7 @@ export function buildWorldMeshes(W, quality) {
   // the plan of the exam ground (src/world/board.js): asphalt everywhere, the islands with kerbs, the pale pads
   if (W.board) {
     const bd = W.board, grassTex = grassTexture(), islandMat = new THREE.MeshStandardMaterial({ map: grassTex, roughness: 1, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 });
-    const kerbMat = new THREE.MeshStandardMaterial({ color: 0xcfcdc6, roughness: 0.9 });
+    const kerbMat = new THREE.MeshStandardMaterial({ color: 0xdcdad3, roughness: 0.85 });
     const frame = new THREE.Mesh(flatPoly(bd.frame, h, Y_ROAD, 7), asphaltMat); frame.receiveShadow = true; group.add(frame);
     // asphalt; the islands raised 10 cm inside a 12 cm kerb; the pads (cut out of the islands) at road level, painted pale
     const flatShape = (shape, y) => { const g = new THREE.ShapeGeometry(shape); const p = g.attributes.position, uv = [];
@@ -128,9 +128,9 @@ export function buildWorldMeshes(W, quality) {
     for (const isl of bd.islands) {
       const shape = new THREE.Shape(isl.kerb.map(([x, y]) => new THREE.Vector2(x, -y)));
       shape.holes.push(new THREE.Path(isl.grass.map(([x, y]) => new THREE.Vector2(x, -y))));
-      const kg = new THREE.ExtrudeGeometry(shape, { depth: 0.12, bevelEnabled: false }); kg.rotateX(-Math.PI / 2);   // a raised kerb round the raised island
+      const kg = new THREE.ExtrudeGeometry(shape, { depth: 0.17, bevelEnabled: false }); kg.rotateX(-Math.PI / 2);   // a raised kerb round the raised island
       kerbGeos.push(kg.index ? kg.toNonIndexed() : kg);
-      grassGeos.push(flatPoly(isl.grass, h, 0.1, 7));
+      grassGeos.push(flatPoly(isl.grass, h, 0.14, 7));
     }
     addMerged(group, grassGeos, islandMat);
     for (const g of kerbGeos) g.deleteAttribute("uv");
@@ -141,17 +141,18 @@ export function buildWorldMeshes(W, quality) {
     // low round bushes on the islands, as on the ground itself
     const inside = (poly, x, y) => { let c = false; for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) if ((poly[i][1] > y) !== (poly[j][1] > y) && x < (poly[j][0] - poly[i][0]) * (y - poly[i][1]) / (poly[j][1] - poly[i][1]) + poly[i][0]) c = !c; return c; };
     const edgeD = (poly, x, y) => { let d = 1e9; for (let i = 0; i < poly.length; i++) { const a = poly[i], b2 = poly[(i + 1) % poly.length], dx = b2[0] - a[0], dy = b2[1] - a[1], L = dx * dx + dy * dy || 1, t = Math.max(0, Math.min(1, ((x - a[0]) * dx + (y - a[1]) * dy) / L)); d = Math.min(d, Math.hypot(a[0] + dx * t - x, a[1] + dy * t - y)); } return d; };
-    const bushGeo = (() => { const g = new THREE.IcosahedronGeometry(0.6, 1), p = g.attributes.position, v = new THREE.Vector3(); for (let i = 0; i < p.count; i++) { v.fromBufferAttribute(p, i); const n = 1 + 0.18 * Math.sin(v.x * 7) * Math.sin(v.y * 6 + 1) * Math.sin(v.z * 8 + 2); p.setXYZ(i, v.x * n, Math.max(-0.1, v.y * n * 0.8), v.z * n); } g.computeVertexNormals(); return g; })();
+    // a round, leafy shrub: a smooth ball with a lumpy outline, flat underneath
+    const bushGeo = (() => { const g = new THREE.IcosahedronGeometry(0.6, quality === "low" ? 1 : 2), p = g.attributes.position, v = new THREE.Vector3(); for (let i = 0; i < p.count; i++) { v.fromBufferAttribute(p, i); const n = 1 + 0.09 * Math.sin(v.x * 9) * Math.sin(v.y * 8 + 1) * Math.sin(v.z * 10 + 2) + 0.05 * Math.sin(v.x * 23 + v.z * 19); p.setXYZ(i, v.x * n, Math.max(-0.05, v.y * n * 0.85), v.z * n); } const m = mergeVertices(g); m.computeVertexNormals(); return m; })();
     const rand = (() => { let s = 777; return () => ((s = (s * 1664525 + 1013904223) >>> 0) / 4294967296); })();
-    const spots = [], per = quality === "low" ? 22 : quality === "mid" ? 12 : 8;      // m² of island per bush
+    const spots = [], per = quality === "low" ? 9 : quality === "mid" ? 5 : 3.2;      // m² of island per bush: the islands are full of them
     for (const isl of bd.islands) {
       const xs = isl.grass.map(q => q[0]), ys = isl.grass.map(q => q[1]), x0 = Math.min(...xs), x1 = Math.max(...xs), y0 = Math.min(...ys), y1 = Math.max(...ys);
       const n = Math.round((x1 - x0) * (y1 - y0) / per);
-      for (let k = 0; k < n * 3 && spots.length < 4000; k++) { const x = x0 + rand() * (x1 - x0), y = y0 + rand() * (y1 - y0); if (inside(isl.grass, x, y) && edgeD(isl.grass, x, y) > 1.1) spots.push([x, y]); if (k > n * 3) break; }
+      for (let k = 0; k < n * 3 && spots.length < 6000; k++) { const x = x0 + rand() * (x1 - x0), y = y0 + rand() * (y1 - y0); if (inside(isl.grass, x, y) && edgeD(isl.grass, x, y) > 0.9) spots.push([x, y]); if (k > n * 3) break; }
     }
-    const bushes = new THREE.InstancedMesh(bushGeo, new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.95 }), spots.length);
+    const bushes = new THREE.InstancedMesh(bushGeo, new THREE.MeshStandardMaterial({ map: bushTexture(), color: 0xffffff, roughness: 0.9 }), spots.length);
     const bm = new THREE.Matrix4(), bq = new THREE.Quaternion(), bs = new THREE.Vector3(), bv = new THREE.Vector3(), bc = new THREE.Color();
-    spots.forEach(([x, y], i) => { const s = 0.7 + rand() * 0.9; bm.compose(bv.set(x, 0.1 + 0.25 * s, y), bq.setFromAxisAngle(new THREE.Vector3(0, 1, 0), rand() * 6), bs.set(s, s * (0.8 + rand() * 0.4), s)); bushes.setMatrixAt(i, bm); bushes.setColorAt(i, bc.setHSL(0.27 + rand() * 0.06, 0.45 + rand() * 0.15, 0.17 + rand() * 0.08)); });
+    spots.forEach(([x, y], i) => { const s = 0.75 + rand() * 0.6; bm.compose(bv.set(x, 0.12 + 0.3 * s, y), bq.setFromAxisAngle(new THREE.Vector3(0, 1, 0), rand() * 6), bs.set(s, s * (0.8 + rand() * 0.4), s)); bushes.setMatrixAt(i, bm); bushes.setColorAt(i, bc.setHSL(0.26 + rand() * 0.05, 0.42 + rand() * 0.12, 0.30 + rand() * 0.08)); });
     bushes.castShadow = quality === "high"; bushes.receiveShadow = true; group.add(bushes);
 
     // a mesh fence round the ground, a little way out from its edge
@@ -196,6 +197,7 @@ export function buildWorldMeshes(W, quality) {
   // painted lines: all the white ones are one mesh, all the yellow ones another (a touched line flashes in its own overlay, see below)
   const lineGeos = { white: [], yellow: [] }, paintGeos = { white: [], yellow: [] };
   for (const ln of W.lines) {
+    if (ln.hidden) { dyn.lines.push({ ln, h, group }); continue; }      // the foot of a kerb: the kerb itself is what one sees
     const pieces = ln.dash ? dashed(ln.pts, ln.dash[0], ln.dash[1]) : [ln.pts];
     for (const pc of pieces) {
       if (pc.length < 2 || polylineLength(pc) < 0.01) continue;
@@ -524,8 +526,8 @@ export function buildWorldMeshes(W, quality) {
     const curbs = new THREE.Mesh(g, curbM); curbs.receiveShadow = true; curbs.castShadow = quality !== "low"; group.add(curbs);
   }
 
-  // asphalt repairs: darker patches and a few crack lines scattered on the roads
-  {
+  // asphalt repairs: darker patches and a few crack lines scattered on the roads (not on the exam ground: its asphalt is new)
+  if (!W.board) {
     const tex = (() => { const c = document.createElement("canvas"); c.width = c.height = 256; const g = c.getContext("2d");
       g.fillStyle = "rgba(20,22,25,0.55)"; g.beginPath(); g.moveTo(20, 30); g.lineTo(230, 18); g.lineTo(240, 220); g.lineTo(30, 236); g.closePath(); g.fill();
       g.strokeStyle = "rgba(10,10,12,0.9)"; g.lineWidth = 3; g.beginPath(); g.moveTo(40, 120); for (let x = 40; x < 220; x += 18) g.lineTo(x, 120 + (Math.random() - 0.5) * 40); g.stroke();
@@ -616,6 +618,7 @@ export function updateWorldMeshes(W, dyn, clock, now) {
     for (const c of W.traffic.cars) {
       let m = dyn.traffic.made.get(c);
       const tpl = dyn.traffic.real && c.model && dyn.traffic.real[c.model];
+      if (!tpl && c.model && dyn.traffic.wantReal) continue;               // its model is still loading: nothing rather than a box
       if (m && tpl && !m.userData.real) { dyn.traffic.group.remove(m); m = null; }                 // the light model arrived after the box
       if (!m) { m = tpl ? realCar(tpl, c.color) : trafficCar(c.color); m.userData.real = !!tpl; dyn.traffic.group.add(m); dyn.traffic.made.set(c, m); }
       const p = tpl ? W.traffic.axlePose(c) : W.traffic.worldPose(c);     // real models sit on their rear axle, the boxes on their middle

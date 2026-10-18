@@ -28,7 +28,7 @@ export const ELEMENTS = [
 const ARC = 8;
 
 // 4-way signalised intersection centred at the origin, two-lane arms of length A.
-export function buildIntersection(W, A, caps = false, bare = false) {
+export function buildIntersection(W, A, caps = false, bare = false, flow = {}) {
   const R = 6, C = HL * 2 + R;
   const arc = (cx, cy, a0, a1) => {
     const p = [];
@@ -55,7 +55,7 @@ export function buildIntersection(W, A, caps = false, bare = false) {
     if (caps && !bare) W.addLine([toWorld({ x: c * A, y: n * A, th }, 0, -LANE), toWorld({ x: c * A, y: n * A, th }, 0, LANE)], "edge");
   }
   // other cars on the arms; the junction is already busy when the run starts
-  W.traffic = new Traffic(W, A);
+  W.traffic = new Traffic(W, A, 7, flow.lanes, flow.peds);
   W.traffic.warm(-45, 0);
 }
 
@@ -80,8 +80,21 @@ function checker(W, pose, s, halfW) {
 // and the finish (12) at its end. North is -y; positions are taken in pixels of the plan photo (px()).
 export function buildFull(car) {
   const W = new World("full"); W.car = car; W.k = (car && car.k) || 1;
-  const A = 30, O = { x: 0, y: 0 };
-  buildIntersection(W, A, false, true);
+  const A = 21, O = { x: 0, y: 0 };       // the stop lines 11 m from the centre, just before the zebras
+  // the other cars keep to the lanes of the plan (right-hand traffic): east along the bottom side of the cross road, west
+  // along its top side and the two-lane east road, south down the north road and on down the road between the south quarters
+  const Q = pts => pts.map(p => px(...p));
+  buildIntersection(W, A, false, true, {
+    lanes: [
+      { pts: Q([[150, 614], [560, 612], [612, 603], [780, 603], [830, 612], [1290, 616]]), stop: px(582, 603), axis: "EW", blockBy: [180] },
+      { pts: Q([[1320, 568], [800, 568], [780, 572], [612, 572], [560, 576], [150, 577]]), stop: px(802, 572), axis: "EW", blockBy: [0, -90] },
+      { pts: Q([[674, 410], [674, 640], [690, 700], [690, 1040]]), stop: px(674, 485), axis: "NS", blockBy: [-90, 90] }
+    ],
+    peds: [
+      { a: px(650, 521), b: px(732, 521), axis: "NS" }, { a: px(655, 668), b: px(735, 668), axis: "NS" },
+      { a: px(633, 550), b: px(633, 617), axis: "EW" }, { a: px(756, 552), b: px(756, 617), axis: "EW" }
+    ]
+  });
   addBoard(W);
   const bare = { bare: true };
   const heading = (a, b) => { const p = px(...a), q = px(...b); return Math.atan2(q[1] - p[1], q[0] - p[0]) / DEG; };
@@ -94,7 +107,7 @@ export function buildFull(car) {
   W.addPaint([toWorld(T.pose, -0.3, -HL), toWorld(T.pose, 0, -HL), toWorld(T.pose, 0, HL), toWorld(T.pose, -0.3, HL)]);
   const zebraS = Math.hypot(...px(716, 66).map((v, i) => v - px(915, 66)[i]));
   T.fwd(zebraS - 17.5);
-  const tP = piyoda(W, T, 21, { zebra: false, pave: false });
+  const tP = piyoda(W, T, 21, { zebra: false, pave: false, l0: -5.4, l1: 2.6 });
   const tE = estakada(W, T, { s0: 1, s1: 9, s2: 14, s3: 22, h: 1.0, stopS: 6, len: 23 });
 
   // ---- 4: the 90-degree turns on the second zigzag pad: in from the road on its west side, out at the top towards the east

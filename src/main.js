@@ -29,8 +29,9 @@ import { buildDriver } from "./render/driverFigure.js";
 import { loadPeople, realInstructor, realDriver, realKid, realPedestrian, realWalker, realDriverWalker } from "./render/people.js";
 
 const coarse = matchMedia("(pointer: coarse)").matches;
-const settings = { transmission: "manual", quality: coarse ? "mid" : "high", traffic: coarse ? "simple" : "real", mouseSteer: false, muted: false, voice: true, car: "cobalt", instructor: "angry", color: "white", plate: DEFAULT_PLATE, size: "real" };
+const settings = { transmission: "manual", quality: coarse ? "mid" : "high", traffic: "real", mouseSteer: false, muted: false, voice: true, car: "cobalt", instructor: "angry", color: "white", plate: DEFAULT_PLATE, size: "real" };
 try { Object.assign(settings, JSON.parse(localStorage.getItem("avtodrom.settings") || "{}")); } catch (_) {}
+if (!settings.v2) { settings.v2 = true; if (settings.traffic === "simple") settings.traffic = "real"; }     // phones were given the box cars before
 // the old "Ovoz" button muted on first press; start everyone unmuted once
 // phones used to start on "light"; the new balanced tier keeps shadows and the colour grade at a moderate cost
 if (!settings.q2) { if (coarse && settings.quality === "low") settings.quality = "mid"; settings.q2 = true; }

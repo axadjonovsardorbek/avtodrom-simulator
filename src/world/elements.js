@@ -72,7 +72,8 @@ export function piyoda(W, T, len = 34, opt = {}) {
   if (opt.pave !== false) { W.addPad(rect(pose, 10, 25, -5.4, -HL - 0.35), "concrete"); W.addPad(rect(pose, 10, 25, HL + 0.35, 5.4), "concrete"); }
   W.signs.push({ ...at(pose, 13, 2.9), th: pose.th + Math.PI, kind: "zebra" });
   W.signs.push({ ...at(pose, 21.5, -2.9), th: pose.th, kind: "zebra" });
-  const ped = { x: 0, y: 0, th: pose.th + Math.PI / 2, visible: Math.random() < 0.85, l: -4.4, walking: false, phase: 0 };
+  const l0 = opt.l0 ?? -4.4, l1 = opt.l1 ?? 4.8;      // where the pedestrian waits and where he walks to
+  const ped = { x: 0, y: 0, th: pose.th + Math.PI / 2, visible: opt.l0 !== undefined || Math.random() < 0.85, l: l0, walking: false, phase: 0 };
   const place = () => { const [x, y] = toWorld(pose, cross, ped.l); ped.x = x; ped.y = y; };
   place(); W.peds.push(ped);
   const onRoad = () => ped.walking && ped.l > -HL - 0.6 && ped.l < HL + 0.6;
@@ -81,7 +82,7 @@ export function piyoda(W, T, len = 34, opt = {}) {
     tick(ctx) {
       if (!ped.visible) return;
       if (!ped.walking && ctx.fs > cross - 12) ped.walking = true;   // steps off when the car is ~8 m before the stop line
-      if (ped.walking && ped.l < 4.8) {
+      if (ped.walking && ped.l < l1) {
         const nl = ped.l + 1.15 * ctx.dt;
         if (!polyNearPoint(ctx.P, toWorld(pose, cross, nl + 0.3), 0.6)) { ped.l = nl; ped.phase += ctx.dt; }
         place();

@@ -50,7 +50,7 @@ export function addBoard(W) {
   along(FRAME.map(([x, y]) => [x + Math.sign(x) * 0.6, y + Math.sign(y) * 0.6]), 0.3);
   W.baseSolids = posts; W.solids = posts.slice(); W.solidGrid = null;
   // the kerbs and the frame are the lines a car must not touch
-  for (const isl of ISLANDS) W.addLine(closed(isl.kerb), "edge", { width: 0.2 });
+  for (const isl of ISLANDS) W.addLine(closed(isl.kerb), "edge", { width: 0.2, hidden: true });
   W.addLine(closed(FRAME), "edge", { width: 0.3 });
   // the lane line that runs round every island, a little way out from its kerb
   for (const isl of ISLANDS) for (const l of isl.lanes || []) W.addLine(l, "paint", { width: 0.14 });

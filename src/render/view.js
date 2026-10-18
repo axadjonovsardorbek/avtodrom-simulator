@@ -311,7 +311,7 @@ export class View {
   setTrainModel(tpl) { this.trainTpl = tpl; if (this.dyn) fillTrains(this.dyn, tpl); }
   setTrafficModels(map) { this.trafficReal = map; this.applyTrafficMode(); }
   setTrafficMode(mode) { this.trafficMode = mode; this.applyTrafficMode(); }
-  applyTrafficMode() { if (this.dyn && this.dyn.traffic) this.dyn.traffic.real = this.trafficMode === "real" ? this.trafficReal : null; }
+  applyTrafficMode() { if (this.dyn && this.dyn.traffic) { this.dyn.traffic.real = this.trafficMode === "real" ? this.trafficReal : null; this.dyn.traffic.wantReal = this.trafficMode === "real"; } }
 
   // red pins where penalties happened (replay)
   setReplayMarkers(marks = []) {

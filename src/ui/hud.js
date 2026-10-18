@@ -365,13 +365,23 @@ export class Hud {
         bg.fillStyle = "#454a50"; path(W.board.frame); bg.fill();
         bg.fillStyle = "#c9c8c2"; for (const isl of W.board.islands) { path(isl.kerb); bg.fill(); }
         bg.fillStyle = "#3b6a3c"; for (const isl of W.board.islands) { path(isl.grass); bg.fill(); }
-        bg.fillStyle = "#565c62"; bg.strokeStyle = "rgba(255,255,255,0.75)"; bg.lineWidth = 0.8; for (const p of W.board.pads) { path(p); bg.fill(); bg.stroke(); }
-        // the pins: a red drop with the number, at the exercise (the junction once, in its middle)
-        const pins = [[1, W.startLine && W.startLine.pose], [12, W.finishLine && toFin(W.finishLine)]], seen = new Set();
-        for (const t of W.tasks) { if (seen.has(t.mapNo)) continue; seen.add(t.mapNo); pins.push([t.mapNo, t.id.startsWith("chorraha") ? { x: 0, y: 0 } : t.pose]); }
-        bg.font = "bold 9px Barlow, sans-serif"; bg.textAlign = "center"; bg.textBaseline = "middle";
-        for (const [n, p] of pins) { if (!p) continue; const x = p.x * sc + ox, y = p.y * sc + oy - 7;
-          bg.fillStyle = "#c0392b"; bg.beginPath(); bg.arc(x, y, 6, Math.PI * 0.85, Math.PI * 2.15); bg.lineTo(x, y + 9); bg.closePath(); bg.fill();
+        bg.fillStyle = "#4e545b"; for (const p of W.board.pads) { path(p); bg.fill(); }
+        // the white paint of the plan: lane lines, outlines, zebras, arrows (the kerb foot lines are not drawn)
+        bg.strokeStyle = "rgba(255,255,255,0.72)"; bg.lineWidth = 0.55;
+        for (const ln of W.lines) { if (ln.hidden || ln.kind === "edge" && ln.pts.length > 40) continue; path(ln.pts, false); bg.stroke(); }
+        bg.fillStyle = "rgba(255,255,255,0.8)"; for (const pt of W.paint) { path(pt.poly); bg.fill(); }
+        // the numbers: a red disc at the middle of each exercise (the junction once, at its centre), pushed apart where they crowd
+        const pins = [[1, W.startLine && W.startLine.pose, 0], [12, W.finishLine && toFin(W.finishLine), 0]], seen = new Set();
+        for (const t of W.tasks) { if (seen.has(t.mapNo)) continue; seen.add(t.mapNo); pins.push([t.mapNo, t.id.startsWith("chorraha") ? { x: 0, y: 0 } : t.pose, t.id.startsWith("chorraha") || t.id.startsWith("ilon") || t.id.startsWith("burilish") || t.id.startsWith("boks") ? 0 : 6]); }
+        const pts = pins.filter(q => q[1]).map(([n, p, ahead]) => ({ n, x: (p.x + Math.cos(p.th || 0) * ahead) * sc + ox, y: (p.y + Math.sin(p.th || 0) * ahead) * sc + oy }));
+        const fx = W.board.frame.map(q => q[0] * sc + ox), fy = W.board.frame.map(q => q[1] * sc + oy);
+        for (let it = 0; it < 30; it++) for (const a of pts) {
+          for (const c of pts) { if (a === c) continue; const dx = a.x - c.x, dy = a.y - c.y, d = Math.hypot(dx, dy) || 1; if (d < 15) { a.x += dx / d * (15 - d) / 2; a.y += dy / d * (15 - d) / 2; } }
+          a.x = Math.max(Math.min(...fx) + 7, Math.min(Math.max(...fx) - 7, a.x)); a.y = Math.max(Math.min(...fy) + 7, Math.min(Math.max(...fy) - 7, a.y));
+        }
+        bg.font = "bold 8.5px Barlow, sans-serif"; bg.textAlign = "center"; bg.textBaseline = "middle";
+        for (const { n, x, y } of pts) {
+          bg.fillStyle = "#c0392b"; bg.strokeStyle = "#fff"; bg.lineWidth = 1.1; bg.beginPath(); bg.arc(x, y, 6.2, 0, 7); bg.fill(); bg.stroke();
           bg.fillStyle = "#fff"; bg.fillText(String(n), x, y + 0.5); }
       } else {
         for (const rd of W.roads) {

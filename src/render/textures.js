@@ -30,8 +30,10 @@ function noiseTex(base, specks, seed, size = 512) {
   return t;
 }
 
-export const asphaltTexture = () => noiseTex("#3c3f44", [["rgba(0,0,0,0.25)", 9000, 2.2], ["rgba(255,255,255,0.07)", 7000, 1.6], ["rgba(120,110,95,0.10)", 2500, 2.5]], 7);
+export const asphaltTexture = () => noiseTex("#575c63", [["rgba(0,0,0,0.18)", 9000, 2.2], ["rgba(255,255,255,0.06)", 7000, 1.6], ["rgba(120,110,95,0.10)", 2500, 2.5]], 7);
 export const grassTexture = () => noiseTex("#4b6a33", [["rgba(30,50,15,0.35)", 12000, 3], ["rgba(140,170,80,0.18)", 9000, 2.2], ["rgba(110,95,60,0.12)", 1500, 3]], 11);
+// leaves of a shrub: dark gaps and lit leaf tips (tinted per bush)
+export const bushTexture = () => noiseTex("#4a7a3a", [["rgba(10,30,8,0.55)", 5000, 2.4], ["rgba(150,200,90,0.35)", 4000, 1.8], ["rgba(20,45,15,0.4)", 3000, 3.2]], 3, 256);
 export const concreteTexture = () => noiseTex("#9b9a94", [["rgba(0,0,0,0.12)", 6000, 2], ["rgba(255,255,255,0.10)", 4000, 1.5]], 5, 256);
 
 export function signTexture(kind) {
