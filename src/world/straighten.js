@@ -45,3 +45,20 @@ function squareCorners(poly) {
     }
   }
 }
+
+// the outline moved `d` metres inwards (each edge parallel to its own side; corners where the moved edges meet)
+export function insetPoly(poly, d) {
+  const n = poly.length; let area = 0;
+  for (let i = 0; i < n; i++) { const a = poly[i], b = poly[(i + 1) % n]; area += a[0] * b[1] - b[0] * a[1]; }
+  const sg = area > 0 ? 1 : -1;                     // inward normal of edge a->b is sg * (-dy, dx) / L
+  const line = i => { const a = poly[i], b = poly[(i + 1) % n], dx = b[0] - a[0], dy = b[1] - a[1], L = Math.hypot(dx, dy) || 1, nx = -dy / L * sg * d, ny = dx / L * sg * d; return [[a[0] + nx, a[1] + ny], [dx, dy]]; };
+  return poly.map((p, i) => {
+    const [p1, d1] = line((i + n - 1) % n), [p2, d2] = line(i), cr = d1[0] * d2[1] - d1[1] * d2[0];
+    if (Math.abs(cr) < 1e-6 * Math.hypot(...d1) * Math.hypot(...d2)) return [p2[0], p2[1]];
+    const t = ((p2[0] - p1[0]) * d2[1] - (p2[1] - p1[1]) * d2[0]) / cr;
+    return [+(p1[0] + d1[0] * t).toFixed(3), +(p1[1] + d1[1] * t).toFixed(3)];
+  });
+}
+
+// how far inside the kerb of a pad its yellow (control) line is painted
+export const PAD_INSET = 0.2;

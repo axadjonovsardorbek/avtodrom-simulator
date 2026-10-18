@@ -82,6 +82,9 @@ export function signTexture(kind) {
   } else if (kind === "noStop") {
     g.beginPath(); g.arc(128, 128, 120, 0, 7); g.fillStyle = "#c8261e"; g.fill(); g.beginPath(); g.arc(128, 128, 96, 0, 7); g.fillStyle = "#1f5fbf"; g.fill();
     g.strokeStyle = "#c8261e"; g.lineWidth = 24; g.beginPath(); g.moveTo(66, 66); g.lineTo(190, 190); g.moveTo(190, 66); g.lineTo(66, 190); g.stroke();
+  } else if (kind === "stopPlate") {
+    g.fillStyle = "#f4f4f2"; g.fillRect(8, 86, 240, 84); g.lineWidth = 6; g.strokeStyle = "#222"; g.strokeRect(11, 89, 234, 78);
+    g.fillStyle = "#111"; g.font = "bold 64px Arial, sans-serif"; g.fillText("СТОП", 128, 130);
   } else if (kind === "learner") {
     tri("#fff", "#c8261e");
     g.fillStyle = "#111"; g.font = "bold 120px Arial, sans-serif"; g.fillText("У", 128, 156);
@@ -104,13 +107,21 @@ export function textTexture(text, color = "#f2f0e9", w = 512, h = 160) {
 }
 
 export function facadeTexture() {
+  // a cream block of flats like the ones round the ground on the video: white pilasters, dark wooden windows, brown balconies
   const [c, g] = canvas(512, 256);
-  g.fillStyle = "#d9d4c8"; g.fillRect(0, 0, 512, 256);
-  for (let r = 0; r < 3; r++) for (let i = 0; i < 10; i++) {
-    g.fillStyle = "#2c3b4a"; g.fillRect(18 + i * 50, 28 + r * 76, 34, 44);
-    g.fillStyle = "rgba(255,255,255,0.18)"; g.fillRect(18 + i * 50, 28 + r * 76, 34, 8);
+  g.fillStyle = "#e9e3d6"; g.fillRect(0, 0, 512, 256);
+  for (let r = 0; r < 3; r++) {
+    g.fillStyle = "#d6cdbd"; g.fillRect(0, 76 + r * 76 - 6, 512, 5);                       // floor band
+    for (let i = 0; i < 8; i++) {
+      const x = 22 + i * 62, y = 18 + r * 76;
+      g.fillStyle = "#5b4636"; g.fillRect(x - 3, y - 3, 34, 50);                          // frame
+      g.fillStyle = "#2f3a40"; g.fillRect(x, y, 28, 44);
+      g.fillStyle = "rgba(255,255,255,0.22)"; g.fillRect(x, y, 28, 7);
+      g.fillStyle = "#5b4636"; g.fillRect(x + 13, y, 2, 44);
+      if (i % 3 === 1) { g.fillStyle = "#7a5a44"; g.fillRect(x - 8, y + 40, 44, 8); }       // balcony
+    }
   }
-  g.fillStyle = "#1f6fb5"; g.fillRect(0, 0, 512, 14);
+  for (let i = 0; i < 5; i++) { g.fillStyle = "#f6f2ea"; g.fillRect(i * 124, 0, 10, 256); }  // pilasters
   const t = new THREE.CanvasTexture(c);
   t.colorSpace = THREE.SRGBColorSpace;
   return t;

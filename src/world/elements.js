@@ -2,6 +2,7 @@
 // current pose (local frame: s along travel, l to the right) and returns a
 // task whose rules are evaluated by the session in that same local frame.
 import { toWorld, toLocal, DEG, polyNearPoint } from "../sim/geom.js";
+import { insetPoly, PAD_INSET } from "./straighten.js";
 import { LANE } from "./path.js";
 
 const HL = LANE / 2;
@@ -440,13 +441,15 @@ export function chorraha(W, center, approachDeg, dir, A) {
 
 // the outline of a pad as control lines, without the edges that are open ends (open(mx, my) tells which)
 function padOutline(W, poly, open) {
+  // the control line is the yellow line painted just inside the kerb (src/world/board.js draws it); it is touched, not seen here
+  const ins = insetPoly(poly, PAD_INSET);
   let run = [];
-  const flush = () => { if (run.length > 1) W.addLine(run, "ctrl", { width: 0.2 }); run = []; };
+  const flush = () => { if (run.length > 1) W.addLine(run, "ctrl", { width: 0.2, color: "yellow", hidden: true }); run = []; };
   for (let i = 0; i < poly.length; i++) {
     const a = poly[i], b = poly[(i + 1) % poly.length];
     if (open && open((a[0] + b[0]) / 2, (a[1] + b[1]) / 2)) { flush(); continue; }
-    if (!run.length) run.push(a);
-    run.push(b);
+    if (!run.length) run.push(ins[i]);
+    run.push(ins[(i + 1) % poly.length]);
   }
   flush();
 }

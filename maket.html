@@ -21,7 +21,8 @@ const go = (x, y, h, tx, ty, th) => { cam.position.copy(to(x, y, h)); ctl.target
 const views = { "Tepadan": () => go(cx, cy + 0.01, 190, cx, cy, 0), "Qiya": () => go(cx, cy + 190, 150, cx, cy, 0), "Chorraha": () => go(0, -40, 30, 0, 0, 0), "Estakada": () => { const r = W.ramps[0].pose, c = Math.cos(r.th), n = Math.sin(r.th), m = 20; go(r.x + c * (m - 6) + n * 14, r.y + n * (m - 6) - c * 14, 9, r.x + c * (m + 6), r.y + n * (m + 6), 0.5); }, "Zigzag": () => go(-40, -22, 28, -40, -25, 0), "Start": () => { const r = W.ramps[0].pose, c = Math.cos(r.th), n = Math.sin(r.th); go(r.x - c * 45 + n * 10, r.y - n * 45 - c * 10, 14, r.x - c * 20, r.y - n * 20, 0); }};
 const bar = document.getElementById("bar");
 for (const k in views) { const e = document.createElement("button"); e.textContent = k; e.onclick = views[k]; bar.append(e); }
-views.Qiya();
+if (location.hash.startsWith("#cam=")) { const v = location.hash.slice(5).split(",").map(Number); go(v[0], v[2], v[1], v[3], v[5], v[4]); } else views.Qiya();
+window.shot = v => go(v[0], v[2], v[1], v[3], v[5], v[4]);
 addEventListener("resize", () => { r.setSize(innerWidth, innerHeight); cam.aspect = innerWidth / innerHeight; cam.updateProjectionMatrix(); });
 r.setAnimationLoop(() => r.render(sc, cam));
 </script></body></html>

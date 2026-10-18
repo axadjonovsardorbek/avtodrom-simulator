@@ -3,7 +3,7 @@
 // plan by tools/trace-board.mjs), with the plan's markings on top: zebras, start box, parking diamonds, hatching,
 // lane lines.
 import { FRAME, ISLANDS, PADS, PAD, px } from "./boardData.js";
-import { straighten } from "./straighten.js";
+import { straighten, insetPoly, PAD_INSET } from "./straighten.js";
 
 for (const isl of ISLANDS) { straighten(isl.grass, { strictOnly: true, tol: 0.7 }); straighten(isl.kerb, { strictOnly: true, tol: 0.7 }); }
 for (const p of PADS) straighten(p);
@@ -34,11 +34,18 @@ function hatch(W, poly, step = 14) {
     for (let i = 0; i + 1 < hits.length; i += 2) W.addLine([P(...hits[i]), P(...hits[i + 1])], "paint", { width: 0.22 });
   }
 }
-// a lane arrow lying on the asphalt: centre (x, y) of the plan, pointing along `deg` (0 east, 90 south)
-function arrow(W, x, y, deg, len = 56) {
+// a lane arrow lying on the asphalt: centre (x, y) of the plan, pointing along `deg` (0 east, 90 south); kind: "S" straight,
+// "R"/"L" turn right/left, "SR"/"SL" straight or turn (v > 0 is the driver's right)
+const ARROW = {
+  S: [[[-28, -3], [8, -3], [8, -11], [28, 0], [8, 11], [8, 3], [-28, 3]]],
+  R: [[[-28, -3], [3, -3], [3, 12], [11, 12], [0, 24], [-11, 12], [-3, 12], [-3, 3], [-28, 3]]],
+  SR: [[[-28, -3], [8, -3], [8, -11], [28, 0], [8, 11], [8, 3], [-28, 3]], [[-14, 2], [-8, 2], [-8, 13], [-2, 13], [-11, 23], [-20, 13], [-14, 13]]]
+};
+ARROW.L = ARROW.R.map(p => p.map(([u, v]) => [u, -v]).reverse());
+ARROW.SL = ARROW.SR.map(p => p.map(([u, v]) => [u, -v]).reverse());
+function arrow(W, x, y, deg, len = 56, kind = "S") {
   const a = deg * Math.PI / 180, c = Math.cos(a), s = Math.sin(a), k = len / 56;
-  const shape = [[-28, -3], [8, -3], [8, -11], [28, 0], [8, 11], [8, 3], [-28, 3]].map(([u, v]) => P(x + (u * c - v * s) * k, y + (u * s + v * c) * k));
-  W.addPaint(shape);
+  for (const shape of ARROW[kind]) W.addPaint(shape.map(([u, v]) => P(x + (u * c - v * s) * k, y + (u * s + v * c) * k)));
 }
 // a rounded rectangle of the plan (px), as metres
 const rrect = (x0, y0, x1, y1, r) => [...arc(x1 - r, y0 + r, r, -Math.PI / 2, 0, 6), ...arc(x1 - r, y1 - r, r, 0, Math.PI / 2, 6), ...arc(x0 + r, y1 - r, r, Math.PI / 2, Math.PI, 6), ...arc(x0 + r, y0 + r, r, Math.PI, Math.PI * 1.5, 6)].map(p => P(...p));
@@ -61,8 +68,19 @@ export function addBoard(W) {
   for (const isl of ISLANDS) for (const l of isl.lanes || []) W.addLine(l, "paint", { width: 0.14 });
   // the inner loop roads of the quarters, outlined as on the plan
   for (const [x0, y0, x1, y1, r] of [[100, 598, 668, 1062, 45], [712, 598, 1318, 1080, 50]]) W.addLine(closed(rrect(x0, y0, x1, y1, r)), "paint", { width: 0.16 });
-  // pads: a white outline (the exercise code turns the ones that matter into control lines)
-  for (const p of PADS) W.addLine(closed(p), "paint", { width: 0.2, color: "yellow" });
+  // pads: a solid yellow line just inside the kerb, a dashed yellow line across the open mouth (as on the video)
+  for (const p of PADS) {
+    const ins = insetPoly(p, PAD_INSET), open = padOpen(p);
+    let run = [];
+    const flush = () => { if (run.length > 1) W.addLine(run, "paint", { width: 0.18, color: "yellow" }); run = []; };
+    for (let i = 0; i < p.length; i++) {
+      const a = p[i], b = p[(i + 1) % p.length];
+      if (open((a[0] + b[0]) / 2, (a[1] + b[1]) / 2)) { flush(); W.addLine([ins[i], ins[(i + 1) % p.length]], "paint", { width: 0.15, color: "yellow", dash: [1.0, 0.8] }); continue; }
+      if (!run.length) run.push(ins[i]);
+      run.push(ins[(i + 1) % p.length]);
+    }
+    flush();
+  }
   { const q = 4; W.addLine(closed([[-q, -q], [q, -q], [q, q], [-q, q]]), "paint", { width: 0.25, color: "yellow" }); W.addLine([[-q, -q], [q, q]], "paint", { width: 0.2, color: "yellow" }); W.addLine([[q, -q], [-q, q]], "paint", { width: 0.2, color: "yellow" }); }
   W.board.pad = name => PADS[PAD[name]];
 
@@ -89,8 +107,8 @@ export function addBoard(W) {
   hatch(W, [[1337, 365], [1385, 365], [1385, 495], [1337, 495]]);
   hatch(W, [[662, 1085], [714, 1030], [714, 1085]], 12);
   // lane arrows (the way each lane runs, as on the plan)
-  for (const [x, y, d] of [[850 + D, 55, 180], [850 + D, 100, 180], [1250, 48, 180], [1250, 95, 180], [770, 310, 0], [1060, 305, 0], [1055, 350, 0], [1040, 575, 180], [1160, 575, 180], [1310, 575, 180], [1030, 527, 180], [1150, 527, 180], [1310, 527, 180],
-    [100, 340, 90], [78, 470, 90], [250, 1090, 0], [640, 1095, 0], [975, 1105, 0], [1350, 690, -90], [1318, 965, 90], [700, 740, -90], [680, 440, 90], [575, 212, 0], [580, 352, 0], [155, 92, 180], [155, 130, 180]]) arrow(W, x, y, d);
+  for (const [x, y, d, kind] of [[850 + D, 55, 180], [850 + D, 100, 180], [1250, 48, 180], [1250, 95, 180], [770, 310, 0], [1060, 305, 0], [1055, 350, 0], [1040, 575, 180, "SR"], [1160, 575, 180], [1310, 575, 180], [1030, 527, 180, "SL"], [1150, 527, 180], [1310, 527, 180],
+    [100, 340, 90], [78, 470, 90], [250, 1090, 0], [640, 1095, 0, "SL"], [975, 1105, 0], [1350, 690, -90], [1318, 965, 90, "R"], [700, 740, -90, "SR"], [680, 440, 90, "SR"], [575, 212, 0], [580, 352, 0], [155, 92, 180, "L"], [155, 130, 180, "L"]]) arrow(W, x, y, d, 56, kind);
   // road signs as on the video: a give-way sign over a blue arrow on the tip of every island, P signs at the corners of the
   // pads, paired blue lane signs along the north fence, "no stopping" at the start
   const sign = (x, y, th, kind, extra = {}) => W.signs.push({ x, y, th, kind, ...extra });
@@ -102,7 +120,7 @@ export function addBoard(W) {
     sign(x, y, th, "yield", { big: true, h: 2.6 }); sign(x, y, th, ["right", "left", "ahead"][k % 3], { h: 1.5 });
   });
   for (const p of PADS) { const a = p[0], b = p[1]; sign((a[0] + b[0]) / 2, (a[1] + b[1]) / 2, Math.atan2(b[1] - a[1], b[0] - a[0]) + Math.PI / 2, "park"); }
-  for (const x of [-48, -22, 4, 55]) { const [X, Y] = [x, -52.5]; sign(X, Y, Math.PI / 2, "ahead", { big: true }); sign(X + 1.2, Y, Math.PI / 2, "aheadRight", { big: true }); }
+  for (const x of [-48, -22, 4, 55]) { const [X, Y] = [x, -57.4]; sign(X, Y, Math.PI / 2, "ahead", { big: true }); sign(X + 1.2, Y, Math.PI / 2, "aheadRight", { big: true }); }
   { const [x, y] = P(930 + D, 20); sign(x, y, Math.PI, "noStop", { big: true }); }
   W.texts.push({ ...(([x, y]) => ({ x, y }))(P(945 + D, 80)), th: -Math.PI / 2, text: "START", size: 3.6 });
 }
