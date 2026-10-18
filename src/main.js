@@ -18,13 +18,17 @@ import { buildInstructor } from "./render/instructorFigure.js";
 import { KidShow } from "./render/singerKid.js";
 import { Garage } from "./render/garage.js";
 import { CARS } from "./cars/index.js";
+import { recordAttempt, keyFor } from "./sim/history.js";
+import { Tutorial } from "./ui/tutorial.js";
 import { buildDriver } from "./render/driverFigure.js";
 import { loadPeople, realInstructor, realDriver, realKid, realPedestrian } from "./render/people.js";
 
 const coarse = matchMedia("(pointer: coarse)").matches;
-const settings = { transmission: "manual", quality: coarse ? "low" : "high", mouseSteer: false, muted: false, voice: true, car: "cobalt", instructor: "angry", color: "white", plate: DEFAULT_PLATE, size: "real" };
+const settings = { transmission: "manual", quality: coarse ? "mid" : "high", mouseSteer: false, muted: false, voice: true, car: "cobalt", instructor: "angry", color: "white", plate: DEFAULT_PLATE, size: "real" };
 try { Object.assign(settings, JSON.parse(localStorage.getItem("avtodrom.settings") || "{}")); } catch (_) {}
 // the old "Ovoz" button muted on first press; start everyone unmuted once
+// phones used to start on "light"; the new balanced tier keeps shadows and the colour grade at a moderate cost
+if (!settings.q2) { if (coarse && settings.quality === "low") settings.quality = "mid"; settings.q2 = true; }
 if (!settings.v2) { settings.muted = false; settings.v2 = true; }
 if (settings.car === "malibu") settings.car = "malibu-premier";       // the Malibu XL was removed
 const saveSettings = () => { try { localStorage.setItem("avtodrom.settings", JSON.stringify(settings)); } catch (_) {} };
@@ -74,7 +78,8 @@ function goFullscreen() {
   Promise.resolve(req.call(el, { navigationUI: "hide" })).then(() => screen.orientation && screen.orientation.lock && screen.orientation.lock("landscape").catch(() => {})).catch(() => {});
 }
 
-const TITLES = { exam: "To'liq avtodrom · Imtihon", training: "To'liq avtodrom · Trening" };
+const TITLES = { exam: "To'liq avtodrom · Imtihon", training: "To'liq avtodrom · Trening", learn: "Qadamma-qadam o'quv" };
+let tutorial = null;
 
 function start(m, el) {
   if (inShowroom) { inShowroom = false; hud.showShowroom(false); }
@@ -84,7 +89,9 @@ function start(m, el) {
   if (touchUi) goFullscreen();
   app.classList.toggle("auto", settings.transmission === "auto");
   const W = m === "practice" ? buildPractice(el, carDims()) : buildFull(carDims(m === "exam"));
-  session = new Session(W, { mode: m, transmission: settings.transmission, spec: carById(settings.car).spec });
+  tutorial = m === "learn" ? new Tutorial(settings.transmission) : null;
+  if (!tutorial) hud.showTutor(null);
+  session = new Session(W, { mode: m === "learn" ? "training" : m, transmission: settings.transmission, spec: carById(settings.car).spec });
   view.setZonesVisible(m !== "exam");            // the 1 m stop zones are a training aid only
   view.setWorld(W, settings.quality);
   view.setMode(settings.camera || "cockpit");
@@ -202,7 +209,7 @@ function handleEvent(ev) {
         const acts = mode === "practice"
           ? [["Qaytadan", "retry", !passed], ...(nextElement() ? [["Keyingi mashq", "next", passed]] : []), ["Menyu", "menu"]]
           : [["Qayta topshirish", "retry", true], ["Menyu", "menu"]];
-        hud.showResult(s, ev, acts);
+        hud.showResult(s, ev, acts, recordAttempt(s, { passed, key: keyFor(mode, elementId) }));
       }, 1200);
       break;
   }
@@ -349,7 +356,10 @@ let countdown = -1;
 {
   const cv = hud.canvas, pts = new Map();
   let pinch = 0;
+  const mir = new Map();       // pointer id -> the mirror being adjusted
   cv.addEventListener("pointerdown", e => {
+    const r = cv.getBoundingClientRect(), m = !inShowroom && !inGarage && view.mirrorAt(e.clientX - r.left, e.clientY - r.top);
+    if (m) { mir.set(e.pointerId, m); try { cv.setPointerCapture(e.pointerId); } catch (_) {} pts.set(e.pointerId, [e.clientX, e.clientY]); return; }
     if (controls.mouseSteer && view.mode === "cockpit" && !inShowroom) return;
     pts.set(e.pointerId, [e.clientX, e.clientY]);
     try { cv.setPointerCapture(e.pointerId); } catch (_) {}
@@ -358,6 +368,7 @@ let countdown = -1;
     const p = pts.get(e.pointerId); if (!p) return;
     const dx = e.clientX - p[0], dy = e.clientY - p[1];
     pts.set(e.pointerId, [e.clientX, e.clientY]);
+    const am = mir.get(e.pointerId); if (am) { view.adjustMirror(am, dx, dy); return; }
     if (inGarage) { const b = garage.bays[garage.index]; garageDrag = (garageDrag ?? b.turn.rotation.y) + dx * 0.008; return; }
     if (pts.size === 2) {
       const [a, b] = [...pts.values()], d = Math.hypot(a[0] - b[0], a[1] - b[1]);
@@ -372,14 +383,17 @@ let countdown = -1;
       view.drag.pitch = Math.min(0.6, Math.max(-0.7, view.drag.pitch - dy * 0.004));
     }
   });
-  const up = e => { pts.delete(e.pointerId); if (pts.size < 2) pinch = 0; };
+  const up = e => { if (mir.delete(e.pointerId)) view.saveMirrors(); pts.delete(e.pointerId); if (pts.size < 2) pinch = 0; };
   cv.addEventListener("pointerup", up); cv.addEventListener("pointercancel", up);
   cv.addEventListener("wheel", e => {
     if (view.mode !== "orbit") return;
     e.preventDefault();
     view.orbit.dist = Math.min(18, Math.max(3, view.orbit.dist * (e.deltaY > 0 ? 1.1 : 0.9)));
   }, { passive: false });
-  cv.addEventListener("dblclick", () => { view.drag = { yaw: 0, pitch: 0 }; });
+  cv.addEventListener("dblclick", e => {
+    const r = cv.getBoundingClientRect(), m = view.mirrorAt(e.clientX - r.left, e.clientY - r.top);
+    if (m) view.resetMirror(m); else view.drag = { yaw: 0, pitch: 0 };
+  });
   view.isDragging = () => pts.size > 0;
 }
 
@@ -433,7 +447,7 @@ function frame(now) {
     view.update(session, dt, now);
     view.adapt(dt * 1000);
     view.render();
-    if (now - lastHud > 60) { hud.update(session, view, now); lastHud = now; }
+    if (now - lastHud > 60) { hud.update(session, view, now); lastHud = now; if (tutorial) hud.showTutor(tutorial.tick(session.car, now)); }
     audio.update(session.car, { alarm: session.W.alarm && !paused }, now);
     if (!paused && session.state === "running") {
       bump.check(session);

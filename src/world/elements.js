@@ -10,6 +10,17 @@ const rect = (pose, s0, s1, l0, l1) => W2(pose, [[s0, l0], [s1, l0], [s1, l1], [
 const at = (pose, s, l) => { const [x, y] = toWorld(pose, s, l); return { x, y }; };
 const inBox = ([s, l], s0, s1, l0, l1) => s >= s0 && s <= s1 && l >= l0 && l <= l1;
 
+// Training aid: the ideal path (and, for reversing, where the car ends up) drawn on the road.
+// line / ghost are world-space polylines; drawn only outside the exam (see View.buildGuides).
+function guide(W, line, ghost) { (W.guides || (W.guides = [])).push({ line, ghost }); }
+// points of a smooth S-curve in (s, l) from (s0, l0) to (s1, l1): zero slope at both ends
+const sCurve = (s0, l0, s1, l1, n = 24) => Array.from({ length: n + 1 }, (_, i) => { const u = i / n; return [s0 + (s1 - s0) * u, l0 + (l1 - l0) * (1 - Math.cos(Math.PI * u)) / 2]; });
+// the car's outline: rear axle at (s, l), heading along `dir` (local radians), as local points
+function carOutline(car, s, l, dir) {
+  const w = (car.width || 1.85) / 2, c = Math.cos(dir), n = Math.sin(dir), rear = -(car.rOh ?? 0.9), front = car.length - (car.rOh ?? 0.9);
+  return [[rear, -w], [front, -w], [front, w], [rear, w]].map(([a, b]) => [s + c * a - n * b, l + n * a + c * b]);
+}
+
 function task(def) {
   return {
     allowReverse: false, vlim: 20, timeLimit: 0,
@@ -135,6 +146,15 @@ export function burilish(W, T, first = 1) {
   T.fwd(7); T.corner(90 * first); T.fwd(mid); T.corner(-90 * first); T.fwd(7);
   T.setStyle({ width: LANE, kind: "edge" });
   const endL = mid * first;
+  { // centre line with rounded corners
+    const r = Math.min(3.5, mid / 3), a = 7, pts = [], arc = (cs, cl, a0, a1) => { for (let i = 0; i <= 10; i++) { const t = a0 + (a1 - a0) * i / 10; pts.push([cs + r * Math.cos(t), cl + r * Math.sin(t)]); } };
+    pts.push([0, 0]);
+    // first corner: turn towards +l (first > 0) or -l; arc centre sits r to that side of the line
+    arc(a - r, first * r, -Math.PI / 2 * first, 0);
+    arc(a + r, first * (mid - r), Math.PI, Math.PI - Math.PI / 2 * first * 1);
+    pts.push([a + 7, endL]);
+    guide(W, W2(pose, pts));
+  }
   return task({
     id: "burilish", mapNo: 3, name: "90 gradus burchak ostida burilishlar", short: "90° burilish", pose, timeLimit: 120,
     active: ctx => ctx.fs > -0.3 && Math.abs(ctx.fl) < 3,
@@ -164,7 +184,7 @@ export function ilon(W, T) {
 /* 6. Tor joyda qayrilib olish uchun boksga kirish */
 export function boks(W, T) {
   // cw: corridor half width; the box widens and deepens with the training size
-  const k = K(W), cw = 3.5 * k;
+  const k = K(W), cw = 3.5 * k, car = W.car || { length: 4.479, rOh: 0.9 };
   const pose = T.pose, A = 6, Lc = 20, bx0 = 11, bx1 = bx0 + 2.8 + (k - 1) * 2.5, bd = 5.6 + (k - 1) * 2, reg = cw + bd - 1.6;
   T.gapR(A, A + 2 * cw);
   T.fwd(A + 2 * cw + 9);
@@ -174,6 +194,12 @@ export function boks(W, T) {
   W.addPad(rect(cp, bx0, bx1, cw - 0.1, cw + bd));
   W.addLine(W2(cp, [[0, -cw], [Lc, -cw], [Lc, cw], [bx1, cw], [bx1, cw + bd], [bx0, cw + bd], [bx0, cw], [0, cw]]), "ctrl");
   W.addPaint(rect(cp, bx0 + 0.15, bx1 - 0.15, reg - 0.06, reg + 0.06), "yellow");
+  { // reversing arc of the rear axle into the box, and the car as it should end up
+    const sf = (bx0 + bx1) / 2, R = Math.min(5, reg + cw - 1, Lc - 0.8 - sf), pts = [];
+    // quarter circle about (sf + R, reg): from beside the box, heading along the corridor, to the box, heading into it
+    for (let i = 0; i <= 20; i++) { const t = Math.PI / 2 * i / 20; pts.push([sf + R - R * Math.sin(t), reg - R * Math.cos(t)]); }
+    guide(W, W2(cp, pts), W2(cp, carOutline(car, sf, reg, -Math.PI / 2)));
+  }
   const CL = ctx => ctx.P.map(([x, y]) => toLocal(cp, x, y));
   const inB = q => inBox(q, bx0, bx1, cw, cw + bd);
   return task({
@@ -225,6 +251,10 @@ export function parkovka(W, T) {
   W.addPad(rect(pose, b0, b1, HL - 0.1, HL + bw));
   W.addLine(W2(pose, [[b0, HL], [b0, HL + bw], [b1, HL + bw], [b1, HL]]), "ctrl");
   W.addPaint(rect(pose, reg - 0.06, reg + 0.06, HL + 0.15, HL + bw - 0.15), "yellow");
+  { // rear axle: reverse from beside the box in an S-curve onto the yellow line
+    const lf = HL + bw / 2, l0 = 0.6, span = 2 * Math.sqrt(Math.max(1, 2 * 5 * (lf - l0) / 2 - ((lf - l0) / 2) ** 2));
+    guide(W, W2(pose, sCurve(reg + span, l0, reg, lf)), W2(pose, carOutline(car, reg, lf, 0)));
+  }
   const inB = q => inBox(q, b0, b1, HL, HL + bw);
   return task({
     id: "parkovka", mapNo: 9, name: "Orqaga harakatlanib parallel to'xtash (parkovka)", short: "Parkovka", pose, allowReverse: true,

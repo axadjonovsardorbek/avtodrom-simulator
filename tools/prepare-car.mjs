@@ -298,11 +298,11 @@ for (const k of Object.keys(W)) byName("wheel_spin_" + k).traverse(n => wheelNod
 for (const n of root.listNodes()) {
   if (!n.getMesh() || wheelNodes.has(n)) continue;
   // the painted body is kept as modelled; the rest is simplified with its borders locked
-  for (const prim of n.getMesh().listPrimitives()) if (prim.getMaterial()?.getName() !== "paint") simplifyPrimitive(prim, { simplifier: MeshoptSimplifier, ratio: 0.4, error: 0.0015, lockBorder: true });
+  for (const prim of n.getMesh().listPrimitives()) if (prim.getMaterial()?.getName() !== "paint") simplifyPrimitive(prim, { simplifier: MeshoptSimplifier, ratio: 0.85, error: 0.0005, lockBorder: true });
 }
 await doc.transform(
   prune(), dedup(),
-  textureCompress({ encoder: sharp, targetFormat: "webp", resize: [1024, 1024], quality: 82 }),
+  textureCompress({ encoder: sharp, targetFormat: "webp", resize: [2048, 2048], quality: 88 }),
   meshopt({ encoder: MeshoptEncoder, level: "high" })
 );
 const out = join(ROOT, `public/models/${CFG.id}.glb`);

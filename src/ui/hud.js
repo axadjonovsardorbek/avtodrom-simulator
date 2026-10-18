@@ -1,6 +1,7 @@
 // DOM overlay: instrument cluster, task card, score, toasts, minimap,
 // penalty log, start light, menus and the result protocol.
 import { PASS_LIMIT } from "../sim/penalties.js";
+import { analyse, clearHistory } from "../sim/history.js";
 import { ELEMENTS } from "../world/tracks.js";
 import { CARS } from "../cars/index.js";
 
@@ -44,6 +45,7 @@ export class Hud {
           <button class="tb primary" data-a="pause" title="Menyu (Esc)">Menyu</button>
         </div>
       </header>
+      <section class="tutor" id="tutor" hidden></section>
       <section class="task" id="task"><span class="eyebrow" id="taskTitle"></span><p id="taskText"></p><p class="hint" id="taskHint"></p></section>
       <section class="score"><div><small>Jarima</small><b id="pts">0</b><em>/ ${PASS_LIMIT}</em></div><div><small>Vaqt</small><b id="time">0:00</b></div><div><small>Mashq</small><b id="prog">–</b></div></section>
       <canvas class="minimap" id="minimap" width="260" height="260"></canvas>
@@ -130,6 +132,7 @@ export class Hud {
           <h1>Avtodrom <br>simulyatori</h1>
           <p class="lead">Amaliy imtihonni to'liq avtodromda yoki alohida mashqlarda takrorlang. Jarima ballari rasmiy jadval bo'yicha.</p>
           ${state && state.canResume ? `<button class="resume" id="resume"><span>▶</span> Davom ettirish</button>` : ""}
+          <button class="learnbtn" data-mode="learn"><span class="ico">${icon('<path d="M4 6h16M4 12h10M4 18h6"/><path d="m16 15 2 2 4-4"/>')}</span><span><b>Qadamma-qadam o'quv</b><small>Kamar, dvigatel, uzatma, qo'l tormozi va yurib ketish: har bir qadam ko'rsatiladi</small></span></button>
           <div class="modes">
             <button class="mode exam" data-mode="exam">
               <span class="ico">${icon('<path d="M7 3h10v4l-5 4-5-4z"/><path d="M5 21h14M8 21l1-6h6l1 6"/>')}</span>
@@ -148,6 +151,7 @@ export class Hud {
           <div class="row"><span class="lbl">Rangi</span><div class="swatches">${COLORS.map(([v, hex, t]) => `<button class="sw" data-color="${v}" title="${t}" style="--c:${hex}"></button>`).join("")}</div></div>
           <label class="row"><span class="lbl">Davlat raqami</span><input id="optPlate" maxlength="14" spellcheck="false" autocomplete="off"></label>
           <button class="garagebtn" id="garageBtn"><svg viewBox="0 0 24 24"><path d="M3 21V9l9-5 9 5v12"/><path d="M7 21v-7h10v7M7 17h10"/></svg><span><b>Garaj</b><small>Mashinani ko'rib tanlang</small></span><i>›</i></button>
+          <button class="ghost" id="statsBtn">${icon('<path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/>')} Natijalar va xatolar tahlili</button>
           <button class="ghost" id="showroomBtn">${icon('<path d="M3 12a9 4 0 1 0 18 0 9 4 0 1 0-18 0"/><path d="m17 9 3 3-3 3"/>')} 360° ko'rish va salon</button>
           <h3>Haydash</h3>
           <span class="lbl">Uzatmalar qutisi</span>${seg("optTrans", [["manual", "Mexanik"], ["auto", "Avtomat"]])}
@@ -157,7 +161,7 @@ export class Hud {
           <h3>Boshqa</h3>
           <div class="row2">
             <div><span class="lbl">Ovozli ko'rsatma</span>${seg("optVoice", [["on", "Ha"], ["off", "Yo'q"]])}</div>
-            <div><span class="lbl">Grafika</span>${seg("optQuality", [["high", "Yuqori"], ["low", "Yengil"]])}</div>
+            <div><span class="lbl">Grafika</span>${seg("optQuality", [["high", "Yuqori"], ["mid", "O'rta"], ["low", "Yengil"]])}</div>
           </div>
         </aside>
       </div>`;
@@ -183,6 +187,7 @@ export class Hud {
     m.querySelectorAll("[data-mode]").forEach(b => b.onclick = () => this.h.start(b.dataset.mode));
     m.querySelectorAll("[data-el]").forEach(b => b.onclick = () => this.h.start("practice", b.dataset.el));
     const r = $("#resume", m); if (r) r.onclick = () => this.h.resume();
+    $("#statsBtn", m).onclick = () => this.showStats();
     $("#showroomBtn", m).onclick = () => this.h.showroom();
     $("#garageBtn", m).onclick = () => this.h.garage && this.h.garage();
     this.menuOpen = true; this.root.classList.add("menu-open");
@@ -241,6 +246,7 @@ export class Hud {
           <dt><kbd>K</kbd></dt><dd>Xavfsizlik kamari</dd>
           <dt><kbd>Z</kbd> <kbd>X</kbd></dt><dd>Chapga / o'ngga qarash</dd>
           <dt><kbd>C</kbd> <kbd>M</kbd> <kbd>L</kbd></dt><dd>Kamera, xarita, ovoz</dd>
+          <dt>Ko'zgular</dt><dd>Kabinada ko'zgu ustida sudrang: burchagi o'zgaradi (ikki marta bosish: asl holatga). Sozlash saqlanadi</dd>
           <dt>Sichqoncha</dt><dd>Kabinada sudrab atrofga qarang (ikki marta bosish: oldinga). "360°" kamerada mashinani aylantiring, g'ildirakcha bilan yaqinlashtiring</dd>
           <dt><kbd>Esc</kbd></dt><dd>Menyu</dd>
         </dl>
@@ -370,8 +376,58 @@ export class Hud {
   }
   toggleMinimap() { if (this.root.classList.contains("touch")) { this.mm.hidden = false; this.root.classList.toggle("showmap"); } else this.mm.hidden = !this.mm.hidden; }
 
+  /* ---------- step-by-step drill ---------- */
+  showTutor(st) {
+    const el = $("#tutor", this.root), r = this.root;
+    this.root.classList.toggle("learn", !!st && !st.hide);
+    if (!st || st.hide) { el.hidden = true; this.tutorKey = null; r.querySelectorAll(".hl").forEach(e => e.classList.remove("hl")); return; }
+    const key = st.done ? "done" : st.step.id;
+    if (key === this.tutorKey) return;          // rebuild only when the step changes
+    this.tutorKey = key;
+    r.querySelectorAll(".hl").forEach(e => e.classList.remove("hl"));
+    el.hidden = false;
+    if (st.done) {
+      el.innerHTML = `<div class="dots">${"<i class='on'></i>".repeat(st.total)}</div><b class="tt">Tayyor! Mashina yo'lga chiqdi</b><p>Endi start chizig'idan o'ting, 10 m dan keyin chap chiroqni o'chiring va mashqlarni davom ettiring. Imtihonga tayyor bo'lsangiz, menyudan "Imtihon" ni tanlang.</p>`;
+      return;
+    }
+    const s = st.step;
+    el.innerHTML = `<div class="dots">${Array.from({ length: st.total }, (_, i) => `<i class="${i < st.n - 1 ? "on" : i === st.n - 1 ? "cur" : ""}"></i>`).join("")}</div>
+      <span class="eyebrow">${st.n}/${st.total} · ${s.title}</span><b class="tt">${s.text}</b>
+      <p class="why">${s.why}</p><div class="keyrow"><span class="desk">Klavisha: <kbd>${s.key}</kbd></span><span class="mob">Ekrandagi yonib turgan tugmani bosing</span></div>`;
+    el.querySelectorAll(".desk").forEach(d => d.innerHTML = `Klavisha: <kbd>${s.key}</kbd>`);
+    const t = r.querySelector(s.touch); if (t) t.classList.add("hl");
+  }
+
   /* ---------- result ---------- */
-  showResult(s, ev, handlers) {
+  histBlock(h) {
+    const stars = [1, 2, 3].map(i => `<span class="${i <= h.stars ? "on" : ""}">★</span>`).join("");
+    const d = h.prev ? h.rec.total - h.prev.total : null;
+    const cmp = d === null ? "Birinchi urinish" : d < 0 ? `Oldingisidan ${-d} ball yaxshi` : d > 0 ? `Oldingisidan ${d} ball yomon` : "Oldingisi bilan teng";
+    return `<div class="hist"><div class="stars">${stars}</div><div><b>${h.newBest ? "Yangi eng yaxshi natija!" : h.best !== null && h.best !== undefined && isFinite(h.best) ? `Eng yaxshi: ${h.best} ball` : "Hali o'tilmagan"}</b><small>${cmp} · ${h.attempts}-urinish</small></div></div>`;
+  }
+
+  showStats() {
+    const res = $("#result", this.root), a = analyse();
+    const nameOf = k => k === "exam" ? "Imtihon" : k === "training" ? "Trening" : (ELEMENTS.find(e => "practice:" + e.id === k) || { name: k }).name;
+    const max = a.mistakes.length ? a.mistakes[0].pts : 1;
+    const bars = a.mistakes.slice(0, 8).map(m => `<tr><td>${m.n}. ${m.text}${Object.keys(m.tasks).length ? `<small>${Object.entries(m.tasks).sort((x, y) => y[1] - x[1]).slice(0, 2).map(([t, c]) => `${t} (${c})`).join(", ")}</small>` : ""}</td><td class="num">${m.count}×</td><td class="bar"><i style="width:${Math.round(m.pts / max * 100)}%"></i><b>${m.pts}</b></td></tr>`).join("");
+    const keys = a.keys.map(k => `<tr><td>${nameOf(k.key)}</td><td class="num">${k.tries}</td><td class="num">${k.passes}</td><td class="num">${k.best === null ? "-" : k.best}</td><td class="spark">${k.last.map(v => `<i class="${v > a.limit ? "bad" : ""}" style="height:${Math.max(3, Math.min(100, v / a.limit * 100))}%"></i>`).join("")}</td></tr>`).join("");
+    res.innerHTML = `
+      <div class="panel result">
+        <span class="eyebrow">Natijalar va xatolar tahlili</span>
+        <h1>${a.total ? `${a.total} urinish, ${a.passes} tasi o'tgan` : "Hali urinish yo'q"}</h1>
+        ${a.total ? `<h3>Eng ko'p ball olib qo'ygan xatolar</h3>
+        ${bars ? `<div class="tblwrap"><table class="mist"><tbody>${bars}</tbody></table></div>` : `<p class="lead">Birorta ham xato qayd etilmagan.</p>`}
+        <h3>Mashqlar bo'yicha</h3>
+        <div class="tblwrap"><table><thead><tr><th>Mashq</th><th>Urinish</th><th>O'tgan</th><th>Eng yaxshi</th><th>So'nggi natijalar</th></tr></thead><tbody>${keys}</tbody></table></div>` : `<p class="lead">Imtihon yoki mashq topshiring: har bir urinish shu yerda saqlanadi.</p>`}
+        <div class="acts"><button class="btn primary" data-s="close">Yopish</button>${a.total ? `<button class="btn" data-s="clear">Tarixni tozalash</button>` : ""}</div>
+      </div>`;
+    res.hidden = false;
+    res.querySelector('[data-s="close"]').onclick = () => { res.hidden = true; };
+    const c = res.querySelector('[data-s="clear"]'); if (c) c.onclick = () => { if (confirm("Barcha natijalar o'chirilsinmi?")) { clearHistory(); this.showStats(); } };
+  }
+
+  showResult(s, ev, handlers, hist) {
     const res = $("#result", this.root);
     const passed = ev.ok && s.total <= PASS_LIMIT;
     const rows = s.log.map(e => `<tr><td>${e.n}</td><td>${e.text}</td><td>${e.task || ""}</td><td class="num">${fmt(e.t)}</td><td class="num">+${e.pts}</td></tr>`).join("");
@@ -381,6 +437,7 @@ export class Hud {
       <div class="panel result">
         <span class="eyebrow">${s.mode === "practice" ? "Mashq natijasi" : s.mode === "exam" ? "Imtihon protokoli" : "Trening natijasi"}</span>
         <h1 class="${passed ? "ok" : "bad"}">${title}</h1>
+        ${hist ? this.histBlock(hist) : ""}
         <div class="sum"><div><small>Jarima</small><b>${s.total}</b><em>/ ${PASS_LIMIT}</em></div><div><small>Vaqt</small><b>${fmt(s.t)}</b></div><div><small>Bajarilgan mashqlar</small><b>${s.done.filter(d => d.ok).length}/${s.W.tasks.length}</b></div></div>
         ${rows ? `<div class="tblwrap"><table><thead><tr><th>№</th><th>Xato</th><th>Mashq</th><th>Vaqt</th><th>Ball</th></tr></thead><tbody>${rows}</tbody></table></div>` : `<p class="lead">Birorta ham xato qayd etilmadi.</p>`}
         <div class="acts">${handlers.map(([label, id, primary]) => `<button class="btn${primary ? " primary" : ""}" data-r="${id}">${label}</button>`).join("")}</div>

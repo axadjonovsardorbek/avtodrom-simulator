@@ -32,6 +32,10 @@ const MIRRORS = [
   { key: "right", pos: [2.43, 1.08, 0.96], yaw: 0.22, fov: 38, w: 320, h: 220 }
 ];
 
+// per quality tier: highest render scale, mirror texture scale, shadow map size, MSAA samples, bloom
+const MAXRATIO = { low: 1, mid: 1.5, high: 1.75 };
+const TIER = { low: { mirror: 0.5, shadow: 1024, aa: 0, bloom: false }, mid: { mirror: 0.65, shadow: 1024, aa: 4, bloom: false }, high: { mirror: 1, shadow: 2048, aa: 4, bloom: true } };
+
 export class View {
   constructor(canvas) {
     const r = this.renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: "high-performance" });
@@ -83,7 +87,7 @@ export class View {
     this.mirrors = MIRRORS.map(m => {
       const cam = new THREE.PerspectiveCamera(m.fov, m.w / m.h, 0.1, 700);
       cam.position.set(...m.pos);
-      cam.rotation.y = Math.PI / 2 + m.yaw;   // look backwards, side mirrors angled outwards
+      cam.rotation.order = "YXZ";             // pitch about the camera's own axis
       this.carView.root.add(cam);
       const rt = new THREE.WebGLRenderTarget(m.w, m.h);
       rt.texture.colorSpace = THREE.SRGBColorSpace;
@@ -92,8 +96,10 @@ export class View {
       const quad = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), new THREE.MeshBasicMaterial({ map: rt.texture }));
       quad.position.z = 0.1;
       this.hud.add(frame, quad);
-      return { ...m, cam, rt, frame, quad };
+      return { ...m, cam, rt, frame, quad, adj: { yaw: 0, pitch: 0 } };
     });
+    try { const a = JSON.parse(localStorage.getItem("avtodrom.mirrors") || "{}"); for (const m of this.mirrors) if (a[m.key]) Object.assign(m.adj, a[m.key]); } catch (_) {}
+    for (const m of this.mirrors) this.aimMirror(m);
 
     this.mode = "cockpit";
     this.look = 0;
@@ -169,7 +175,38 @@ export class View {
     }
     this.setZonesVisible(this.zonesOn !== false);
   }
-  setZonesVisible(on) { this.zonesOn = on; for (const z of this.zones || []) z.m.visible = on; }
+  setZonesVisible(on) { this.zonesOn = on; for (const z of this.zones || []) z.m.visible = on; if (this.guideGroup) this.guideGroup.visible = on; }
+
+  // training aid: the ideal path as a dashed ribbon, the final car position as an outline
+  buildGuides(W) {
+    const g = this.guideGroup = new THREE.Group();
+    const mat = (c, o) => new THREE.MeshBasicMaterial({ color: c, transparent: true, opacity: o, depthWrite: false, side: THREE.DoubleSide });
+    const dashM = mat(0x4fb3ff, 0.8), ghostM = mat(0x3ddc84, 0.7);
+    const ribbon = (pts, w, m, dash, closed) => {
+      const P = pts.map(([x, y]) => new THREE.Vector3(x, W.heightAt(x, y) + 0.03, y)), pos = [], idx = [];
+      const n = closed ? P.length : P.length - 1;
+      let run = 0;
+      for (let i = 0; i < n; i++) {
+        const a = P[i], b = P[(i + 1) % P.length], len = a.distanceTo(b);
+        if (!len) continue;
+        const keep = !dash || Math.floor(run / dash) % 2 === 0; run += len;
+        if (!keep) continue;
+        const d = b.clone().sub(a).normalize(), nx = new THREE.Vector3(-d.z, 0, d.x).multiplyScalar(w / 2), k = pos.length / 3;
+        for (const v of [a.clone().sub(nx), a.clone().add(nx), b.clone().add(nx), b.clone().sub(nx)]) pos.push(v.x, v.y, v.z);
+        idx.push(k, k + 1, k + 2, k, k + 2, k + 3);
+      }
+      if (!pos.length) return;
+      const geo = new THREE.BufferGeometry(); geo.setAttribute("position", new THREE.Float32BufferAttribute(pos, 3)); geo.setIndex(idx);
+      const m2 = new THREE.Mesh(geo, m); m2.renderOrder = 3; g.add(m2);
+    };
+    const dense = pts => { const out = []; for (let i = 0; i < pts.length - 1; i++) { const [a, b] = [pts[i], pts[i + 1]], n = Math.max(1, Math.ceil(Math.hypot(b[0] - a[0], b[1] - a[1]) / 0.25)); for (let j = 0; j < n; j++) out.push([a[0] + (b[0] - a[0]) * j / n, a[1] + (b[1] - a[1]) * j / n]); } out.push(pts[pts.length - 1]); return out; };
+    for (const gd of W.guides || []) {
+      ribbon(dense(gd.line), 0.22, dashM, 0.6, false);
+      if (gd.ghost) ribbon(dense([...gd.ghost, gd.ghost[0]]), 0.1, ghostM, 0, false);
+    }
+    this.worldGroup.add(g);
+    g.visible = this.zonesOn !== false;
+  }
 
   setWorld(W, quality = "high") {
     if (this.worldGroup) {
@@ -180,17 +217,19 @@ export class View {
     this.W = W; this.dyn = dyn; this.worldGroup = group;
     this.dressPedestrians();
     this.buildStopZones(W);
+    this.buildGuides(W);
     this.scene.add(group);
     this.renderer.shadowMap.enabled = quality !== "low";
     this.quality = quality;
     // lighter mirrors and shadows on the light setting
-    const scale = quality === "low" ? 0.5 : 1;
-    for (const m of this.mirrors) m.rt.setSize(Math.round(m.w * scale), Math.round(m.h * scale));
-    this.sun.shadow.mapSize.set(quality === "low" ? 1024 : 2048, quality === "low" ? 1024 : 2048);
+    const T = TIER[quality] || TIER.high;
+    for (const m of this.mirrors) m.rt.setSize(Math.round(m.w * T.mirror), Math.round(m.h * T.mirror));
+    this.sun.shadow.mapSize.set(T.shadow, T.shadow);
     if (this.sun.shadow.map) { this.sun.shadow.map.dispose(); this.sun.shadow.map = null; }
-    this.ratio = this.maxRatio = Math.min(window.devicePixelRatio || 1, quality === "low" ? 1 : 1.75);
+    this.ratio = this.maxRatio = Math.min(window.devicePixelRatio || 1, MAXRATIO[quality] || 1.75);
     this.renderer.setPixelRatio(this.ratio); if (this.w) this.renderer.setSize(this.w, this.h, false);
-    this.setupPost(quality !== "low");
+    if (this.postQ !== quality) { if (this.composer) this.composer.dispose(); this.composer = null; this.postQ = quality; }
+    this.setupPost(quality);
     this.chasePos = null;
   }
 
@@ -210,6 +249,23 @@ export class View {
     const my = small ? h * 0.42 : h * 0.47;      // overlay y runs from the bottom
     place(this.mirrors[1], 14 + sw / 2, my, sw, sh);
     place(this.mirrors[2], w - 14 - sw / 2, my, sw, sh);
+  }
+
+  // mirrors: look backwards, side mirrors angled outwards, plus the driver's own adjustment
+  aimMirror(m) { m.cam.rotation.set(m.adj.pitch, Math.PI / 2 + m.yaw + m.adj.yaw, 0); }
+  // the mirror under a screen point (cockpit view only); the overlay's y axis runs from the bottom
+  mirrorAt(x, y) {
+    if (this.mode !== "cockpit") return null;
+    return this.mirrors.find(m => Math.abs(x - m.quad.position.x) < m.quad.scale.x / 2 && Math.abs(this.h - y - m.quad.position.y) < m.quad.scale.y / 2) || null;
+  }
+  adjustMirror(m, dx, dy) {
+    const clamp = v => Math.min(0.4, Math.max(-0.4, v));
+    m.adj.yaw = clamp(m.adj.yaw - dx * 0.003); m.adj.pitch = clamp(m.adj.pitch + dy * 0.003);
+    this.aimMirror(m);
+  }
+  resetMirror(m) { m.adj.yaw = m.adj.pitch = 0; this.aimMirror(m); this.saveMirrors(); }
+  saveMirrors() {
+    try { localStorage.setItem("avtodrom.mirrors", JSON.stringify(Object.fromEntries(this.mirrors.map(m => [m.key, m.adj])))); } catch (_) {}
   }
 
   setMode(mode) {
@@ -316,7 +372,7 @@ export class View {
     this.adaptT = (this.adaptT || 0) + dtMs;
     if (this.adaptT < 700) return;
     this.adaptT = 0;
-    const lo = this.quality === "low" ? 0.55 : 0.7, hi = this.quality === "low" ? Math.min(1, this.maxRatio) : this.maxRatio;
+    const lo = this.quality === "low" ? 0.55 : this.quality === "mid" ? 0.6 : 0.7, hi = this.quality === "low" ? Math.min(1, this.maxRatio) : this.maxRatio;
     let r = this.ratio;
     if (this.ft > 21) r = Math.max(lo, r - 0.15);          // under ~48 fps
     else if (this.ft < 14.5) r = Math.min(hi, r + 0.05);   // over ~68 fps
@@ -326,22 +382,29 @@ export class View {
   // a composer with the same bloom and grade for another scene (the garage)
   composerFor(scene, cam) {
     if (this.quality === "low") return null;
-    const c = new EffectComposer(this.renderer);
+    const T = TIER[this.quality] || TIER.high, size = this.renderer.getDrawingBufferSize(new THREE.Vector2());
+    const c = new EffectComposer(this.renderer, new THREE.WebGLRenderTarget(size.x || 2, size.y || 2, { type: THREE.HalfFloatType, samples: T.aa }));
     c.addPass(new RenderPass(scene, cam));
-    c.addPass(new UnrealBloomPass(new THREE.Vector2(256, 256), 0.3, 0.5, 1.8));
+    if (T.bloom) c.addPass(new UnrealBloomPass(new THREE.Vector2(256, 256), 0.3, 0.5, 1.8));
     c.addPass(new OutputPass()); c.addPass(new ShaderPass(GradeShader));
     c.setPixelRatio(this.ratio); c.setSize(this.w, this.h);
     return c;
   }
 
   // bloom (lamps, sun glints) and the colour grade; off on the light setting
-  setupPost(on) {
-    if (!on) { this.composer = null; return; }
+  // MSAA on the composer's target (the renderer's own antialias does not reach it); bloom on high only
+  setupPost(quality) {
+    const T = TIER[quality] || TIER.high;
+    if (quality === "low") { this.composer = null; return; }
     if (this.composer) return;
-    const c = this.composer = new EffectComposer(this.renderer);
+    const size = this.renderer.getDrawingBufferSize(new THREE.Vector2());
+    const target = new THREE.WebGLRenderTarget(size.x || 2, size.y || 2, { type: THREE.HalfFloatType, samples: T.aa });
+    const c = this.composer = new EffectComposer(this.renderer, target);
     c.addPass(new RenderPass(this.scene, this.cam));
-    this.bloom = new UnrealBloomPass(new THREE.Vector2(256, 256), 0.22, 0.5, 1.5);   // only really bright things glow
-    c.addPass(this.bloom);
+    if (T.bloom) {
+      this.bloom = new UnrealBloomPass(new THREE.Vector2(256, 256), 0.22, 0.5, 1.5);   // only really bright things glow
+      c.addPass(this.bloom);
+    }
     c.addPass(new OutputPass());               // tone mapping + sRGB
     c.addPass(new ShaderPass(GradeShader));    // the grade works on the final (display) colours
     c.setPixelRatio(this.ratio); if (this.w) c.setSize(this.w, this.h);

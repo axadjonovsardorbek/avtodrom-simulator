@@ -249,7 +249,7 @@ for (const n of doc.getRoot().listNodes()) if (/^wheel_spin_/.test(n.getName()))
 for (const n of doc.getRoot().listNodes()) {
   const mesh = n.getMesh();
   if (!mesh || wheelNodes.has(n)) continue;
-  for (const prim of mesh.listPrimitives()) simplifyPrimitive(prim, { simplifier: MeshoptSimplifier, ratio: 0.35, error: 0.0004, lockBorder: true });   // lockBorder: no cracks along panel edges
+  for (const prim of mesh.listPrimitives()) simplifyPrimitive(prim, { simplifier: MeshoptSimplifier, ratio: 0.85, error: 0.0002, lockBorder: true });   // lockBorder: no cracks along panel edges
 }
 await doc.transform(prune(), meshopt({ encoder: MeshoptEncoder, level: "medium" }));
 const out = join(ROOT, "public/models/cobalt.glb");

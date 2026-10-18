@@ -122,8 +122,15 @@ export function buildDriver() {
       wheel.updateMatrixWorld(true);
       // grip points in the wheel's own frame, taken once while the wheel is straight
       if (!arms[0].grip && Math.abs(car.sw) < 2) {
-        const c = root.worldToLocal(wheel.getWorldPosition(new THREE.Vector3()));
-        for (const a of arms) a.grip = wheel.worldToLocal(root.localToWorld(new THREE.Vector3(c.x - 0.01, c.y + 0.03, c.z + a.s * RIM)));
+        // 9 and 3 o'clock on the real rim: in the wheel's own plane, whatever the column tilt
+        const c = wheel.getWorldPosition(new THREE.Vector3());
+        const n = v.set(0, 0, 1).transformDirection(wheel.matrixWorld);
+        const right = tmp.set(0, 0, 1).transformDirection(root.matrixWorld);
+        right.addScaledVector(n, -right.dot(n)).normalize();
+        const up = tmp2.crossVectors(n, right); if (up.y < 0) up.negate();
+        const box = new THREE.Box3().setFromObject(wheel), size = box.getSize(new THREE.Vector3());
+        const R = THREE.MathUtils.clamp(Math.abs(right.x) * size.x / 2 + Math.abs(right.z) * size.z / 2 || RIM, 0.12, 0.2) - 0.012;
+        for (const a of arms) a.grip = wheel.worldToLocal(c.clone().addScaledVector(right, a.s * R).addScaledVector(up, 0.025));
       }
       head.rotation.y = THREE.MathUtils.clamp(-car.sw / 540 * 0.5, -0.4, 0.4) + Math.sin(t * 0.37) * 0.04;   // looks into the turn
       for (const a of arms) {

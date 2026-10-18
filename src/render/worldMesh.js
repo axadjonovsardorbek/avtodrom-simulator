@@ -272,7 +272,7 @@ export function buildWorldMeshes(W, quality) {
   };
   // trees: a trunk and a canopy of three lumpy blobs, each instance tinted a little
   // differently; grass tufts scattered over the fields; lamp posts along the outer road
-  const nTrees = quality === "low" ? 70 : 220;
+  const nTrees = quality === "low" ? 70 : quality === "mid" ? 150 : 220;
   const trunkGeo = new THREE.CylinderGeometry(0.1, 0.2, 2.4, 7);
   const lump = (r, x, y, z, seed) => {
     const g = new THREE.IcosahedronGeometry(r, 2), p = g.attributes.position, v = new THREE.Vector3();
@@ -332,7 +332,7 @@ export function buildWorldMeshes(W, quality) {
     const tuftParts = [];
     for (let k = 0; k < 5; k++) { const g = blade.clone(); g.rotateZ((k - 2) * 0.22); g.rotateY(k * 1.3); g.translate((k - 2) * 0.03, 0, (k % 2) * 0.03); tuftParts.push(g); }
     const tuftGeo = mergeGeos(tuftParts);
-    const nTufts = 6000;
+    const nTufts = quality === "mid" ? 2500 : 6000;
     const tufts = new THREE.InstancedMesh(tuftGeo, new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 1 }), nTufts);
     let n = 0;
     for (let tries = 0; tries < nTufts * 4 && n < nTufts; tries++) {
@@ -418,7 +418,7 @@ export function buildWorldMeshes(W, quality) {
       g.strokeStyle = "rgba(10,10,12,0.9)"; g.lineWidth = 3; g.beginPath(); g.moveTo(40, 120); for (let x = 40; x < 220; x += 18) g.lineTo(x, 120 + (Math.random() - 0.5) * 40); g.stroke();
       const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t; })();
     const m = new THREE.MeshStandardMaterial({ map: tex, transparent: true, depthWrite: false, roughness: 0.95, polygonOffset: true, polygonOffsetFactor: -3, polygonOffsetUnits: -3 });
-    const n = quality === "low" ? 25 : 70, patches = new THREE.InstancedMesh(new THREE.PlaneGeometry(1, 1).rotateX(-Math.PI / 2), m, n);
+    const n = quality === "low" ? 25 : quality === "mid" ? 45 : 70, patches = new THREE.InstancedMesh(new THREE.PlaneGeometry(1, 1).rotateX(-Math.PI / 2), m, n);
     let k = 0;
     for (let t = 0; t < n * 10 && k < n; t++) {
       const r = W.roads[Math.floor(rand() * W.roads.length)], p = r.pts[Math.floor(rand() * r.pts.length)];
