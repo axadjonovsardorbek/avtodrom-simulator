@@ -46,7 +46,7 @@ export const CARS = [
     mirrors: { center: [1.9, 1.32, 0], left: [2.3, 1.06, -1.0], right: [2.3, 1.06, 1.0] },
     spec: { mass: 1500, wb: MALIBU19.wheelbase, rOh: MALIBU19.rOh, fOh: MALIBU19.fOh, width: 1.854, track: MALIBU19.track, wheelR: MALIBU19.wheelR, torque: TURBO, clutchCap: 400, autoForce: 5600 },
     sound: TURBO_SOUND,
-    voice: { url: "guvohnoma.mp3", from: 0 }
+    voice: { url: "katta.mp3", from: 0, dur: 4 }
   },
   {
     id: "monza", name: "Chevrolet Monza", model: "models/monza.glb", info: "1.5 · 113 o.k. · 4,66 m",
