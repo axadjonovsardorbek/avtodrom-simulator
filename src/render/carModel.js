@@ -371,7 +371,7 @@ export function rigCar(root) {
     const carN = root.name === "car" ? root : root.getObjectByName("car") || root;
     root.updateMatrixWorld(true);
     for (const side of ["lf", "rf", "lr", "rr"]) {
-      const part = root.getObjectByName(`door_${side}_dummy`) || root.getObjectByName(`door_${side}_ok`);
+      const part = root.getObjectByName(`door_${side}_dummy`) || root.getObjectByName(`door_${side}_ok`) || root.getObjectByName(`door_${side}`);
       if (!part) continue;
       const b = new THREE.Box3().setFromObject(part), lo = carN.worldToLocal(b.min.clone()), hi = carN.worldToLocal(b.max.clone());
       const minX = Math.min(lo.x, hi.x), maxX = Math.max(lo.x, hi.x), zc = (lo.z + hi.z) / 2, yc = (lo.y + hi.y) / 2;

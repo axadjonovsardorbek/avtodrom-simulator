@@ -5,15 +5,65 @@
  "forward": "-x",
  "tyre": "^tyre_rubber$",
  "wheelParts": "^tyre_rubber$",
- "steer": [2.12, 1.12, -0.33],
+ "steer": [
+  2.12,
+  1.12,
+  -0.33
+ ],
  "paint": "^кузов$",
  "tail": "^красное_стекло$|^стекло_красный$",
  "credit": "3D model: \"Chevrolet Damas\" (Sketchfab), modified",
  "source": "",
  "license": "",
  "fix": [
-  ["^кузов$", { "color": "#f2f3f1", "metal": 0.2, "rough": 0.3 }],
-  ["^tyre_rubber$", { "color": "#1c1c1e", "metal": 0, "rough": 0.9 }],
-  ["^окна$", { "color": "#1a222a", "metal": 0.1, "rough": 0.05, "alpha": 0.35 }]
- ]
+  [
+   "^кузов$",
+   {
+    "color": "#f2f3f1",
+    "metal": 0.2,
+    "rough": 0.3
+   }
+  ],
+  [
+   "^tyre_rubber$",
+   {
+    "color": "#1c1c1e",
+    "metal": 0,
+    "rough": 0.9
+   }
+  ],
+  [
+   "^окна$",
+   {
+    "color": "#1a222a",
+    "metal": 0.1,
+    "rough": 0.05,
+    "alpha": 0.35
+   }
+  ]
+ ],
+ "doors": {
+  "lf": {
+   "x": [
+    1.4,
+    2.44
+   ],
+   "y": [
+    0.36,
+    1.68
+   ],
+   "z": 0.5
+  },
+  "rf": {
+   "x": [
+    1.4,
+    2.44
+   ],
+   "y": [
+    0.36,
+    1.68
+   ],
+   "z": 0.5
+  }
+ }
 }

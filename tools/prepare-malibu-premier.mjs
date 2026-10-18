@@ -145,6 +145,29 @@ for (const n of meshNodes) {
   car.addChild(part); part.setMatrix(world(n).toArray()); reparent(part, steer);
 }
 console.log("steering wheel triangles:", cut);
+
+/* ---------- doors: everything inside a door's box (outside z0) becomes its own node "door_<side>" ---------- */
+// config: "doors": { "lf": { "x": [x0, x1], "y": [y0, y1], "z": z0 }, "rf": ... } in the car frame (+x forward, +z right);
+// l = left (z < 0), r = right; the simulator hangs each of these on a hinge at its front edge (see rigCar)
+for (const [side, bx] of Object.entries({ lf: { x: [1.09, 2.38], y: [0.26, 1.42], z: 0.62 }, rf: { x: [1.09, 2.38], y: [0.26, 1.42], z: 0.62 } })) {
+  const sign = side[0] === "l" ? -1 : 1, holder = doc.createNode("door_" + side); car.addChild(holder);
+  let moved = 0;
+  for (const n of meshNodes) {
+    const parts = [];
+    for (const prim of n.getMesh().listPrimitives()) {
+      const keep = [], take = [];
+      triCentroids(n, prim, (_, p, tri) => ((p.x > bx.x[0] && p.x < bx.x[1] && p.y > bx.y[0] && p.y < bx.y[1] && sign * p.z > bx.z ? take : keep).push(...tri)));
+      if (!take.length) continue;
+      moved += take.length / 3; parts.push(subPrimitive(prim, take)); setIndices(prim, keep);
+    }
+    if (!parts.length) continue;
+    const mesh = doc.createMesh(n.getName() + "_door_" + side); parts.forEach(q => mesh.addPrimitive(q));
+    const part = doc.createNode(n.getName() + "_door_" + side).setMesh(mesh);
+    car.addChild(part); part.setMatrix(world(n).toArray()); reparent(part, holder);
+  }
+  console.log(`door ${side}: ${moved} triangles`);
+}
+
 function setIndices(prim, list) {
   const acc = doc.createAccessor().setType("SCALAR").setArray(new Uint32Array(list)).setBuffer(root.listBuffers()[0]);
   prim.setIndices(acc);

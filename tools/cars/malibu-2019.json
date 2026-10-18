@@ -1,14 +1,38 @@
 {
-  "id": "malibu-2019",
-  "src": "/private/tmp/claude-501/-Users-sardorbek-avtodrom-simulator/08e87003-4e0b-45d1-8bb9-9aa5c4308a9c/scratchpad/dl/mal19.glb",
-  "length": 4.923,
-  "forward": "+z",
-  "tyre": "^tyre$",
-  "wheelParts": "^tyre$|^rim$",
-  "paint": "^carpaint_mat$",
-  "head": "^light_SQ$",
-  "tail": "^red_sq$",
-  "credit": "3D model: \"2019 Chevrolet Malibu Premier\" (Sketchfab), modified",
-  "source": "",
-  "license": ""
+ "id": "malibu-2019",
+ "src": "/private/tmp/claude-501/-Users-sardorbek-avtodrom-simulator/08e87003-4e0b-45d1-8bb9-9aa5c4308a9c/scratchpad/dl/mal19.glb",
+ "length": 4.923,
+ "forward": "+z",
+ "tyre": "^tyre$",
+ "wheelParts": "^tyre$|^rim$",
+ "paint": "^carpaint_mat$",
+ "head": "^light_SQ$",
+ "tail": "^red_sq$",
+ "credit": "3D model: \"2019 Chevrolet Malibu Premier\" (Sketchfab), modified",
+ "source": "",
+ "license": "",
+ "doors": {
+  "lf": {
+   "x": [
+    1.08,
+    2.36
+   ],
+   "y": [
+    0.26,
+    1.42
+   ],
+   "z": 0.62
+  },
+  "rf": {
+   "x": [
+    1.08,
+    2.36
+   ],
+   "y": [
+    0.26,
+    1.42
+   ],
+   "z": 0.62
+  }
+ }
 }
