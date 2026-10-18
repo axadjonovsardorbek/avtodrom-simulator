@@ -202,11 +202,12 @@ export class Session {
     } else if (car.v > 0.5) { this.revD = 0; f.rev = false; }
 
     // painted lines
-    const P = car.corners();
+    // a line counts when a tyre is on it (the body may hang over a kerb or a line, as on the real ground)
+    const P = tyrePatches(car);
     const xs = P.map(p => p[0]), ys = P.map(p => p[1]);
     const touching = new Set();
     for (const sg of W.segmentsNear(Math.min(...xs), Math.min(...ys), Math.max(...xs), Math.max(...ys)))
-      if (polyTouchesSeg(P, sg.a, sg.b)) { touching.add(sg.li); W.lines[sg.li].hit = [(sg.a[0] + sg.b[0]) / 2, (sg.a[1] + sg.b[1]) / 2]; }
+      if (P.some((q, i) => segDist(q, sg.a, sg.b) < 0.17 || (this.prevTyres && segCross(this.prevTyres[i], q, sg.a, sg.b)))) { touching.add(sg.li); W.lines[sg.li].hit = [(sg.a[0] + sg.b[0]) / 2, (sg.a[1] + sg.b[1]) / 2]; }
     W.lines.forEach((ln, li) => {
       if (touching.has(li)) {
         ln.flash = this.clock;
@@ -214,7 +215,8 @@ export class Session {
         ln.touch = true; ln.lastT = this.clock;
       } else if (ln.touch && this.clock - ln.lastT > 0.3) ln.touch = false;
     });
-    for (const c of W.cones) if (!c.hit && polyNearPoint(P, [c.x, c.y], 0.22)) { c.hit = true; this.pen("crash"); }
+    this.prevTyres = P;
+    for (const c of W.cones) if (!c.hit && polyNearPoint(car.corners(), [c.x, c.y], 0.22)) { c.hit = true; this.pen("crash"); }
   }
 
   activate(task) {
@@ -306,4 +308,12 @@ export class Session {
     if (this.full) return { title: "Finish", text: "O'ng chiroqni yoqing va Finish chizig'idan o'ting." };
     return { title: "", text: "" };
   }
+}
+
+// the four tyres' contact centres; a tyre is 0.2 m wide and a line about 0.15 m: within 0.17 m they overlap
+function tyrePatches(car) { return car.wheelPoints(); }
+function segDist(p, a, b) { const dx = b[0] - a[0], dy = b[1] - a[1], L = dx * dx + dy * dy || 1, t = Math.max(0, Math.min(1, ((p[0] - a[0]) * dx + (p[1] - a[1]) * dy) / L)); return Math.hypot(a[0] + dx * t - p[0], a[1] + dy * t - p[1]); }
+function segCross(p, q, a, b) {
+  const d = (u, v, w) => (v[0] - u[0]) * (w[1] - u[1]) - (v[1] - u[1]) * (w[0] - u[0]);
+  return d(p, q, a) * d(p, q, b) < 0 && d(a, b, p) * d(a, b, q) < 0;
 }

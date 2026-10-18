@@ -86,8 +86,7 @@ export function addBoard(W) {
   // the kerbs and the frame are the lines a car must not touch
   for (const isl of ISLANDS) W.addLine(closed(isl.kerb), "edge", { width: 0.2, hidden: true });
   W.addLine(closed(FRAME), "edge", { width: 0.3 });
-  // the lane line that runs round every island, a little way out from its kerb
-  for (const isl of ISLANDS) for (const l of isl.lanes || []) W.addLine(l, "paint", { width: 0.14 });
+  // (the plan draws a second outline 0.6 m out from every kerb: that is the kerb itself, the video has no line there)
   // the inner loop roads of the quarters, outlined as on the plan
   for (const [x0, y0, x1, y1, r] of [[100, 598, 668, 1062, 45], [712, 598, 1318, 1080, 50]]) W.addLine(closed(rrect(x0, y0, x1, y1, r)), "paint", { width: 0.16 });
   // pads: a solid yellow line just inside the kerb, a dashed yellow line across the open mouth (as on the video)
