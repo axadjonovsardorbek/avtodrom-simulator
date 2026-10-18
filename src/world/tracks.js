@@ -110,7 +110,7 @@ export function buildFull(car) {
   T.fwd(zebraS - 17.5);
   const tP = piyoda(W, T, 21, { zebra: false, pave: false, l0: -5.4, l1: 2.6 });
   T.fwd(D * 0.1);                                  // the longer run between the crossing and the overpass
-  const tE = estakada(W, T, { s0: 1, s1: 13, s2: 24, s3: 36, h: 1.0, stopS: 9, len: 37 });
+  const tE = estakada(W, T, { s0: 1, s1: 13, s2: 24, s3: 36, h: 1.92, stopS: 9, len: 37 });
   // the decorative lane signs of the board must not stand on the overpasses
   W.signs = W.signs.filter(g => !W.ramps.some(r => { const [a, l] = toLocal(r.pose, g.x, g.y); return a > r.s0 - 2 && a < r.s3 + 2 && Math.abs(l) < r.halfW + 1.5; }));
 

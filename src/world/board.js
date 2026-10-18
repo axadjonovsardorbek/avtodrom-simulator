@@ -3,6 +3,10 @@
 // plan by tools/trace-board.mjs), with the plan's markings on top: zebras, start box, parking diamonds, hatching,
 // lane lines.
 import { FRAME, ISLANDS, PADS, PAD, px } from "./boardData.js";
+import { straighten } from "./straighten.js";
+
+for (const isl of ISLANDS) { straighten(isl.grass, { strictOnly: true, tol: 0.7 }); straighten(isl.kerb, { strictOnly: true, tol: 0.7 }); }
+for (const p of PADS) straighten(p);
 
 const P = (x, y) => px(x, y);
 const closed = poly => [...poly, poly[0]];
@@ -95,7 +99,7 @@ export function addBoard(W) {
     if (g.length < 8) return;
     let best = g[0], d = 0; for (const p of g) { const e = Math.hypot(p[0] - cx, p[1] - cy); if (e > d) { d = e; best = p; } }
     const x = best[0] + (cx - best[0]) * 0.07, y = best[1] + (cy - best[1]) * 0.07, th = Math.atan2(best[1] - cy, best[0] - cx) + Math.PI;
-    sign(x, y, th, "yield", { big: true }); sign(x, y, th, ["right", "left", "ahead"][k % 3], { h: 1.45 });
+    sign(x, y, th, "yield", { big: true, h: 2.6 }); sign(x, y, th, ["right", "left", "ahead"][k % 3], { h: 1.5 });
   });
   for (const p of PADS) { const a = p[0], b = p[1]; sign((a[0] + b[0]) / 2, (a[1] + b[1]) / 2, Math.atan2(b[1] - a[1], b[0] - a[0]) + Math.PI / 2, "park"); }
   for (const x of [-48, -22, 4, 55]) { const [X, Y] = [x, -52.5]; sign(X, Y, Math.PI / 2, "ahead", { big: true }); sign(X + 1.2, Y, Math.PI / 2, "aheadRight", { big: true }); }

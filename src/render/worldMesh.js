@@ -298,10 +298,10 @@ export function buildWorldMeshes(W, quality) {
   const signCache = {};
   for (const s of W.signs) {
     const g = new THREE.Group();
-    const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 2.3, 8), post); pole.position.y = 1.15; pole.castShadow = true; g.add(pole);
+    const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.045, 2.6, 8), post); pole.position.y = 1.3; pole.castShadow = true; g.add(pole);
     const tex = signCache[s.kind] || (signCache[s.kind] = signTexture(s.kind));
-    const plate = new THREE.Mesh(new THREE.PlaneGeometry(s.big ? 0.9 : 0.7, s.big ? 0.9 : 0.7), new THREE.MeshStandardMaterial({ map: tex, transparent: true, side: THREE.DoubleSide, roughness: 0.5 }));
-    plate.position.y = s.h || 2.05; plate.castShadow = true; g.add(plate);
+    const plate = new THREE.Mesh(new THREE.PlaneGeometry(s.big ? 1.2 : 0.9, s.big ? 1.2 : 0.9), new THREE.MeshStandardMaterial({ map: tex, transparent: true, side: THREE.DoubleSide, roughness: 0.5 }));
+    plate.position.y = s.h || 2.3; plate.castShadow = true; g.add(plate);
     g.position.set(s.x, 0, s.y); g.rotation.y = Math.atan2(Math.cos(s.th), Math.sin(s.th));
     group.add(g);
   }
