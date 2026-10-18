@@ -23,7 +23,8 @@ export class Traffic {
   rand() { this.seed = (this.seed * 1664525 + 1013904223) >>> 0; return this.seed / 4294967296; }
 
   // deg of the arm the learner uses now (nobody spawns there), or null
-  setBlock(deg, px, py) {
+  setBlock(deg, px, py, th = 0) {
+    this.viewer = { x: px, y: py, th };
     if (deg === this.block) return;
     this.block = deg;
     // cars already waiting on that arm vanish unless the learner is close enough to see it
@@ -31,10 +32,18 @@ export class Traffic {
     if (!arm) return;
     for (const c of arm.cars.slice()) {
       const p = this.worldPose(c);
-      if (Math.hypot(p.x - px, p.y - py) > 35 && c.s < this.A - 10) { arm.cars.splice(arm.cars.indexOf(c), 1); this.cars.splice(this.cars.indexOf(c), 1); c.gone = true; }
+      if (!this.seen(p.x, p.y, 70) && c.s < this.A - 10) { arm.cars.splice(arm.cars.indexOf(c), 1); this.cars.splice(this.cars.indexOf(c), 1); c.gone = true; }
     }
   }
 
+  // can the learner see this spot (in front of him and not too far)? Cars only appear and vanish where he cannot
+  seen(x, y, range = 55) {
+    const v = this.viewer; if (!v) return false;
+    const dx = x - v.x, dy = y - v.y, d = Math.hypot(dx, dy);
+    return d < range && (d < 12 || dx * Math.cos(v.th) + dy * Math.sin(v.th) > -0.3 * d);
+  }
+
+  spawnXY(arm) { const p = this.pose(arm, 0.5); return [p.x, p.y]; }
   pose(arm, s) { const [x, y] = toWorld(arm.inc, s, LANE / 2); return { x, y, th: arm.inc.th }; }
 
   step(dt, clock) {
@@ -44,27 +53,29 @@ export class Traffic {
       // spawn
       arm.next -= dt;
       const last = arm.cars[arm.cars.length - 1];
-      if (arm.next <= 0 && arm.deg !== this.block && (!last || last.s - last.len > 9)) {
+      if (arm.next <= 0 && arm.deg !== this.block && (!last || last.s - last.len > 9) && !(this.t > -1e8 && this.seen(...this.spawnXY(arm), 60))) {
         const f = FLEET.length ? FLEET[Math.floor(this.rand() * FLEET.length)] : null;
-        const c = { id: this.id++, arm, s: 0.5, v: VMAX * 0.8, color: COLORS[Math.floor(this.rand() * COLORS.length)], hit: false, model: f ? f.id : null, len: f ? f.len : LEN, wid: f ? f.wid : WID, rOh: f ? f.rOh : 0.9 };
+        const c = { id: this.id++, arm, s: 0.5, v: VMAX * 0.8, color: COLORS[Math.floor(this.rand() * COLORS.length)], hit: false, vmax: VMAX * (0.82 + this.rand() * 0.22), a: 0, model: f ? f.id : null, len: f ? f.len : LEN, wid: f ? f.wid : WID, rOh: f ? f.rOh : 0.9 };
         arm.cars.push(c); this.cars.push(c); arm.next = 6 + this.rand() * 9;
       } else if (arm.next <= 0) arm.next = 2;
       // drive
       arm.cars.forEach((c, i) => {
         const ahead = arm.cars[i - 1];
-        let want = VMAX;
+        let want = c.vmax || VMAX;
         // red / yellow: stop before the line, unless already too close to stop comfortably
         const dLine = stopS - c.s;
         // decided once when the light turns: too close to stop comfortably = carries on through
         if (c.ls !== st) { c.ls = st; if (st === "green") c.go = false; else if (st === "yellow") c.go = dLine <= c.v * c.v / (2 * DEC) + 1.5 && dLine > -0.2; }
         if (st !== "green" && dLine > -0.2 && !c.go) want = Math.min(want, Math.max(0, Math.sqrt(2 * DEC * Math.max(0, dLine - 0.3))));
         if (ahead) { const gap = ahead.s - ahead.len - c.s - GAP * 0.4; want = Math.min(want, Math.max(0, Math.sqrt(2 * DEC * Math.max(0, gap)) )); if (gap < 0.2) want = 0; }
+        const v0 = c.v;
         c.v += Math.max(-DEC * dt, Math.min(ACC * dt, want - c.v));
         c.v = Math.max(0, c.v);
+        c.a += ((c.v - v0) / dt - c.a) * Math.min(1, dt * 4);        // smoothed acceleration: body pitch and brake lights
         c.s += c.v * dt;
       });
       // gone
-      while (arm.cars.length && arm.cars[0].s - arm.cars[0].len > 2 * A + 4) { const g = arm.cars.shift(); this.cars.splice(this.cars.indexOf(g), 1); g.gone = true; }
+      while (arm.cars.length && arm.cars[0].s - arm.cars[0].len > 2 * A + 4 && !(arm.cars[0].s < 4 * A && this.seen(this.worldPose(arm.cars[0]).x, this.worldPose(arm.cars[0]).y, 60))) { const g = arm.cars.shift(); this.cars.splice(this.cars.indexOf(g), 1); g.gone = true; }
     }
     this.t = clock;
   }

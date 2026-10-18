@@ -39,7 +39,7 @@ export class World {
 
   addRoadSegment(seg, prev) {
     const hw = seg.width / 2;
-    this.roads.push({ pts: seg.pts, width: seg.width, surface: seg.surface });
+    this.roads.push({ pts: seg.pts, width: seg.width, surface: seg.surface, shift: seg.wide ? -seg.width / 2 : 0 });
     if (!seg.noEdges) {
       for (const [d, gaps] of [[-hw, seg.gapsL], [hw, seg.gapsR]]) {
         const off = untangle(offsetPolyline(seg.pts, d));

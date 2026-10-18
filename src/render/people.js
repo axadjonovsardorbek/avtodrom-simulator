@@ -281,6 +281,15 @@ export function realWalker(instructorGltf, kidGltf) {
   return { root: P.root, update(dt, walking) { walk.timeScale = walking ? 0.9 : 0; if (!walking) walk.time = standT; P.mixer.update(dt); pin(); } };
 }
 
+// The learner on his feet (his own model with the boy's walking clip): he walks up to the driver's door.
+export function realDriverWalker(driverGltf, kidGltf) {
+  const clip = kidGltf.animations[0];
+  const P = rigPerson({ scene: driverGltf.scene, animations: [clip] }, { torso: 0.6, seated: false });
+  dress(P.scene, { Tops: { tint: 0x26334f }, Bottoms: { tint: 0x2b3446 } });
+  const walk = P.actions[clip.name], pin = pinHips(P), standT = standingFrame(P, walk, clip);
+  return { root: P.root, update(dt, walking) { walk.timeScale = walking ? 0.9 : 0; if (!walking) walk.time = standT; P.mixer.update(dt); pin(); } };
+}
+
 // Pedestrian at the crossing: the same Mixamo walker at adult size in a dark jacket and jeans.
 export function realPedestrian(gltf) {
   const clip = gltf.animations[0];

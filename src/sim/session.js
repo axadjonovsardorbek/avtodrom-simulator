@@ -100,12 +100,34 @@ export class Session {
     this.still = car.v === 0 ? this.still + dt : 0;
 
     this.trafficStep(dt);
+    this.trainStep(dt);
     this.contacts();
     this.globalRules(dt);
     if (this.state !== "running") return;
     this.taskRules(dt);
     if (this.state !== "running") return;
     this.finishRules();
+  }
+
+  // the locomotive crosses the road every ~70 s (not while the learner's car stands on the rails); it is stopped by nothing
+  trainStep(dt) {
+    const car = this.car, V = 11, HALF = 5.2;       // m/s; half length of the locomotive plus a margin
+    for (const r of this.W.rails) {
+      const T = r.train; if (!T) continue;
+      const corners = car.corners().map(([x, y]) => toLocal(r.pose, x, y));
+      const onRails = corners.some(([s, l]) => s > r.s - 2.5 && s < r.s + 4 && Math.abs(l) < 6);
+      if (T.pos === null) {
+        T.timer += dt;
+        if (T.timer > 70 && !onRails) { T.pos = T.dir > 0 ? r.l0 - HALF : r.l1 + HALF; T.hit = false; T.timer = 0; }
+        continue;
+      }
+      T.pos += T.dir * V * dt;
+      if (T.dir > 0 ? T.pos > r.l1 + HALF : T.pos < r.l0 - HALF) { T.pos = null; T.dir = -T.dir; continue; }
+      // run over the car: the train is not stopped, the car is thrown back
+      if (!T.hit && corners.some(([s, l]) => Math.abs(s - (r.s + 0.76)) < 1.8 && Math.abs(l - T.pos) < HALF)) {
+        T.hit = true; this.emit("bump", { strength: 1, what: "car" }); this.pen("crash");
+      }
+    }
   }
 
   // solid things (poles, trunks, fence, walls): the car is pushed out and slowed; a hard hit counts as a crash
@@ -124,7 +146,7 @@ export class Session {
     const T = this.W.traffic; if (!T) return;
     const next = this.W.tasks.slice(this.taskIdx).find(t => t.arm !== undefined);
     const deg = next ? ((next.arm + 180 + 540) % 360) - 180 : null;
-    T.setBlock(deg, this.car.x, this.car.y);
+    T.setBlock(deg, this.car.x, this.car.y, this.car.th);
     this.trafficT = (this.trafficT || 0) + dt;
     if (this.trafficT >= 0.05) { T.step(this.trafficT, this.clock); this.trafficT = 0; }
     for (const c of T.cars) if (T.touches(c, this.car.corners())) {

@@ -3,6 +3,7 @@
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import { MeshoptDecoder } from "three/examples/jsm/libs/meshopt_decoder.module.js";
 import * as THREE from "three";
+import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js";
 import { rigCar } from "./carModel.js";
 
 function addShadowProxy(root) {
@@ -62,6 +63,39 @@ export async function loadCarModel(url, onProgress) {
 export async function loadTrafficModel(url) {
   const data = await fetchModel(url);
   const gltf = await new GLTFLoader().setMeshoptDecoder(MeshoptDecoder).parseAsync(data, "");
-  gltf.scene.traverse(o => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = false; } });
-  return gltf.scene;
+  const root = gltf.scene;
+  mergeByMaterial(root);
+  root.traverse(o => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = false; } });
+  return root;
+}
+
+// A traffic car has no moving parts: its meshes (some 75 of them) are joined into one mesh per material, so the
+// whole car costs a dozen draw calls, in the shadow pass too.
+function mergeByMaterial(root) {
+  root.updateMatrixWorld(true);
+  const groups = new Map(), drop = [];
+  root.traverse(o => {
+    if (!o.isMesh || o.isSkinnedMesh || !o.geometry.attributes.position) return;
+    const g = new THREE.BufferGeometry(), src = o.geometry, m = o.matrixWorld;
+    for (const [name, size] of [["position", 3], ["normal", 3], ["uv", 2]]) {
+      const a = src.attributes[name]; if (!a) continue;
+      const f = new Float32Array(a.count * size);
+      for (let i = 0; i < a.count; i++) for (let k = 0; k < size; k++) f[i * size + k] = [a.getX, a.getY, a.getZ][k].call(a, i);
+      g.setAttribute(name, new THREE.BufferAttribute(f, size));
+    }
+    if (!g.attributes.normal) return;
+    if (!g.attributes.uv) g.setAttribute("uv", new THREE.BufferAttribute(new Float32Array(g.attributes.position.count * 2), 2));
+    g.setIndex(src.index ? Array.from(src.index.array) : Array.from({ length: g.attributes.position.count }, (_, i) => i));
+    g.applyMatrix4(m);
+    const mats = [].concat(o.material);
+    if (mats.length !== 1) return;                       // multi-material meshes are left as they are
+    const key = mats[0].uuid;
+    if (!groups.has(key)) groups.set(key, { mat: mats[0], geos: [] });
+    groups.get(key).geos.push(g); drop.push(o);
+  });
+  for (const o of drop) o.removeFromParent();           // the merged meshes hang off the root, their vertices are already in its frame
+  for (const { mat, geos } of groups.values()) {
+    const m = new THREE.Mesh(geos.length === 1 ? geos[0] : mergeGeometries(geos, false), mat);
+    root.add(m);
+  }
 }

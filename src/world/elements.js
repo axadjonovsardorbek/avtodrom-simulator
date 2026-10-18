@@ -64,9 +64,9 @@ function stopHint(ctx, st, lineS) {
 }
 
 /* 2. Piyodalar o'tish joyi (tartibga solinmagan) */
-export function piyoda(W, T) {
+export function piyoda(W, T, len = 34) {
   const pose = T.pose, stopS = 14, z0 = 15.5, z1 = 19.5, cross = (z0 + z1) / 2;
-  T.fwd(34);
+  T.fwd(len);
   stopPaint(W, pose, stopS);
   for (let l = -HL + 0.2; l < HL - 0.2; l += 0.9) W.addPaint(rect(pose, z0, z1, l, Math.min(l + 0.5, HL - 0.1)));
   W.addPad(rect(pose, 10, 25, -5.4, -HL - 0.35), "concrete");
@@ -112,7 +112,7 @@ export function estakada(W, T) {
   W.texts.push({ ...at(pose, stopS - 1.6, 0), th: pose.th, text: "STOP", size: 1.0 });
   W.signs.push({ ...at(pose, 7, 2.9), th: pose.th + Math.PI, kind: "hill" });
   return task({
-    id: "estakada", mapNo: 1, name: "To'xtash va tik balandlikka ko'tarilish (estakada)", short: "Estakada", pose,
+    id: "estakada", mapNo: 3, name: "To'xtash va tik balandlikka ko'tarilish (estakada)", short: "Estakada", pose,
     stages: [{
       text: "Estakadaga chiqing va to'xtash chizig'idan oshmasdan, undan 1 m ichida to'xtang.",
       update(ctx) { stopLineRule(ctx, "sl", stopS, () => true, "stopLine"); },
@@ -156,7 +156,7 @@ export function burilish(W, T, first = 1) {
     guide(W, W2(pose, pts));
   }
   return task({
-    id: "burilish", mapNo: 3, name: "90 gradus burchak ostida burilishlar", short: "90° burilish", pose, timeLimit: 120,
+    id: "burilish", mapNo: 4, name: "90 gradus burchak ostida burilishlar", short: "90° burilish", pose, timeLimit: 120,
     active: ctx => ctx.fs > -0.3 && Math.abs(ctx.fl) < 3,
     stages: [{
       text: `Koridorda ikki marta 90° ga buriling (${first > 0 ? "o'ngga, keyin chapga" : "chapga, keyin o'ngga"}). Nazorat chiziqlariga tegmang, 2 daqiqadan oshirmang.`,
@@ -166,17 +166,36 @@ export function burilish(W, T, first = 1) {
 }
 
 /* 5. Ilon izi */
-export function ilon(W, T) {
-  const pose = T.pose, L = 48, hw = LANE * K(W) / 2;
+export function ilon(W, T, L = 48) {
+  const pose = T.pose, hw = LANE * K(W) / 2;
   T.setStyle({ width: 2 * hw, kind: "ctrl" });
   T.wiggle(L, 2.8);
   T.setStyle({ width: LANE, kind: "edge" });
   for (const s of [0, L]) for (const l of [-hw - 0.6, hw + 0.6]) W.cones.push({ ...at(pose, s, l), hit: false });
   return task({
-    id: "ilon", mapNo: 5, name: "Ilon izi", short: "Ilon izi", pose, timeLimit: 120,
+    id: "ilon", mapNo: 6, name: "Ilon izi", short: "Ilon izi", pose, timeLimit: 120,
     stages: [{
       text: "Ilon izi koridoridan nazorat chiziqlariga tegmasdan o'ting. 2 daqiqadan oshirmang.",
       done: ctx => ctx.rs > L
+    }]
+  });
+}
+
+// The snake as drawn on the plan: a big S-shaped corridor (two bends one way, two the other) that climbs 2R into the
+// island and comes back. The turtle comes in heading east and leaves heading east, 4R + 3 m further on.
+export function ilonS(W, T, R = 10) {
+  const pose = T.pose, hw = LANE * K(W) / 2, L = 4 * R + 3;
+  T.setStyle({ width: 2 * hw, kind: "ctrl" });
+  T.arc(R, -90); T.arc(R, 90); T.fwd(3); T.arc(R, 90); T.arc(R, -90);
+  const end = T.pose;
+  T.setStyle({ width: LANE, kind: "edge" });
+  for (const [p, d] of [[pose, 0], [end, 0]]) for (const l of [-hw - 0.6, hw + 0.6]) W.cones.push({ ...at(p, d, l), hit: false });
+  return task({
+    id: "ilon", mapNo: 6, name: "Ilon izi", short: "Ilon izi", pose, timeLimit: 120,
+    active: ctx => ctx.fs > -0.5 && ctx.fs < L + 6,
+    stages: [{
+      text: "Ilon izi koridoridan nazorat chiziqlariga tegmasdan o'ting. 2 daqiqadan oshirmang.",
+      done: ctx => ctx.rs > L - 1
     }]
   });
 }
@@ -203,7 +222,7 @@ export function boks(W, T) {
   const CL = ctx => ctx.P.map(([x, y]) => toLocal(cp, x, y));
   const inB = q => inBox(q, bx0, bx1, cw, cw + bd);
   return task({
-    id: "boks", mapNo: 6, name: "Tor joyda qayrilib olish uchun boksga kirish", short: "Boks", pose, allowReverse: true,
+    id: "boks", mapNo: 7, name: "Tor joyda qayrilib olish uchun boksga kirish", short: "Boks", pose, allowReverse: true,
     active: ctx => ctx.fs > A - 1 && Math.abs(ctx.fl) < 6,
     stages: [{
       text: "O'ngga burilib koridorga kiring va boksdan o'tib to'xtang. O'ng chiroqni yoqing, orqaga yurib boksga kiring: orqa g'ildiraklar sariq chiziqqa yetsin. To'xtang.",
@@ -257,7 +276,7 @@ export function parkovka(W, T) {
   }
   const inB = q => inBox(q, b0, b1, HL, HL + bw);
   return task({
-    id: "parkovka", mapNo: 9, name: "Orqaga harakatlanib parallel to'xtash (parkovka)", short: "Parkovka", pose, allowReverse: true,
+    id: "parkovka", mapNo: 11, name: "Orqaga harakatlanib parallel to'xtash (parkovka)", short: "Parkovka", pose, allowReverse: true,
     stages: [{
       text: "Qutidan o'tib to'xtang. O'ng chiroqni yoqing, orqaga yurib qutiga kiring: orqa g'ildiraklar sariq chiziqqa yetsin. To'xtang.",
       update(ctx) {
@@ -287,11 +306,11 @@ export function temir(W, T) {
   const pose = T.pose, stopS = 12, r0 = 17.5;
   T.fwd(36);
   stopPaint(W, pose, stopS);
-  W.rails.push({ pose, s: r0, l0: -8, l1: 8 });
+  W.rails.push({ pose, s: r0, l0: -28, l1: 28, train: { pos: null, timer: 55, dir: 1, hit: false } });   // a steam locomotive crosses now and then (src/sim/session.js trainStep)
   W.signs.push({ ...at(pose, 11.2, 2.9), th: pose.th + Math.PI, kind: "stop" });
   W.signs.push({ ...at(pose, 8.5, 2.9), th: pose.th + Math.PI, kind: "rail" });
   return task({
-    id: "temir", mapNo: 7, name: "Temir yo'l kesishmasi", short: "Temir yo'l", pose,
+    id: "temir", mapNo: 8, name: "Temir yo'l kesishmasi", short: "Temir yo'l", pose,
     stages: [{
       text: "Tartibga solinmagan temir yo'l kesishmasi. To'xtash chizig'i oldida (1 m ichida) to'xtang, kamida 3 soniya turing, keyin o'ting.",
       update(ctx) { stopLineRule(ctx, "sl", stopS, () => true, "railStop"); },
@@ -302,15 +321,15 @@ export function temir(W, T) {
 }
 
 /* 8. Tezlashish bo'lagi */
-export function tezlashish(W, T) {
-  const pose = T.pose, z0 = 56, z1 = 64;
-  T.fwd(75);
+export function tezlashish(W, T, L = 75) {
+  const pose = T.pose, z0 = L - 19, z1 = L - 11;
+  T.fwd(L);
   W.addLine(W2(pose, [[z0, -HL + 0.2], [z1, -HL + 0.2], [z1, HL - 0.2], [z0, HL - 0.2], [z0, -HL + 0.2]]), "paint", { color: "yellow", width: 0.12 });
   W.texts.push({ ...at(pose, (z0 + z1) / 2, 0), th: pose.th, text: "STOP", size: 1.1, color: "yellow" });
   W.texts.push({ ...at(pose, 6, 0), th: pose.th, text: "40", size: 1.6 });
   W.signs.push({ ...at(pose, 2, 2.9), th: pose.th + Math.PI, kind: "limit40" });
   return task({
-    id: "tezlashish", mapNo: 8, name: "Tezlashish bo'lagi", short: "Tezlashish", pose, vlim: 40,
+    id: "tezlashish", mapNo: 9, name: "Tezlashish bo'lagi", short: "Tezlashish", pose, vlim: 40,
     stages: [{
       text: "Tezlikni oshirib ikkinchi uzatmaga o'ting, 40 km/soatdan oshirmang. So'ng sariq zonada to'xtang.",
       update(ctx) {
@@ -320,18 +339,18 @@ export function tezlashish(W, T) {
         if (!f.chk && ctx.fs > z0) { f.chk = true; if (!f.g2) ctx.pen("gear2"); }
       },
       hint: ctx => `Uzatma: ${ctx.car.gearNumber || "N"} · eng yuqori tezlik ${Math.round(ctx.f.vmax || 0)} km/soat${ctx.f.g2 ? " · 2-uzatma qayd etildi" : ""}`,
-      done: ctx => (ctx.f.chk && ctx.still > 0.8) || ctx.rs > 75
+      done: ctx => (ctx.f.chk && ctx.still > 0.8) || ctx.rs > L
     }]
   });
 }
 
 /* 8. Avariya holatda to'xtash */
-export function avariya(W, T) {
-  const pose = T.pose, L = 62, trig = 16 + Math.random() * 12;
+export function avariya(W, T, L = 62) {
+  const pose = T.pose, trig = 16 + Math.random() * 12;
   T.fwd(L);
   for (let s = 8; s < L; s += 12) W.gantries.push({ ...at(pose, s, 0), th: pose.th, width: 5.2 });
   return task({
-    id: "avariya", mapNo: 8, name: "Avariya holatda to'xtash", short: "Avariya", pose,
+    id: "avariya", mapNo: 10, name: "Avariya holatda to'xtash", short: "Avariya", pose,
     stages: [{
       text: "15–20 km/soat tezlikda harakatlaning. Qizil ishora yonganidan so'ng 2 soniya ichida to'xtang, 3 soniya ichida avariya ishorasini yoqing.",
       update(ctx) {
@@ -381,7 +400,7 @@ export function chorraha(W, center, approachDeg, dir, A) {
   };
   return task({
     arm: approachDeg,
-    id: "chorraha-" + dir, mapNo: 4, name: meta[0], short: meta[1], pose,
+    id: "chorraha-" + dir, mapNo: 5, name: meta[0], short: meta[1], pose,
     active: ctx => ctx.fs > stopS - 8 && Math.abs(ctx.fl) < 3,
     stages: [{
       text: meta[2] + " Qizil va sariq ishora taqiqlovchi: to'xtash chizig'i oldida (1 m ichida) to'xtang.",

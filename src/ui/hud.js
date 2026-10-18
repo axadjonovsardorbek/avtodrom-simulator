@@ -368,6 +368,9 @@ export class Hud {
       bg.fillStyle = "#e9ebee"; bg.font = "bold 11px Barlow, sans-serif"; bg.textAlign = "center"; bg.textBaseline = "middle";
       const seen = new Set();
       for (const t of W.tasks) { if (seen.has(t.mapNo + t.id.split("-")[0])) continue; seen.add(t.mapNo + t.id.split("-")[0]); const p = t.id.startsWith("chorraha") ? { x: 0, y: 0 } : t.pose; bg.fillText(String(t.mapNo), p.x * sc + ox + 9, p.y * sc + oy - 9); }
+      // the start (1) and the finish (12) of the full route, numbered like the board of the exam centre
+      if (W.startLine) bg.fillText("1", W.startLine.pose.x * sc + ox + 9, W.startLine.pose.y * sc + oy - 9);
+      if (W.finishLine) bg.fillText("12", W.finishLine.pose.x * sc + ox + 9, W.finishLine.pose.y * sc + oy - 9);
       this.mmBase = base;
     }
     g.clearRect(0, 0, size, size);

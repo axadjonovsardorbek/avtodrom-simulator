@@ -10,6 +10,7 @@ export class Turtle {
     this.x = x; this.y = y; this.th = thDeg * DEG;
     this.s = 0;
     this.style = { width: LANE, kind: "edge", ...style };
+    this.wide = !!style?.wide;        // draw the lane of the opposite direction beside it (asphalt only), like the two-lane roads of the plan
     this.prev = null;
     this.begin();
   }
@@ -18,7 +19,7 @@ export class Turtle {
 
   begin() {
     this.seg = { pts: [[this.x, this.y]], sArr: [this.s], width: this.style.width, kind: this.style.kind,
-      surface: this.style.surface || "asphalt", gapsL: [], gapsR: [], noEdges: !!this.style.noEdges };
+      surface: this.style.surface || "asphalt", gapsL: [], gapsR: [], noEdges: !!this.style.noEdges, wide: this.wide && this.style.kind === "edge" };
   }
   flush() {
     if (this.seg.pts.length > 1) { this.W.addRoadSegment(this.seg, this.prev); this.prev = this.seg; }

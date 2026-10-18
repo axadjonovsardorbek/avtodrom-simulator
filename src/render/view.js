@@ -1,6 +1,6 @@
 // Three.js scene, lighting, cameras and rear-view mirrors.
 import * as THREE from "three";
-import { buildWorldMeshes, updateWorldMeshes } from "./worldMesh.js";
+import { buildWorldMeshes, updateWorldMeshes, fillTrains } from "./worldMesh.js";
 import { inPoly } from "../sim/geom.js";
 import { Sky } from "three/examples/jsm/objects/Sky.js";
 import { EffectComposer } from "three/examples/jsm/postprocessing/EffectComposer.js";
@@ -86,7 +86,7 @@ export class View {
     this.hud = new THREE.Scene();
     this.hudCam = new THREE.OrthographicCamera(0, 1, 1, 0, -1, 1);
     this.mirrors = MIRRORS.map(m => {
-      const cam = new THREE.PerspectiveCamera(m.fov, m.w / m.h, 0.1, 700);
+      const cam = new THREE.PerspectiveCamera(m.fov, m.w / m.h, m.key === "center" ? 0.1 : 0.5, 700);   // the wing-mirror cameras start behind their own housing: its shell is cut away by the near plane
       cam.position.set(...m.pos);
       cam.rotation.order = "YXZ";             // pitch about the camera's own axis
       this.carView.root.add(cam);
@@ -145,6 +145,7 @@ export class View {
     for (const m of this.mirrors) cv.root.add(m.cam);
     this.carView = cv;
     this.scene.add(cv.root);
+    this.findMirrorHousings();
     cv.setCockpit(this.mode === "cockpit");
     if (this.instructor) this.setInstructor(this.instructor);
     if (this.driver) { this.driver.reset(); this.placeDriver(); }
@@ -237,7 +238,7 @@ export class View {
       this.worldGroup.traverse(o => { if (o.geometry) o.geometry.dispose(); });
     }
     const { group, dyn } = buildWorldMeshes(W, quality);
-    this.W = W; this.dyn = dyn; this.worldGroup = group; this.applyTrafficMode();
+    this.W = W; this.dyn = dyn; this.worldGroup = group; this.applyTrafficMode(); if (this.trainTpl) fillTrains(dyn, this.trainTpl);
     this.dressPedestrians();
     this.buildStopZones(W);
     this.buildGuides(W);
@@ -272,6 +273,21 @@ export class View {
     const my = small ? h * 0.42 : h * 0.47;      // overlay y runs from the bottom
     place(this.mirrors[1], 14 + sw / 2, my, sw, sh);
     place(this.mirrors[2], w - 14 - sw / 2, my, sw, sh);
+    this.mSize = { sw, sh, place };
+  }
+
+  // the wing-mirror pictures sit where the car's own mirrors are on the screen (so there is one mirror, not two)
+  seatSideMirrors() {
+    const S = this.mSize; if (!S || !this.w) return;
+    this.cam.updateMatrixWorld(true);
+    for (const m of this.mirrors.slice(1)) {
+      (this._mp = this._mp || new THREE.Vector3()).copy(m.cam.position); this._mp.y -= 0.07; this.carView.root.localToWorld(this._mp);
+      const q = this._mp.clone().project(this.cam);
+      if (q.z > 1) continue;                                           // behind the head: leave it where it was
+      const x = THREE.MathUtils.clamp((q.x * 0.5 + 0.5) * this.w, S.sw / 2 + 6, this.w - S.sw / 2 - 6);
+      const y = THREE.MathUtils.clamp((q.y * 0.5 + 0.5) * this.h, S.sh / 2 + 6, this.h - S.sh / 2 - 6);
+      S.place(m, x, y, S.sw, S.sh);
+    }
   }
 
   // mirrors: look backwards, side mirrors angled outwards, plus the driver's own adjustment
@@ -292,6 +308,7 @@ export class View {
   }
 
   // other cars at the junction: "real" cars use these light models, anything else the plain boxes
+  setTrainModel(tpl) { this.trainTpl = tpl; if (this.dyn) fillTrains(this.dyn, tpl); }
   setTrafficModels(map) { this.trafficReal = map; this.applyTrafficMode(); }
   setTrafficMode(mode) { this.trafficMode = mode; this.applyTrafficMode(); }
   applyTrafficMode() { if (this.dyn && this.dyn.traffic) this.dyn.traffic.real = this.trafficMode === "real" ? this.trafficReal : null; }
@@ -313,11 +330,13 @@ export class View {
 
   startBoarding() {
     if (this.mode !== "cockpit") return;
-    this.boarding = { t: 0, dur: 6.2 }; this.carView.setCockpit(false); if (this.driver) this.driver.root.visible = false;
+    this.boarding = { t: 0, dur: 9 }; this.carView.setCockpit(false); if (this.driver) this.driver.root.visible = false;
     if (this.walker && !this.walker.root.parent) this.carView.root.add(this.walker.root);
     if (this.walker && this.walker.root.parent !== this.carView.root) this.carView.root.add(this.walker.root);
+    if (this.driverWalker && this.driverWalker.root.parent !== this.carView.root) this.carView.root.add(this.driverWalker.root);
   }
   setWalker(w) { this.walker = w; }
+  setDriverWalker(w) { this.driverWalker = w; }
   // true when there is something to show (a car with real doors, in the cabin view)
   canExit() { return this.mode === "cockpit" && !!this.carView.hasDoors; }
   startExit(done) {
@@ -338,6 +357,7 @@ export class View {
     if (this.boarding) {
       this.boarding = null; if (this.carView.setDoor) { this.carView.setDoor("lf", 0); this.carView.setDoor("rf", 0); }
       if (this.walker) this.walker.root.visible = false;
+      if (this.driverWalker) this.driverWalker.root.visible = false;
       if (this.instructor) this.instructor.visible = !!this.instructorWanted; this.carView.setCockpit(this.mode === "cockpit"); if (this.driver) this.driver.root.visible = true; } }
 
   setMode(mode) {
@@ -423,54 +443,63 @@ export class View {
       if (u >= 1) this.finishExit();
     } else if (this.boarding && this.mode !== "cockpit") this.boarding = null;
     if (this.exiting) { /* the camera is placed above */ } else if (this.boarding) {
-      // getting in. 0-0.55: from the front corner the instructor walks to the passenger door, gets in and it is
-      // shut; 0.45-1: the camera walks round to the driver's door, he ducks in and sits down
+      // getting in. The camera watches from the front-right while the instructor walks to the passenger door and gets in
+      // (it is shut); then it crosses to the front-left where the learner walks up to the driver's door; then it follows
+      // him in: the door opens and the camera ducks in and settles on the driver's eyes
       const b = this.boarding; b.t += dt;
       const u = Math.min(1, b.t / b.dur), [ex, ey, ez] = this.eye || [1.2, 1.22, -0.37];
       const smooth = x => { x = Math.max(0, Math.min(1, x)); return x * x * (3 - 2 * x); };
       const P = (x, y, z) => root.localToWorld(new THREE.Vector3(x, y, z));
-      const S = P(ex - 0.6, 1.62, ez - 2.1), C = P(ex - 0.1, 1.5, ez - 0.75), E = P(ex, ey, ez);
+      const C = P(ex - 0.1, 1.5, ez - 0.75), E = P(ex, ey, ez);
       const seatX = (this.seat || [1.5, 0.46, 0.36])[0];
       const w = this.instructorWanted && this.carView.hasDoors ? this.walker : null;       // he only walks in where there is a door to open
-      if (u < 0.45) {
-        // overview from the front-right while the instructor boards
-        const A0 = P(seatX + 3.6, 1.55, 6.4), k = smooth((u - 0.3) / 0.15);
-        cam.position.copy(A0.lerp(S, k));
-        cam.lookAt(P(seatX + 0.2 - k * 0.2, 0.95, 2.3 - k * 1.9));
-      } else {
-        const e = smooth((u - 0.45) / 0.55);
-        cam.position.copy(S.clone().multiplyScalar((1 - e) * (1 - e)).addScaledVector(C, 2 * (1 - e) * e).addScaledVector(E, e * e));
+      const dw = this.carView.hasDoors ? this.driverWalker : null;
+      for (const x of [this.walker, this.driverWalker]) if (x && x.root.parent !== root) root.add(x.root);       // the car model can arrive after the start
+      const A0 = P(seatX + 3.6, 1.55, 6.4), A1 = P(seatX + 3.6, 1.55, -6.4);
+      const L0 = P(seatX + 0.2, 0.95, 2.3), L1 = P(seatX + 0.2, 0.95, -2.3);
+      if (u < 0.3) { cam.position.copy(A0); cam.lookAt(L0); }
+      else if (u < 0.55) { const k = smooth((u - 0.3) / 0.25); cam.position.copy(A0.clone().lerp(A1, k)); cam.lookAt(L0.clone().lerp(L1, k)); }
+      else {
+        const e = smooth((u - 0.55) / 0.45);
+        cam.position.copy(A1.clone().multiplyScalar((1 - e) * (1 - e)).addScaledVector(C, 2 * (1 - e) * e).addScaledVector(E, e * e));
         const look0 = P(ex + 0.1, 0.95, ez - 0.2), look1 = P(ex + 10, ey - 0.45, ez);
-        cam.lookAt(look0.lerp(look1, Math.pow(e, 1.4)));
+        cam.lookAt(L1.clone().lerp(look0, smooth(e * 3)).lerp(look1, Math.pow(e, 1.4)));
       }
       if (cam.fov !== 68) { cam.fov = 68; cam.updateProjectionMatrix(); }
       // the instructor: a walker until he reaches the door, then he is in his seat
-      const wk = smooth(u / 0.34);
       if (w) {
-        const arrived = u >= 0.36;
+        const arrived = u >= 0.32;
         w.root.visible = !arrived;
-        w.root.position.set(seatX + 0.05, 0, 4.4 + (1.15 - 4.4) * wk); w.root.rotation.y = Math.PI / 2;
+        w.root.position.set(seatX + 0.05, 0, 4.4 + (1.15 - 4.4) * smooth(u / 0.3)); w.root.rotation.y = Math.PI / 2;
         if (!arrived) w.update(dt, true);
       }
-      if (this.instructor) this.instructor.visible = !w || u >= 0.36 ? !!this.instructorWanted : false;
-      // doors: the passenger door opens as he comes up and is pushed shut; the driver's opens for the camera
-      const pk = u < 0.22 ? 0 : u < 0.3 ? (u - 0.22) / 0.08 : u < 0.46 ? 1 : Math.max(0, (0.52 - u) / 0.06);
-      const dk = u < 0.5 ? 0 : u < 0.58 ? (u - 0.5) / 0.08 : u < 0.86 ? 1 : Math.max(0, (0.95 - u) / 0.09);
+      if (this.instructor) this.instructor.visible = !w || u >= 0.32 ? !!this.instructorWanted : false;
+      // the learner walks up to the driver's door on the left, stops, and the door opens for him
+      if (dw) {
+        const here = u >= 0.3 && u < 0.6, walking = u < 0.54;
+        dw.root.visible = here;
+        dw.root.position.set(ex + 0.1, 0, -4.4 + 3.25 * smooth((u - 0.3) / 0.24)); dw.root.rotation.y = -Math.PI / 2;
+        if (here) dw.update(dt, walking);
+      }
+      // doors: the passenger door opens as he comes up and is pushed shut; the driver's opens for the learner
+      const pk = u < 0.2 ? 0 : u < 0.27 ? (u - 0.2) / 0.07 : u < 0.42 ? 1 : Math.max(0, (0.48 - u) / 0.06);
+      const dk = u < 0.52 ? 0 : u < 0.6 ? (u - 0.52) / 0.08 : u < 0.88 ? 1 : Math.max(0, (0.97 - u) / 0.09);
       if (this.carView.setDoor) { this.carView.setDoor("rf", pk); this.carView.setDoor("lf", dk); }
-      if (!b.thud1 && u > 0.5) { b.thud1 = true; if (this.onDoor) this.onDoor(); }
-      if (!b.thudded && u > 0.95) { b.thudded = true; if (this.onDoor) this.onDoor(); }
+      if (!b.thud1 && u > 0.56) { b.thud1 = true; if (this.onDoor) this.onDoor(); }
+      if (!b.thudded && u > 0.96) { b.thudded = true; if (this.onDoor) this.onDoor(); }
       // the outside of the car shows until the head is through the door
-      const inside = u > 0.72;
+      const inside = u > 0.8;
       this.carView.setCockpit(inside); if (this.driver) this.driver.root.visible = inside;
       if (u >= 1) this.skipBoarding();
     } else if (this.mode === "cockpit") {
       const [ex0, ey0, ez0] = this.eye || [1.2, 1.22, -0.37];
       const ex = ex0 + this.head.x, ey = ey0 + Math.sin(tt * 31) * shake + Math.sin(tt * 17.3) * shake * 0.6, ez = ez0 + this.head.z;
       const eye = root.localToWorld(new THREE.Vector3(ex, ey, ez));
-      const yaw = this.look + this.drag.yaw, pitch = this.drag.pitch - 0.045 + this.head.x * 0.25;
+      const yaw = this.look + this.drag.yaw, pitch = this.drag.pitch - 0.085 + this.head.x * 0.25;     // a little downwards: the road close to the bonnet stays in view
       const tgt = root.localToWorld(new THREE.Vector3(ex + 10 * Math.cos(yaw) * Math.cos(pitch), ey + 10 * Math.sin(pitch), ez + 10 * Math.sin(yaw) * Math.cos(pitch)));
       cam.position.copy(eye); cam.lookAt(tgt);
-      if (cam.fov !== 68) { cam.fov = 68; cam.updateProjectionMatrix(); }
+      this.seatSideMirrors();
+      if (cam.fov !== 74) { cam.fov = 74; cam.updateProjectionMatrix(); }
     } else if (this.mode === "chase") {
       const yaw = this.lookOverride ?? this.look * 1.6;
       const back = new THREE.Vector3(Math.cos(car.th + yaw), 0, Math.sin(car.th + yaw));
@@ -563,6 +592,22 @@ export class View {
     c.setPixelRatio(this.ratio); if (this.w) c.setSize(this.w, this.h);
   }
 
+  // the small meshes around each wing-mirror camera (housing, glass, stalk): hidden while that mirror is drawn,
+  // so the picture shows the road behind and not the car's own mirror a second time
+  findMirrorHousings() {
+    const root = this.carView.root; root.updateMatrixWorld(true);
+    const inv = root.matrixWorld.clone().invert(), box = new THREE.Box3(), c = new THREE.Vector3(), sz = new THREE.Vector3();
+    for (const m of this.mirrors) {
+      m.housing = [];
+      if (m.key === "center") continue;
+      root.traverse(o => {
+        if (!o.isMesh || !o.geometry) return;
+        box.setFromObject(o).applyMatrix4(inv); box.getCenter(c); box.getSize(sz);
+        if (sz.length() < 0.55 && c.distanceTo(m.cam.position) < 0.32) m.housing.push(o);
+      });
+    }
+  }
+
   render() {
     const r = this.renderer;
     this.frame++;
@@ -574,7 +619,9 @@ export class View {
       // one mirror every other frame, in turn: each still updates 20 times a second at 60 fps
       const m = this.mirrors[(this.frame >> 1) % this.mirrors.length];
       this.carView.setCockpit(false);
+      const hid = (m.housing || []).filter(o => o.visible); hid.forEach(o => { o.visible = false; });
       r.setRenderTarget(m.rt); r.render(this.scene, m.cam);
+      hid.forEach(o => { o.visible = true; });
       this.carView.setCockpit(true);
       r.setRenderTarget(null);
     }

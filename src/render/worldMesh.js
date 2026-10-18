@@ -1,11 +1,19 @@
 // Turns a World description into Three.js meshes.
 // Mapping: world (x, y) on the ground -> three (x, height, y).
 import * as THREE from "three";
-import { mergeVertices } from "three/examples/jsm/utils/BufferGeometryUtils.js";
-import { offsetPolyline, toWorld, polylineLength } from "../sim/geom.js";
+import { mergeVertices, mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js";
+import { offsetPolyline, untangle, toWorld, polylineLength } from "../sim/geom.js";
 import { asphaltTexture, grassTexture, concreteTexture, signTexture, textTexture, facadeTexture } from "./textures.js";
 
 const Y_ROAD = 0.0, Y_PAD = 0.006, Y_PAINT = 0.016, Y_LINE = 0.02;
+
+// many small static meshes with one material become one draw call
+function addMerged(group, geos, mat, shadow = true) {
+  if (!geos.length) return;
+  const g = geos.length === 1 ? geos[0] : mergeGeometries(geos, false);
+  if (geos.length > 1) geos.forEach(x => x.dispose());
+  const m = new THREE.Mesh(g, mat); m.receiveShadow = shadow; group.add(m);
+}
 
 // Ribbon along a polyline, sampling terrain height; UVs are planar (world x/z).
 function ribbon(pts, width, heightAt, yOff, uvScale = 0) {
@@ -103,10 +111,12 @@ export function buildWorldMeshes(W, quality) {
   group.add(ground);
 
   // roads and pads
+  const roadGeos = [], padGeos = [];
   for (const r of W.roads) {
-    const m = new THREE.Mesh(ribbon(r.pts, r.width + 0.5, h, Y_ROAD, 7), asphaltMat);
-    m.receiveShadow = true; group.add(m);
+    const wide = r.shift ? untangle(offsetPolyline(r.pts, r.shift)) : r.pts;      // a road with a second lane beside it: one ribbon, twice as wide
+    roadGeos.push(ribbon(wide, r.shift ? r.width * 2 + 0.5 : r.width + 0.5, h, Y_ROAD, 7));
   }
+  addMerged(group, roadGeos, asphaltMat);
   for (const p of W.pads) {
     if (p.surface === "concrete") {
       const shape = new THREE.Shape(p.poly.map(([x, y]) => new THREE.Vector2(x, -y)));
@@ -114,25 +124,24 @@ export function buildWorldMeshes(W, quality) {
       g.rotateX(-Math.PI / 2);
       const m = new THREE.Mesh(g, concMat); m.receiveShadow = true; m.castShadow = true; group.add(m);
     } else {
-      const m = new THREE.Mesh(flatPoly(p.poly, h, Y_PAD, 7), padMat); m.receiveShadow = true; group.add(m);
+      padGeos.push(flatPoly(p.poly, h, Y_PAD, 7));
     }
   }
+  addMerged(group, padGeos, padMat);
 
-  // painted lines (one material per line so touched lines can flash)
+  // painted lines: all the white ones are one mesh, all the yellow ones another (a touched line flashes in its own overlay, see below)
+  const lineGeos = { white: [], yellow: [] }, paintGeos = { white: [], yellow: [] };
   for (const ln of W.lines) {
     const pieces = ln.dash ? dashed(ln.pts, ln.dash[0], ln.dash[1]) : [ln.pts];
-    const mat = (ln.color === "yellow" ? yellow : white).clone();
     for (const pc of pieces) {
       if (pc.length < 2 || polylineLength(pc) < 0.01) continue;
-      const m = new THREE.Mesh(ribbon(pc, ln.width, h, Y_LINE), mat);
-      m.receiveShadow = true; group.add(m);
+      lineGeos[ln.color === "yellow" ? "yellow" : "white"].push(ribbon(pc, ln.width, h, Y_LINE));
     }
-    dyn.lines.push({ ln, mat, h, group });
+    dyn.lines.push({ ln, h, group });
   }
-  for (const p of W.paint) {
-    const m = new THREE.Mesh(flatPoly(p.poly, h, Y_PAINT), p.color === "yellow" ? yellow : white);
-    m.receiveShadow = true; group.add(m);
-  }
+  addMerged(group, lineGeos.white, white); addMerged(group, lineGeos.yellow, yellow);
+  for (const p of W.paint) paintGeos[p.color === "yellow" ? "yellow" : "white"].push(flatPoly(p.poly, h, Y_PAINT));
+  addMerged(group, paintGeos.white, white); addMerged(group, paintGeos.yellow, yellow);
   for (const t of W.texts) {
     const tex = textTexture(t.text, t.color === "yellow" ? "#f2b632" : "#eeece4");
     const m = new THREE.Mesh(new THREE.PlaneGeometry(t.size * 3.2, t.size), new THREE.MeshStandardMaterial({ map: tex, transparent: true, roughness: 0.7, polygonOffset: true, polygonOffsetFactor: -4, polygonOffsetUnits: -4 }));
@@ -178,12 +187,18 @@ export function buildWorldMeshes(W, quality) {
       const rail = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.06, len), steel);
       rail.position.set(x, 0.035, y); rail.rotation.y = -r.pose.th; group.add(rail);
     }
+    const sleepers = [];
     for (let l = r.l0 + 0.3; l < r.l1; l += 0.65) {
       const [x, y] = toWorld(r.pose, r.s + 0.76, l);
-      const sl = new THREE.Mesh(new THREE.BoxGeometry(2.4, 0.03, 0.22), wood);
-      sl.position.set(x, 0.012, y); sl.rotation.y = -r.pose.th; sl.receiveShadow = true; group.add(sl);
+      const g = new THREE.BoxGeometry(2.4, 0.03, 0.22);
+      g.applyMatrix4(new THREE.Matrix4().makeRotationY(-r.pose.th).setPosition(x, 0.012, y));
+      sleepers.push(g);
     }
+    addMerged(group, sleepers, wood);
   }
+
+  // locomotives: an empty holder per crossing, the model is put in by View.setTrainModel
+  dyn.trains = W.rails.filter(r => r.train).map(r => { const holder = new THREE.Group(); holder.visible = false; group.add(holder); return { r, holder }; });
 
   // cones
   const coneGeo = new THREE.ConeGeometry(0.17, 0.55, 16);
@@ -408,7 +423,7 @@ export function buildWorldMeshes(W, quality) {
     const H = 0.12, W1 = 0.22;
     W.roads.forEach((r, ri) => {
       for (const side of [-1, 1]) {
-        const inner = offsetPolyline(r.pts, side * (r.width / 2 + 0.25)), outer = offsetPolyline(r.pts, side * (r.width / 2 + 0.25 + W1));
+        const ex = side < 0 && r.shift ? r.width : 0, inner = untangle(offsetPolyline(r.pts, side * (r.width / 2 + ex + 0.25))), outer = untangle(offsetPolyline(r.pts, side * (r.width / 2 + ex + 0.25 + W1)));   // untangle: the inside of a sharp corner would stick out as a loop
         for (let k = 1; k < r.pts.length; k++) {
           const mx = (inner[k][0] + inner[k - 1][0]) / 2, my = (inner[k][1] + inner[k - 1][1]) / 2;
           const others = roadCells.get(key(mx, my));
@@ -479,15 +494,34 @@ function trafficCar(color) {
 // a copy of a light car model with its own paint colour
 function realCar(tpl, color) {
   const g = tpl.clone(true);
+  g.userData.tails = [];
   g.traverse(o => {
     if (!o.isMesh) return;
-    o.material = [].concat(o.material).map(m => { if (m && m.name === "paint") { const c = m.clone(); c.color.setHex(color); return c; } return m; });
+    o.material = [].concat(o.material).map(m => {
+      if (m && m.name === "paint") { const c = m.clone(); c.color.setHex(color); return c; }
+      if (m && m.name === "lamp_tail") { const c = m.clone(); g.userData.tails.push(c); return c; }       // its own brake light
+      return m;
+    });
     if (!Array.isArray(o.material) || o.material.length === 1) o.material = [].concat(o.material)[0];
   });
   return g;
 }
 
+export function fillTrains(dyn, tpl) {
+  for (const t of dyn.trains || []) if (!t.holder.children.length) {
+    const m = tpl.clone(true); m.traverse(o => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = false; } });
+    t.holder.add(m);
+  }
+}
+
 export function updateWorldMeshes(W, dyn, clock, now) {
+  for (const { r, holder } of dyn.trains || []) {
+    const T = r.train; holder.visible = T.pos !== null && holder.children.length > 0;
+    if (!holder.visible) continue;
+    const [x, y] = toWorld(r.pose, r.s + 0.76, T.pos), [x1, y1] = toWorld(r.pose, r.s + 0.76, T.pos + T.dir);
+    holder.position.set(x, W.heightAt ? W.heightAt(x, y) + 0.12 : 0.12, y);       // the wheels sit on the rails (0.07 m)
+    holder.rotation.y = -Math.atan2(y1 - y, x1 - x);
+  }
   if (W.traffic && dyn.traffic) {
     const seen = new Set();
     for (const c of W.traffic.cars) {
@@ -496,7 +530,11 @@ export function updateWorldMeshes(W, dyn, clock, now) {
       if (m && tpl && !m.userData.real) { dyn.traffic.group.remove(m); m = null; }                 // the light model arrived after the box
       if (!m) { m = tpl ? realCar(tpl, c.color) : trafficCar(c.color); m.userData.real = !!tpl; dyn.traffic.group.add(m); dyn.traffic.made.set(c, m); }
       const p = tpl ? W.traffic.axlePose(c) : W.traffic.worldPose(c);     // real models sit on their rear axle, the boxes on their middle
-      m.position.set(p.x, W.heightAt ? W.heightAt(p.x, p.y) : 0, p.y); m.rotation.y = -p.th; seen.add(c);
+      m.position.set(p.x, W.heightAt ? W.heightAt(p.x, p.y) : 0, p.y); m.rotation.order = "YXZ"; m.rotation.y = -p.th; seen.add(c);
+      // braking: the nose dips and the brake lights come on (also while it waits at the light); accelerating: the nose lifts
+      m.rotation.z = THREE.MathUtils.clamp(c.a * 0.006, -0.03, 0.02);
+      const stop = c.a < -0.4 || (c.v < 0.3 && c.ls && c.ls !== "green");
+      if (m.userData.tails) for (const t of m.userData.tails) { t.emissive.setHex(0xff1a10); t.emissiveIntensity = stop ? 3 : 0.15; }
     }
     for (const [c, m] of dyn.traffic.made) if (!seen.has(c)) { dyn.traffic.group.remove(m); dyn.traffic.made.delete(c); }
   }

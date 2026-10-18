@@ -19,12 +19,14 @@ const GESTURE = { good: "thumb", pass: "thumb", crash: "brace", hill: "brace", r
 
 // Mood "rude" (18+) plays only the user's own recordings, shuffled, on every mistake
 // (src/instructor/source/*.ogg -> public/audio/uz/ins/rude/<name>.mp3).
-const RUDE_CLIPS = ["chingiz_iye", "dadangmanmi", "dal", "davlataka", "haromi", "jamshid", "uka", "bekzod1", "bekzod2", "chingiz_uka"];
+// "chingzbl" is cut to its first 7 s and "bl" to its first 4 s; "hayron" (amazement) is rarer, see below
+const RUDE_CLIPS = ["chingiz_iye", "dadangmanmi", "dal", "davlataka", "haromi", "jamshid", "uka", "bekzod1", "bekzod2", "chingiz_uka", "chingzbl", "bl", "nodon", "uka2", "qlq"];
+const HAYRON_EVERY = 5, HAYRON_CLEAN = 90;          // about one mistake in five; or after this many seconds of driving without a penalty
 const NOT_MISTAKES = new Set(["hello", "good", "pass"]);
 const voiceMood = mood => mood === "rude" ? "angry" : mood;
 
 export const lineIds = mood => Object.entries(LINES.lines).flatMap(([k, v]) => v[voiceMood(mood)].map((_, i) => `ins/${voiceMood(mood)}/${k}_${i}`))
-  .filter(() => mood !== "rude").concat(mood === "rude" ? RUDE_CLIPS.map(c => "ins/rude/" + c) : []);
+  .filter(() => mood !== "rude").concat(mood === "rude" ? RUDE_CLIPS.concat("hayron").map(c => "ins/rude/" + c) : []);
 
 export class Instructor {
   constructor(audio) {
@@ -38,7 +40,7 @@ export class Instructor {
     this.lastAny = -99;
     this.lastVariant = {};
     this.gesture = null; this.gestureUntil = 0;
-    this.t = 0; this.still = 0; this.revT = 0; this.hbT = 0; this.helloAt = 0.8;
+    this.t = 0; this.cleanT = 0; this.lastHayron = -99; this.still = 0; this.revT = 0; this.hbT = 0; this.helloAt = 0.8;
   }
 
   say(key, { urgent = URGENT.has(key), cooldown = 6 } = {}) {
@@ -59,6 +61,8 @@ export class Instructor {
   // one of the user's recordings for any mistake: a shuffled deck, so all play before one repeats
   rude(key) {
     if (NOT_MISTAKES.has(key) || this.audio.talking()) return;
+    // now and then, amazement instead of a scolding
+    if (this.t - (this.lastHayron ?? -99) > 25 && Math.random() < 1 / HAYRON_EVERY) return this.hayron();
     if (!this.deck || !this.deck.length) {
       this.deck = RUDE_CLIPS.slice().sort(() => Math.random() - 0.5);
       if (this.deck[0] === this.lastRude) this.deck.push(this.deck.shift());
@@ -69,11 +73,18 @@ export class Instructor {
     this.gesture = "angry"; this.gestureUntil = this.t + 2.5;
   }
 
+  hayron() {
+    this.lastHayron = this.lastAny = this.t; this.cleanT = 0;
+    this.audio.prompt("ins/rude/hayron", null, true, { pan: 0.2, talk: true });
+    this.gesture = "angry"; this.gestureUntil = this.t + 2.5;
+  }
+
   // session events (penalty, taskDone, car, limit, end)
   onEvent(ev) {
     if (!this.on) return;
     switch (ev.type) {
       case "penalty":
+        this.cleanT = 0;
         if (ev.code === "stopFar") break;              // main.js plays the user's own clip for this one
         this.say(PEN[ev.code] || "generic", { cooldown: 3 }); break;
       case "taskDone": if (ev.ok) this.say("good", { cooldown: 4 }); break;
@@ -93,6 +104,11 @@ export class Instructor {
     if (this.helloAt && this.t > this.helloAt) { this.helloAt = 0; this.say("hello", { cooldown: 0 }); }
     if (session.state !== "running") return;
     const car = session.car;
+    // rude mood: a long clean stretch is also worth a gasp
+    if (this.mood === "rude" && session.started) {
+      this.cleanT = (this.cleanT || 0) + dt;
+      if (this.cleanT > HAYRON_CLEAN && !this.audio.talking()) this.hayron();
+    }
     // standing still long after the start signal
     const waiting = session.full && !session.started && session.clock > startSignalAt;
     this.still = waiting && Math.abs(car.v) < 0.1 ? this.still + dt : 0;

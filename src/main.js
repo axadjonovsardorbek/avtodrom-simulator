@@ -26,7 +26,7 @@ import { unlock } from "./sim/achievements.js";
 import { loadHistory } from "./sim/history.js";
 import { dailyTask } from "./sim/daily.js";
 import { buildDriver } from "./render/driverFigure.js";
-import { loadPeople, realInstructor, realDriver, realKid, realPedestrian, realWalker } from "./render/people.js";
+import { loadPeople, realInstructor, realDriver, realKid, realPedestrian, realWalker, realDriverWalker } from "./render/people.js";
 
 const coarse = matchMedia("(pointer: coarse)").matches;
 const settings = { transmission: "manual", quality: coarse ? "mid" : "high", traffic: coarse ? "simple" : "real", mouseSteer: false, muted: false, voice: true, car: "cobalt", instructor: "angry", color: "white", plate: DEFAULT_PLATE, size: "real" };
@@ -63,6 +63,7 @@ loadPeople().then(P => {
   kidShow.setKid(realKid(P.kid));
   view.setPedestrianMaker(() => realPedestrian(P.kid));
   view.setWalker(realWalker(P.instructor, P.kid));
+  view.setDriverWalker(realDriverWalker(P.driver, P.kid));
   if (import.meta.env.DEV) window.__sim.fig = instructorFig;
 }).catch(e => console.warn("people not loaded, keeping the simple figures:", e.message));
 const controls = new Controls(hud.canvas, onAction);
@@ -117,6 +118,7 @@ function start(m, el) {
   const trafficMode = settings.traffic || "simple";
   setTrafficFleet(trafficMode === "real" ? CARS.map(c => ({ id: c.id, len: c.dims.length, wid: Math.min(1.8, c.dims.width), rOh: c.dims.rOh })) : []);
   if (trafficMode === "real") loadTrafficModels();
+  loadTrain();
   const W = m === "practice" ? buildPractice(el, carDims()) : buildFull(carDims(m === "exam"));
   if (trafficMode === "off") W.traffic = null;
   view.setTrafficMode(trafficMode);
@@ -127,7 +129,8 @@ function start(m, el) {
   view.setZonesVisible(m !== "exam");            // the 1 m stop zones are a training aid only
   view.setWorld(W, settings.quality);
   view.setMode(settings.camera || "cockpit");
-  view.drag = { yaw: 0, pitch: 0 };
+  useCar(settings.car);                            // the model variant follows the quality setting
+  if (m !== "practice" && settings.boarding !== false) { view.drag = { yaw: 0, pitch: 0 }; view.startBoarding(); }
   // the first time he sits down, the driver says hello (once per visit)
   if (m !== "practice" && !greeted && settings.voice !== false && !settings.muted) { greeted = true; carVoice = audio.carClip("salom.mp3", 0, 0); }
   hud.reset(session, m === "practice" ? ELEMENTS.find(e => e.id === el).name : TITLES[m]);
@@ -240,6 +243,9 @@ function handleEvent(ev) {
       break;
     case "end":
       ended = true;
+      // the run is over (failed, stopped or finished): the engine is switched off and stops sounding
+      if (session.car.engineOn) { session.car.stopEngine(); audio.engineOff(); }
+      session.car.rpm = 0; session.car.throttle = 0;
       audio.prompt(mode === "practice" ? (ev.passed ? "practice_pass" : "practice_fail") : (ev.passed ? "exam_pass" : "exam_fail"), null, true);
       const showResult = () => {
         paused = true;
@@ -258,7 +264,8 @@ function handleEvent(ev) {
         hud.showResult(...lastResult);
       };
       // the car with real doors: the doors open and the people get out first
-      setTimeout(showResult, 1200);
+      if (view.canExit() && mode !== "practice") setTimeout(() => { if (ended) view.startExit(showResult); }, 900);
+      else setTimeout(showResult, 1200);
       break;
   }
 }
@@ -360,14 +367,24 @@ function carDims(exam) { const d = carById(settings.car).dims; return { length: 
 // car model: generated Cobalt right away, then the .glb file once it has loaded
 let carModelId = null;
 // load a car model and dress it (paint, plates, Cobalt facelift parts)
+// the full model (a third of a million triangles and more) only on the high setting; phones and "O'rta"/"Yengil" get
+// the -mid copy (tools/make-lite.mjs mid): about a third of the triangles, the same textures at 1024 px
+const modelVariant = () => settings.quality === "high" ? "" : "-mid";
 function prepareCar(car, onProgress) {
-  return loadCarModel(car.model, onProgress).then(cv => {
+  return loadCarModel(car.model.replace(/\.glb$/, modelVariant() + ".glb"), onProgress).then(cv => {
     if (car.id === "cobalt") dressCobalt(cv); else addPaint(cv);
     // the Cobalt file has no plates of its own: put them on the plate holders
     addPlates(cv, settings.plate, car.id === "cobalt" ? [{ pos: [3.582, 0.45, 0], back: false }, { pos: [-0.882, 0.47, 0], back: true }] : undefined);
     if (cv.setPaint) cv.setPaint(settings.color);
     return cv;
   });
+}
+
+// the locomotive that crosses at the railway crossing, loaded once
+let trainLoading = null;
+function loadTrain() {
+  if (!trainLoading) trainLoading = loadTrafficModel("models/train.glb").then(m => view.setTrainModel(m)).catch(e => console.warn("train model", e.message));
+  return trainLoading;
 }
 
 // light models for the traffic, loaded once when they are first needed
@@ -390,14 +407,15 @@ function playCarVoice(id) {
 function selectCar(id) { useCar(id); playCarVoice(id); }
 function useCar(id) {
   const car = carById(id);
-  if (carModelId === car.id) return;
-  carModelId = car.id;
+  const key = car.id + modelVariant();
+  if (carModelId === key) return;
+  carModelId = key;
   const first = !boot.isDone();
   const slow = first ? 0 : setTimeout(() => hud.toast(`${car.name} yuklanmoqda…`), 600);
   if (first) boot.step(`${car.name} yuklanmoqda…`, 0.15);
   prepareCar(car, first ? f => boot.step(`${car.name} yuklanmoqda… ${Math.round(f * 100)}%`, 0.15 + f * 0.8) : undefined).then(cv => {
     clearTimeout(slow);
-    if (carModelId !== car.id) return;                  // another car was picked meanwhile
+    if (carModelId !== key) return;                  // another car was picked meanwhile
     audio.setProfile(car.sound);
     view.setCarModel(cv, car);
     boot.done();

@@ -31,6 +31,8 @@ Ko'rib chiqilib ishlatilmagan modellar: "2019 Chevrolet Malibu LS Sedan" (Ddiaz 
   Microsoft xizmat shartlari amal qiladi.
 - `public/audio/uz/ins/rude/*.mp3`, `public/audio/uz/clips/*.mp3` (manba: `src/instructor/source/*.ogg`)
   va `public/sedayanoch.mp3`: loyiha egasi qo'shgan yozuvlar. Ularning huquqlari asl egalariga tegishli.
+- `public/models/train.glb`: "Little train" (bug lokomotivi, `Small train.3ds/.obj`), loyiha egasi yuklab olgan; muallifi va litsenziyasi aniqlanmagan.
+  Kabina plastinkasidagi rasm (burgut belgisi) o'chirilgan, geometriya soddalashtirilgan (`tools/convert-train.py`, `tools/make-train.mjs`).
 
 ## Kutubxonalar
 

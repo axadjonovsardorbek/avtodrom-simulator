@@ -146,10 +146,15 @@ export function addPlates(cv, text, spots) {
       }
     });
   }
+  // no plate meshes in the model: put them on the bumpers by the car's dimensions (settle() finds the surface)
+  if (!spots.length) {
+    const d = car.userData.dims;
+    if (d) spots = [{ pos: [d.wheelbase + d.fOh - 0.05, 0.5, 0], back: false }, { pos: [-d.rOh + 0.05, 0.5, 0], back: true }];
+  }
   // the body surface the plates sit on (no glass, no wheels)
   const meshes = [];
   root.traverse(o => {
-    if (!o.isMesh || o.name === "plate" || /glass/i.test([].concat(o.material)[0]?.name || "")) return;
+    if (!o.isMesh || o.name === "plate" || o.name === "shadow_proxy" || /glass/i.test([].concat(o.material)[0]?.name || "")) return;
     for (let p = o.parent; p; p = p.parent) if (/^wheel_/.test(p.name)) return;
     meshes.push(o);
   });

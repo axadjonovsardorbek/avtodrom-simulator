@@ -386,9 +386,17 @@ export function rigCar(root) {
   const full = !!(carNode && carNode.userData.fullInterior);        // a real model: cabin and shell belong together
   const dims = carNode && carNode.userData.dims;
   if (dims && !root.getObjectByName("learner_sign")) {
+    // sit on the real roof: a ray down through the roof centre (the same for every car), not the dims' roofY
+    const sx = dims.wheelbase * 0.45;
+    carNode.updateMatrixWorld(true);
+    const parts = [];
+    root.traverse(o => { if (o.isMesh && o.visible && o.name !== "shadow_proxy" && !/glass/i.test([].concat(o.material)[0]?.name || "")) parts.push(o); });
+    const rc = new THREE.Raycaster(carNode.localToWorld(new THREE.Vector3(sx, dims.roofY + 1, 0)), new THREE.Vector3(0, -1, 0));
+    const hit = rc.intersectObjects(parts, false)[0];
+    const roof = hit ? carNode.worldToLocal(hit.point.clone()).y : dims.roofY;
     const sign = new THREE.Mesh(new THREE.PlaneGeometry(0.4, 0.4), new THREE.MeshStandardMaterial({ map: signTexture("learner"), transparent: true, side: THREE.DoubleSide, roughness: 0.6 }));
-    sign.name = "learner_sign"; sign.position.set(dims.wheelbase * 0.45, dims.roofY + 0.22, 0); sign.rotation.y = Math.PI / 2; carNode.add(sign);
-    const base = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.05, 0.3), new THREE.MeshStandardMaterial({ color: 0x131416 })); base.position.set(dims.wheelbase * 0.45, dims.roofY + 0.02, 0); carNode.add(base);
+    sign.name = "learner_sign"; sign.position.set(sx, roof + 0.22, 0); sign.rotation.y = Math.PI / 2; carNode.add(sign);
+    const base = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.05, 0.3), new THREE.MeshStandardMaterial({ color: 0x131416 })); base.position.set(sx, roof + 0.02, 0); carNode.add(base);
   }
   const screen = root.getObjectByName("cluster_screen");
   if (screen) screen.traverse(o => { if (o.isMesh) o.material = new THREE.MeshBasicMaterial({ map: cluster.tex }); });
