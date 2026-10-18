@@ -98,6 +98,7 @@ export function buildWorldMeshes(W, quality) {
   const asphaltMat = new THREE.MeshStandardMaterial({ map: asph, roughness: 0.92, metalness: 0, polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -1 });
   const padMat = asphaltMat.clone(); padMat.polygonOffsetFactor = -2; padMat.polygonOffsetUnits = -2;
   const concMat = new THREE.MeshStandardMaterial({ map: conc, roughness: 0.95 });
+  const padLightMat = new THREE.MeshStandardMaterial({ map: conc, color: 0xdfe6e8, roughness: 0.9, polygonOffset: true, polygonOffsetFactor: -3, polygonOffsetUnits: -3 });
   const paintMat = c => new THREE.MeshStandardMaterial({ color: c, roughness: 0.7, polygonOffset: true, polygonOffsetFactor: -4, polygonOffsetUnits: -4 });
   const white = paintMat(0xeeece4), yellow = paintMat(0xf2b632);
 
@@ -109,6 +110,25 @@ export function buildWorldMeshes(W, quality) {
   ground.position.set((b.minX + b.maxX) / 2, -0.02, (b.minY + b.maxY) / 2);
   ground.receiveShadow = true;
   group.add(ground);
+
+  // the plan of the exam ground (src/world/board.js): asphalt everywhere, the islands with kerbs, the pale pads
+  if (W.board) {
+    const bd = W.board, grassTex = grassTexture(), islandMat = new THREE.MeshStandardMaterial({ map: grassTex, roughness: 1, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 });
+    const kerbMat = new THREE.MeshStandardMaterial({ color: 0xcfcdc6, roughness: 0.9 });
+    const frame = new THREE.Mesh(flatPoly(bd.frame, h, Y_ROAD, 7), asphaltMat); frame.receiveShadow = true; group.add(frame);
+    const grassGeos = [], kerbGeos = [];
+    for (const isl of bd.islands) {
+      const shape = new THREE.Shape(isl.kerb.map(([x, y]) => new THREE.Vector2(x, -y)));
+      shape.holes.push(new THREE.Path(isl.grass.map(([x, y]) => new THREE.Vector2(x, -y))));
+      const g = new THREE.ExtrudeGeometry(shape, { depth: 0.13, bevelEnabled: false }); g.rotateX(-Math.PI / 2);
+      kerbGeos.push(g.index ? g.toNonIndexed() : g);
+      grassGeos.push(flatPoly(isl.grass, h, 0.1, 7));
+    }
+    addMerged(group, grassGeos, islandMat);
+    for (const g of kerbGeos) { const m = new THREE.Mesh(g, kerbMat); m.receiveShadow = true; group.add(m); }
+    const padG = bd.pads.map(p => flatPoly(p, h, Y_PAD, 7));
+    addMerged(group, padG, padLightMat);
+  }
 
   // roads and pads
   const roadGeos = [], padGeos = [];
@@ -289,11 +309,13 @@ export function buildWorldMeshes(W, quality) {
     for (let t = 0; t < n; t++) mark(a[0] + (c[0] - a[0]) * t / n, a[1] + (c[1] - a[1]) * t / n, r.width / 2 + 0.8);
   }
   for (const p of W.pads) { const xs = p.poly.map(q => q[0]), ys = p.poly.map(q => q[1]); for (let i = Math.floor(Math.min(...xs)) - 1; i <= Math.max(...xs) + 1; i++) for (let j = Math.floor(Math.min(...ys)) - 1; j <= Math.max(...ys) + 1; j++) paved.add(i + "," + j); }
+  if (W.board) { const xs = W.board.frame.map(q => q[0]), ys = W.board.frame.map(q => q[1]); for (let i = Math.floor(Math.min(...xs)) - 3; i <= Math.max(...xs) + 3; i++) for (let j = Math.floor(Math.min(...ys)) - 3; j <= Math.max(...ys) + 3; j++) paved.add(i + "," + j); }
   const nearRoad = (x, y) => paved.has(cell(x, y));
   const occupied = (x, y) => {
     for (let i = 0; i < W.routePts.length; i += 3) { const p = W.routePts[i]; if (Math.abs(p[0] - x) < 9 && Math.abs(p[1] - y) < 9 && Math.hypot(p[0] - x, p[1] - y) < 9) return true; }
     for (const p of W.pads) { const xs = p.poly.map(q => q[0]), ys = p.poly.map(q => q[1]); if (x > Math.min(...xs) - 5 && x < Math.max(...xs) + 5 && y > Math.min(...ys) - 5 && y < Math.max(...ys) + 5) return true; }
     if (Math.abs(x) < 40 && Math.abs(y) < 40) return true;
+    if (W.board) { const f = W.board.frame; if (x > f[0][0] - 6 && x < f[1][0] + 6 && y > f[0][1] - 6 && y < f[2][1] + 6) return true; }
     return false;
   };
   // trees: a trunk and a canopy of three lumpy blobs, each instance tinted a little
@@ -341,6 +363,10 @@ export function buildWorldMeshes(W, quality) {
       const x = x1 + nx * 4.6 * side, y = y1 + ny * 4.6 * side;
       if (nearRoad(x, y) || spots.some(p => Math.hypot(p[0] - x, p[1] - y) < 18)) continue;
       spots.push([x, y, Math.atan2(-ny * side, -nx * side)]); acc = 0;
+    }
+    if (W.board) {                                    // along the edge of the plan, just outside it, the arms reaching over the asphalt
+      const [a, b, c, d] = W.board.frame, edge = (p0, p1, nx, ny, rot) => { const L = Math.hypot(p1[0] - p0[0], p1[1] - p0[1]), n = Math.floor(L / 26); for (let i = 0; i < n; i++) { const t = (i + 0.5) / n; spots.push([p0[0] + (p1[0] - p0[0]) * t + nx * 2.4, p0[1] + (p1[1] - p0[1]) * t + ny * 2.4, rot]); } };
+      edge(a, b, 0, -1, Math.PI / 2); edge(b, c, 1, 0, Math.PI); edge(d, c, 0, 1, -Math.PI / 2); edge(a, d, -1, 0, 0);
     }
     for (const sp of spots) solid(sp[0], sp[1], 0.16);
     const poleGeo = new THREE.CylinderGeometry(0.06, 0.1, 6.5, 8); poleGeo.translate(0, 3.25, 0);
@@ -451,10 +477,16 @@ export function buildWorldMeshes(W, quality) {
     const n = quality === "low" ? 25 : quality === "mid" ? 45 : 70, patches = new THREE.InstancedMesh(new THREE.PlaneGeometry(1, 1).rotateX(-Math.PI / 2), m, n);
     let k = 0;
     for (let t = 0; t < n * 10 && k < n; t++) {
-      const r = W.roads[Math.floor(rand() * W.roads.length)], p = r.pts[Math.floor(rand() * r.pts.length)];
+      let p, rw = 3.5;
+      if (W.board) {                                          // anywhere on the asphalt of the plan, not on an island or a pad
+        const f = W.board.frame; p = [f[0][0] + 3 + rand() * (f[1][0] - f[0][0] - 6), f[0][1] + 3 + rand() * (f[2][1] - f[0][1] - 6)];
+        const inside = poly => { let c = false; for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) if ((poly[i][1] > p[1]) !== (poly[j][1] > p[1]) && p[0] < (poly[j][0] - poly[i][0]) * (p[1] - poly[i][1]) / (poly[j][1] - poly[i][1]) + poly[i][0]) c = !c; return c; };
+        if (W.board.islands.some(i => inside(i.kerb)) || W.board.pads.some(inside)) continue;
+        rw = 0;
+      } else { const r = W.roads[Math.floor(rand() * W.roads.length)]; p = r.pts[Math.floor(rand() * r.pts.length)]; rw = r.width; }
       if (!p) continue;
       const sz = 0.8 + rand() * 1.8;
-      mtx.compose(v.set(p[0] + (rand() - 0.5) * (r.width - sz), h(p[0], p[1]) + 0.01, p[1] + (rand() - 0.5) * (r.width - sz)), q.setFromAxisAngle(new THREE.Vector3(0, 1, 0), rand() * 6), sc.set(sz, 1, sz * (0.6 + rand() * 0.6)));
+      mtx.compose(v.set(p[0] + (rand() - 0.5) * Math.max(0, rw - sz), h(p[0], p[1]) + 0.01, p[1] + (rand() - 0.5) * Math.max(0, rw - sz)), q.setFromAxisAngle(new THREE.Vector3(0, 1, 0), rand() * 6), sc.set(sz, 1, sz * (0.6 + rand() * 0.6)));
       patches.setMatrixAt(k++, mtx);
     }
     patches.count = k; patches.receiveShadow = true; group.add(patches);

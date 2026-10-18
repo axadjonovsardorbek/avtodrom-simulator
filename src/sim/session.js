@@ -259,6 +259,7 @@ export class Session {
   finishRules() {
     if (!this.full) return;
     const fl = this.W.finishLine;
+    if (this.taskIdx < this.W.tasks.length - 1) return;           // the finish line stands on a road the route also crosses earlier
     const [fs, l] = toLocal(fl.pose, ...this.car.frontPoint());
     if (fs > fl.s && Math.abs(l) < 6) {
       if (this.taskIdx < this.W.tasks.length) this.pen("notDone");

@@ -64,13 +64,12 @@ function stopHint(ctx, st, lineS) {
 }
 
 /* 2. Piyodalar o'tish joyi (tartibga solinmagan) */
-export function piyoda(W, T, len = 34) {
+export function piyoda(W, T, len = 34, opt = {}) {
   const pose = T.pose, stopS = 14, z0 = 15.5, z1 = 19.5, cross = (z0 + z1) / 2;
   T.fwd(len);
   stopPaint(W, pose, stopS);
-  for (let l = -HL + 0.2; l < HL - 0.2; l += 0.9) W.addPaint(rect(pose, z0, z1, l, Math.min(l + 0.5, HL - 0.1)));
-  W.addPad(rect(pose, 10, 25, -5.4, -HL - 0.35), "concrete");
-  W.addPad(rect(pose, 10, 25, HL + 0.35, 5.4), "concrete");
+  if (opt.zebra !== false) for (let l = -HL + 0.2; l < HL - 0.2; l += 0.9) W.addPaint(rect(pose, z0, z1, l, Math.min(l + 0.5, HL - 0.1)));   // the board draws its own zebra when opt.zebra is false
+  if (opt.pave !== false) { W.addPad(rect(pose, 10, 25, -5.4, -HL - 0.35), "concrete"); W.addPad(rect(pose, 10, 25, HL + 0.35, 5.4), "concrete"); }
   W.signs.push({ ...at(pose, 13, 2.9), th: pose.th + Math.PI, kind: "zebra" });
   W.signs.push({ ...at(pose, 21.5, -2.9), th: pose.th, kind: "zebra" });
   const ped = { x: 0, y: 0, th: pose.th + Math.PI / 2, visible: Math.random() < 0.85, l: -4.4, walking: false, phase: 0 };
@@ -256,18 +255,20 @@ export function boks(W, T) {
 }
 
 /* 9. Orqaga harakatlanib parallel to'xtash (parkovka) */
-export function parkovka(W, T) {
+export function parkovka(W, T, opt = {}) {
   // the box is the car's length plus 2.3 m (6.8 m for the Cobalt); the yellow line sits where its rear axle should be
   const car = W.car || { length: 4.479, rOh: 0.9 };
   const k = K(W);
-  const pose = T.pose, b0 = 9, b1 = b0 + car.length + 2.32 + (k - 1) * 4, bw = 2.5 * k, wide = 2.5, reg = b0 + car.rOh + 0.65;
+  const b0 = opt.b0 ?? 9, b1 = opt.b1 ?? b0 + car.length + 2.32 + (k - 1) * 4, bw = opt.bw ?? 2.5 * k, wide = 2.5, reg = b0 + car.rOh + 0.65, pose = T.pose, Lr = opt.len ?? 30;
   T.gapR(b0, b1);
-  T.gapL(0, 30);
-  T.fwd(30);
-  // the road is widened to the left along the parking zone
-  W.addPad(W2(pose, [[0, -HL + 0.1], [2, -HL - wide], [28, -HL - wide], [30, -HL + 0.1]]));
-  W.addLine(W2(pose, [[0, -HL], [2, -HL - wide], [28, -HL - wide], [30, -HL]]), "edge");
-  W.addPad(rect(pose, b0, b1, HL - 0.1, HL + bw));
+  T.gapL(0, Lr);
+  T.fwd(Lr);
+  if (!opt.board) {
+    // the road is widened to the left along the parking zone
+    W.addPad(W2(pose, [[0, -HL + 0.1], [2, -HL - wide], [28, -HL - wide], [30, -HL + 0.1]]));
+    W.addLine(W2(pose, [[0, -HL], [2, -HL - wide], [28, -HL - wide], [30, -HL]]), "edge");
+    W.addPad(rect(pose, b0, b1, HL - 0.1, HL + bw));
+  }
   W.addLine(W2(pose, [[b0, HL], [b0, HL + bw], [b1, HL + bw], [b1, HL]]), "ctrl");
   W.addPaint(rect(pose, reg - 0.06, reg + 0.06, HL + 0.15, HL + bw - 0.15), "yellow");
   { // rear axle: reverse from beside the box in an S-curve onto the yellow line
@@ -306,7 +307,7 @@ export function temir(W, T) {
   const pose = T.pose, stopS = 12, r0 = 17.5;
   T.fwd(36);
   stopPaint(W, pose, stopS);
-  W.rails.push({ pose, s: r0, l0: -28, l1: 28, train: { pos: null, timer: 55, dir: 1, hit: false } });   // a steam locomotive crosses now and then (src/sim/session.js trainStep)
+  W.rails.push({ pose, s: r0, l0: -22, l1: 22, train: { pos: null, timer: 55, dir: 1, hit: false } });   // a steam locomotive crosses now and then (src/sim/session.js trainStep)
   W.signs.push({ ...at(pose, 11.2, 2.9), th: pose.th + Math.PI, kind: "stop" });
   W.signs.push({ ...at(pose, 8.5, 2.9), th: pose.th + Math.PI, kind: "rail" });
   return task({
@@ -321,8 +322,8 @@ export function temir(W, T) {
 }
 
 /* 8. Tezlashish bo'lagi */
-export function tezlashish(W, T, L = 75) {
-  const pose = T.pose, z0 = L - 19, z1 = L - 11;
+export function tezlashish(W, T, L = 75, zone = [L - 19, L - 11]) {
+  const pose = T.pose, [z0, z1] = zone;
   T.fwd(L);
   W.addLine(W2(pose, [[z0, -HL + 0.2], [z1, -HL + 0.2], [z1, HL - 0.2], [z0, HL - 0.2], [z0, -HL + 0.2]]), "paint", { color: "yellow", width: 0.12 });
   W.texts.push({ ...at(pose, (z0 + z1) / 2, 0), th: pose.th, text: "STOP", size: 1.1, color: "yellow" });
@@ -427,6 +428,95 @@ export function chorraha(W, center, approachDeg, dir, A) {
         return `Svetofor: ${{ red: "qizil", yellow: "sariq", green: "yashil" }[st]} · ${Math.ceil(left)} s`;
       },
       done: ctx => ctx.f.wrong || exitOk(ctx.P, exitTh)
+    }]
+  });
+}
+
+/* ---- exercises on the pale pads of the plan (src/world/board.js) ---- */
+
+// the outline of a pad as control lines, without the edges that are open ends (open(mx, my) tells which)
+function padOutline(W, poly, open) {
+  let run = [];
+  const flush = () => { if (run.length > 1) W.addLine(run, "ctrl", { width: 0.2 }); run = []; };
+  for (let i = 0; i < poly.length; i++) {
+    const a = poly[i], b = poly[(i + 1) % poly.length];
+    if (open && open((a[0] + b[0]) / 2, (a[1] + b[1]) / 2)) { flush(); continue; }
+    if (!run.length) run.push(a);
+    run.push(b);
+  }
+  flush();
+}
+const inZone = (z, P) => P.every(([x, y]) => Math.hypot(x - z.x, y - z.y) <= z.r);
+const anyZone = (z, P) => P.some(([x, y]) => Math.hypot(x - z.x, y - z.y) <= z.r);
+
+// One or more pads driven through in turn: in each stage the car goes in at `enter` and has to come out at `exit`
+// (all four corners inside the circle) without touching the outline.
+export function padExercise(W, { id, mapNo, name, short, pads, stages, timeLimit = 120 }) {
+  for (const p of pads) padOutline(W, p.poly, p.open);
+  const xs = pads.flatMap(p => p.poly.map(q => q[0])), ys = pads.flatMap(p => p.poly.map(q => q[1]));
+  const box = [Math.min(...xs) - 9, Math.min(...ys) - 9, Math.max(...xs) + 9, Math.max(...ys) + 9];
+  const e0 = stages[0].enter;
+  return task({
+    id, mapNo, name, short, pose: { x: e0.x, y: e0.y, th: 0 }, timeLimit,
+    active: ctx => ctx.car.x > box[0] && ctx.car.x < box[2] && ctx.car.y > box[1] && ctx.car.y < box[3],
+    stages: stages.map(st => ({
+      text: st.text,
+      update(ctx) { if (!ctx.f.started && anyZone(st.enter, ctx.P)) ctx.f.started = true; },
+      hint: ctx => ctx.f.started ? "" : "Mashq boshlanadigan joyga yaqinlashing.",
+      done: ctx => ctx.f.started && inZone(st.exit, ctx.P)
+    }))
+  });
+}
+
+// The garage of the plan: a T-shaped pad, a corridor with a box beside it. The car drives in at the open end of the
+// corridor, passes the box, and reverses into it (the box is on the right when side is 1, on the left when it is -1).
+// d: { x, y, th (deg, the way into the corridor), Lc, cw, bx0, bx1, bd, side, poly, open }
+export function boksPad(W, d) {
+  const car = W.car || { length: 4.479, rOh: 0.9 }, { Lc, cw, bx0, bx1, bd, side: sg } = d;
+  const cp = { x: d.x, y: d.y, th: d.th * DEG }, reg = cw + bd - 1.2;      // the arms of the plan are shallow: the nose may stand a little way out into the corridor
+  padOutline(W, d.poly, d.open);
+  const lo = Math.min(sg * (reg - 0.06), sg * (reg + 0.06)), hi = Math.max(sg * (reg - 0.06), sg * (reg + 0.06));
+  W.addPaint(rect(cp, bx0 + 0.15, bx1 - 0.15, lo, hi), "yellow");
+  { // reversing arc of the rear axle into the box, and the car as it should end up
+    const sf = (bx0 + bx1) / 2, R = Math.min(5, reg + cw - 1, Lc - 0.8 - sf), pts = [];
+    for (let i = 0; i <= 20; i++) { const t = Math.PI / 2 * i / 20; pts.push([sf + R - R * Math.sin(t), sg * (reg - R * Math.cos(t))]); }
+    guide(W, W2(cp, pts), W2(cp, carOutline(car, sf, reg, -Math.PI / 2).map(([s_, l_]) => [s_, sg * l_])));
+  }
+  const CL = ctx => ctx.P.map(([x, y]) => { const [s_, l_] = toLocal(cp, x, y); return [s_, sg * l_]; });
+  const inB = q => inBox(q, bx0, bx1, cw - 0.9, cw + bd);
+  const near = ctx => { const [s_, l_] = toLocal(cp, ctx.car.x, ctx.car.y); return s_ > -9 && s_ < Lc + 3 && Math.abs(l_) < cw + bd + 6; };
+  return task({
+    id: "boks", mapNo: 7, name: "Tor joyda qayrilib olish uchun boksga kirish", short: "Boks", pose: cp, allowReverse: true,
+    active: near,
+    stages: [{
+      text: "Garajning koridoriga kiring va boksdan o'tib to'xtang. " + (sg > 0 ? "O'ng" : "Chap") + " chiroqni yoqing, orqaga yurib boksga kiring: orqa g'ildiraklar sariq chiziqqa yetsin. To'xtang.",
+      update(ctx) {
+        const C = CL(ctx), f = ctx.f;
+        if (!f.entered && C.some(([s_, l_]) => s_ > bx0 && s_ < bx1 && l_ > cw + 0.1)) {
+          f.entered = true;
+          if (ctx.car.v > 0.05) ctx.pen("notDone");
+          if (ctx.sig !== sg) ctx.pen("turnSignal");
+        }
+        if (!f.reg && C.every(inB) && ctx.still > 1.2) {
+          f.reg = true;
+          const [, l_] = toLocal(cp, ctx.car.x, ctx.car.y);
+          if (sg * l_ < reg) ctx.pen("regLine");
+        }
+      },
+      hint(ctx) {
+        const C = CL(ctx);
+        if (!C.every(inB)) return "";
+        const [, l_] = toLocal(cp, ctx.car.x, ctx.car.y);
+        return sg * l_ >= reg ? "Orqa g'ildiraklar chiziqda. To'liq to'xtang." : "Orqa g'ildiraklar hali sariq chiziqqa yetmadi.";
+      },
+      done: ctx => CL(ctx).every(inB) && ctx.still > 1.2
+    }, {
+      text: (sg > 0 ? "Chap" : "O'ng") + " chiroqni yoqing, boksdan chiqib koridordan orqaga, yo'lga qayting.",
+      enter(ctx) { ctx.f.moved = false; },
+      update(ctx) {
+        if (!ctx.f.moved && Math.abs(ctx.car.v) > 0.05) { ctx.f.moved = true; if (ctx.sig !== -sg) ctx.pen("turnSignal"); }
+      },
+      done: ctx => CL(ctx).every(([s_]) => s_ < -1.5)
     }]
   });
 }

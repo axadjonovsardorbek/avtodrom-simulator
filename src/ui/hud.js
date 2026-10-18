@@ -359,6 +359,12 @@ export class Hud {
       const bg = base.getContext("2d");
       bg.fillStyle = "rgba(20,24,20,0.85)"; bg.fillRect(0, 0, size, size);
       bg.strokeStyle = "#5b6066"; bg.lineCap = "round"; bg.lineJoin = "round";
+      if (W.board) {                              // the plan: asphalt, green islands, pale pads
+        const path = (poly) => { bg.beginPath(); poly.forEach((q, i) => i ? bg.lineTo(q[0] * sc + ox, q[1] * sc + oy) : bg.moveTo(q[0] * sc + ox, q[1] * sc + oy)); bg.closePath(); };
+        bg.fillStyle = "#555a60"; path(W.board.frame); bg.fill();
+        bg.fillStyle = "#2f4a35"; for (const isl of W.board.islands) { path(isl.kerb); bg.fill(); }
+        bg.fillStyle = "#9aa6aa"; for (const p of W.board.pads) { path(p); bg.fill(); }
+      }
       for (const rd of W.roads) {
         bg.lineWidth = Math.max(2, rd.width * sc);
         bg.beginPath(); rd.pts.forEach((p, i) => i ? bg.lineTo(p[0] * sc + ox, p[1] * sc + oy) : bg.moveTo(p[0] * sc + ox, p[1] * sc + oy)); bg.stroke();

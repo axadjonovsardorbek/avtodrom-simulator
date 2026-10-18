@@ -26,6 +26,7 @@ export class World {
     this.finishLine = null; // { pose, s, halfW }
     this.lightOffset = Math.random() * 26;
     this.alarm = false;
+    this.board = null;    // the plan of the exam ground: { frame, islands: [{ grass, kerb }], pads } (src/world/board.js)
     this.solids = [];     // [x, y, radius]: poles, trunks, fence posts, walls (filled by the mesh builder)
   }
 
@@ -38,6 +39,7 @@ export class World {
   addPaint(poly, color = "white") { this.paint.push({ poly, color }); }
 
   addRoadSegment(seg, prev) {
+    if (seg.bare && seg.kind === "edge") return;         // the asphalt is the whole board; a bare lane is only a path for the exercises
     const hw = seg.width / 2;
     this.roads.push({ pts: seg.pts, width: seg.width, surface: seg.surface, shift: seg.wide ? -seg.width / 2 : 0 });
     if (!seg.noEdges) {
@@ -97,6 +99,7 @@ export class World {
     const grow = p => { minX = Math.min(minX, p[0]); minY = Math.min(minY, p[1]); maxX = Math.max(maxX, p[0]); maxY = Math.max(maxY, p[1]); };
     this.roads.forEach(r => r.pts.forEach(grow));
     this.pads.forEach(p => p.poly.forEach(grow));
+    if (this.board) this.board.frame.forEach(grow);
     this.bounds = { minX: minX - 30, minY: minY - 30, maxX: maxX + 30, maxY: maxY + 30 };
     this.lines.forEach((ln, li) => {
       if (ln.kind !== "edge" && ln.kind !== "ctrl") return;
