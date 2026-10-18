@@ -78,9 +78,14 @@ export class Vehicle {
       this.emit("hint", { text: "Dvigatelni o't oldirish uchun P yoki N holatiga qo'ying" });
       return false;
     }
-    this.engineOn = true; this.rpm = this.spec.idleRpm + 250;
+    this.engineOn = true; this.rpm = this.spec.idleRpm + 650;   // catches with a short flare, then settles
     this.emit("engineStart");
     return true;
+  }
+  // checks only: can the engine be started now (pedal / gear position)?
+  canStart() {
+    if (this.transmission === "manual") return this.gear === "N" || this.clutch >= 0.8;
+    return this.gear === "P" || this.gear === "N";
   }
   stopEngine() { if (this.engineOn) { this.engineOn = false; this.emit("engineStop"); } }
 

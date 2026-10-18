@@ -154,7 +154,7 @@ function handleEvent(ev) {
     case "alarm": hud.toast("TO'XTANG!", "bad"); audio.prompt("stop", "To'xtang!", true); break;
     case "car":
       if (ev.kind === "stall") { hud.toast("Dvigatel o'chib qoldi", "bad"); audio.stall(); }
-      else if (ev.kind === "engineStart") audio.starter();
+      else if (ev.kind === "engineStart") audio.catchFire();
       else if (ev.kind === "engineStop") audio.engineOff();
       else if (ev.kind === "shift") audio.shift();
       else if (ev.kind === "grind") { audio.grind(); hud.toast(ev.text); }
@@ -173,6 +173,17 @@ function handleEvent(ev) {
       }, 1200);
       break;
   }
+}
+
+let cranking = null, engineStarts = 0;
+// while cranking the rev counter shows the starter turning the engine over
+function crank(now) {
+  if (!cranking) return;
+  const c = cranking.car;
+  if (c !== session.car) { cranking = null; return; }
+  if (now < cranking.until) { c.rpm = 180 + Math.random() * 90; return; }
+  cranking = null;
+  c.startEngine();
 }
 
 function nextElement() {
@@ -209,7 +220,14 @@ function onAction(a) {
     case "hazard": car.hazard = !car.hazard; audio.click(true); break;
     case "belt": car.belt = !car.belt; audio.belt(car.belt); hud.toast(car.belt ? "Kamar taqildi" : "Kamar yechildi"); break;
     case "hand": car.handbrake = !car.handbrake; audio.handbrake(car.handbrake); break;
-    case "engine": car.engineOn ? car.stopEngine() : car.startEngine(); break;
+    case "engine":
+      if (car.engineOn) { car.stopEngine(); break; }
+      if (cranking) break;
+      if (!car.canStart()) { car.startEngine(); break; }        // shows why it cannot start
+      // turn the key: the starter cranks for a moment (longer when cold the first time), then it fires
+      cranking = { until: performance.now() + (engineStarts++ ? 700 : 1100), car };
+      audio.starter((cranking.until - performance.now()) / 1000);
+      break;
     case "g1": case "g2": case "g3": case "g4": case "g5":
       if (car.transmission === "manual") car.shift(+a[1]); else if (a === "g1") car.shift("D");
       break;
@@ -362,6 +380,7 @@ function frame(now) {
       if (a && b && innerWidth > 1100) { const l = a.getBoundingClientRect().right, r = b.getBoundingClientRect().left; view.viewShift = (l + r) / 2 - innerWidth / 2; }
       else view.viewShift = 0;
     } else view.viewShift = 0;
+    crank(now);
     view.update(session, dt, now);
     view.adapt(dt * 1000);
     view.render();

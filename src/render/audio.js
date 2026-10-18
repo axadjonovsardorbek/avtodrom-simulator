@@ -121,11 +121,27 @@ export class CarAudio {
 
   /* ---------- car sounds ---------- */
   click(hi) { this.burst({ freq: hi ? 3200 : 2200, q: 6, gain: 0.25, dur: 0.025 }); }
-  starter() {
-    for (let i = 0; i < 9; i++) {
-      this.burst({ freq: 180, q: 1.5, gain: 0.35, dur: 0.07, when: i * 0.085, buf: this.brown });
-      this.tone({ freq: 95, to: 70, dur: 0.07, type: "sawtooth", gain: 0.05, when: i * 0.085 });
+  // Starter motor cranking: the whine of the starter plus a "rr-rr-rr" from each compression
+  // stroke, a little faster as the engine turns over. Lasts `dur` seconds.
+  starter(dur = 0.9) {
+    if (!this.ctx) return;
+    const c = this.ctx, t = c.currentTime;
+    const whine = c.createOscillator(), wg = c.createGain(), wf = c.createBiquadFilter();
+    whine.type = "sawtooth"; whine.frequency.setValueAtTime(140, t); whine.frequency.linearRampToValueAtTime(210, t + dur);
+    wf.type = "bandpass"; wf.frequency.value = 900; wf.Q.value = 2;
+    wg.gain.setValueAtTime(0.0001, t); wg.gain.exponentialRampToValueAtTime(0.05, t + 0.05); wg.gain.setValueAtTime(0.05, t + dur - 0.05); wg.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    whine.connect(wf); wf.connect(wg); wg.connect(this.master); whine.start(t); whine.stop(t + dur + 0.05);
+    let at = 0, step = 0.11;
+    while (at < dur) {
+      this.burst({ freq: 170, q: 1.4, gain: 0.32, dur: 0.075, when: at, buf: this.brown });
+      this.tone({ freq: 90, to: 65, dur: 0.07, type: "sawtooth", gain: 0.05, when: at });
+      at += step; step = Math.max(0.075, step * 0.95);
     }
+  }
+  // the engine catching: a deep thump; the rev flare itself comes from the engine sound
+  catchFire() {
+    this.burst({ freq: 120, q: 1.2, gain: 0.5, dur: 0.18, buf: this.brown });
+    this.burst({ freq: 420, q: 1.5, gain: 0.15, dur: 0.12, when: 0.03 });
   }
   stall() {
     for (let i = 0; i < 4; i++) this.burst({ freq: 140 - i * 15, q: 2, gain: 0.4 - i * 0.07, dur: 0.12, when: i * 0.14, buf: this.brown });
