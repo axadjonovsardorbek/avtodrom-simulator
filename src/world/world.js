@@ -82,7 +82,7 @@ export class World {
 
   // Two-phase signal plan: NS green 10 s, yellow 2 s, all-red 1 s, then EW.
   lightState(axis, clock) {
-    const t = (clock + this.lightOffset) % 26;
+    const t = (((clock + this.lightOffset) % 26) + 26) % 26;
     const ph = axis === "NS" ? t : (t + 13) % 26;
     if (ph < 10) return ["green", 10 - ph];
     if (ph < 12) return ["yellow", 12 - ph];

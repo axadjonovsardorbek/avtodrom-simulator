@@ -3,6 +3,7 @@
 import { World } from "./world.js";
 import { Turtle, LANE } from "./path.js";
 import { DEG, toWorld } from "../sim/geom.js";
+import { Traffic } from "./traffic.js";
 import { piyoda, estakada, burilish, ilon, boks, parkovka, temir, tezlashish, avariya, chorraha } from "./elements.js";
 
 const HL = LANE / 2;
@@ -52,6 +53,9 @@ export function buildIntersection(W, A, caps = false) {
     W.lights.push({ x: lx, y: ly, th: inc.th + Math.PI, axis: Math.abs(n) > 0.5 ? "NS" : "EW" });
     if (caps) W.addLine([toWorld({ x: c * A, y: n * A, th }, 0, -LANE), toWorld({ x: c * A, y: n * A, th }, 0, LANE)], "edge");
   }
+  // other cars on the arms; the junction is already busy when the run starts
+  W.traffic = new Traffic(W, A);
+  W.traffic.warm(-45, 0);
 }
 
 function checker(W, pose, s, halfW) {

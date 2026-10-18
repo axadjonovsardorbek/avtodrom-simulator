@@ -23,7 +23,8 @@ Bajarilganini `[x]` bilan belgilang.
 ## 3. Poligon va dunyo
 
 - [ ] **Ob-havo va kun vaqti:** kechqurun (faralar yonadi), yomg'ir (sirpanchiq yo'l, uzoqroq tormoz yo'li), tuman.
-- [ ] **Boshqa mashinalar va piyodalar:** chorrahada svetofor bilan harakatlanadigan transport, ko'proq piyodalar.
+- [x] **Boshqa mashinalar:** svetoforli chorrahada boshqa mashinalar yo'lda yuradi, qizil va sariqda to'xtaydi, orasida masofa saqlaydi; o'quvchining yo'liga tushadigan yo'l bo'sh qoldiriladi. Tegib ketsa — to'qnashuv jarimasi (100 ball).
+- [ ] **Ko'proq piyodalar:** hozir faqat piyodalar o'tish joyida bitta piyoda bor.
 - [ ] **Qo'shimcha poligonlar:** boshqa imtihon markazlari sxemasi bo'yicha (har biri uchun sxema va raqamlar ro'yxati kerak).
 - [ ] **Haqiqiy dvigatel ovozlari:** Cobalt va Malibu yozuvlari bilan almashtirish (litsenziyasi aniq yozuvlar kerak).
 

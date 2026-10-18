@@ -380,6 +380,7 @@ export function chorraha(W, center, approachDeg, dir, A) {
     return P.every(([x, y]) => { const [s, l] = toLocal(ep, x, y); return s > 12 && l > -0.4 && l < LANE + 0.4; });
   };
   return task({
+    arm: approachDeg,
     id: "chorraha-" + dir, mapNo: 4, name: meta[0], short: meta[1], pose,
     active: ctx => ctx.fs > stopS - 8 && Math.abs(ctx.fl) < 3,
     stages: [{

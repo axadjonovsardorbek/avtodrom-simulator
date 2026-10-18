@@ -235,6 +235,9 @@ export function buildWorldMeshes(W, quality) {
     group.add(g);
   }
 
+  // other cars: simple low-poly bodies, made when they first appear
+  dyn.traffic = { group, made: new Map() };
+
   // pedestrians
   for (const p of W.peds) {
     const g = new THREE.Group();
@@ -441,7 +444,35 @@ export function buildWorldMeshes(W, quality) {
   return { group, dyn };
 }
 
+const _trMats = {};
+function trafficCar(color) {
+  const g = new THREE.Group();
+  const paint = _trMats[color] || (_trMats[color] = new THREE.MeshStandardMaterial({ color, roughness: 0.35, metalness: 0.35 }));
+  const glass = _trMats.glass || (_trMats.glass = new THREE.MeshStandardMaterial({ color: 0x15191f, roughness: 0.1, metalness: 0.6 }));
+  const tyre = _trMats.tyre || (_trMats.tyre = new THREE.MeshStandardMaterial({ color: 0x151618, roughness: 0.9 }));
+  const lamp = _trMats.lamp || (_trMats.lamp = new THREE.MeshStandardMaterial({ color: 0xfff6dc, emissive: 0xfff0c0, emissiveIntensity: 1.2 }));
+  const tail = _trMats.tail || (_trMats.tail = new THREE.MeshStandardMaterial({ color: 0xa01010, emissive: 0xc01010, emissiveIntensity: 0.6 }));
+  const box = (w, h, d, m, x, y, z) => { const b = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), m); b.position.set(x, y, z); b.castShadow = true; g.add(b); return b; };
+  box(4.3, 0.62, 1.78, paint, 0, 0.62, 0);                 // lower body (x forward)
+  box(2.3, 0.5, 1.6, glass, -0.25, 1.18, 0);               // glasshouse
+  box(2.2, 0.06, 1.56, paint, -0.25, 1.46, 0);             // roof
+  box(0.08, 0.2, 1.4, lamp, 2.16, 0.7, 0);
+  box(0.08, 0.2, 1.4, tail, -2.16, 0.74, 0);
+  for (const [x, z] of [[1.32, 0.9], [1.32, -0.9], [-1.32, 0.9], [-1.32, -0.9]]) { const w = new THREE.Mesh(new THREE.CylinderGeometry(0.33, 0.33, 0.22, 14), tyre); w.rotation.x = Math.PI / 2; w.position.set(x, 0.33, z); g.add(w); }
+  return g;
+}
+
 export function updateWorldMeshes(W, dyn, clock, now) {
+  if (W.traffic && dyn.traffic) {
+    const seen = new Set();
+    for (const c of W.traffic.cars) {
+      let m = dyn.traffic.made.get(c);
+      if (!m) { m = trafficCar(c.color); dyn.traffic.group.add(m); dyn.traffic.made.set(c, m); }
+      const p = W.traffic.worldPose(c);
+      m.position.set(p.x, W.heightAt ? W.heightAt(p.x, p.y) : 0, p.y); m.rotation.y = -p.th; seen.add(c);
+    }
+    for (const [c, m] of dyn.traffic.made) if (!seen.has(c)) { dyn.traffic.group.remove(m); dyn.traffic.made.delete(c); }
+  }
   for (const { L, lamps } of dyn.lights) {
     const [st] = W.lightState(L.axis, clock);
     for (const k of ["red", "yellow", "green"]) lamps[k].material.emissiveIntensity = st === k ? 3.2 : 0.04;

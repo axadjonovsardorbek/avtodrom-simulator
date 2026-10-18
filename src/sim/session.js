@@ -98,11 +98,23 @@ export class Session {
     if (this.started) this.t += dt;
     this.still = car.v === 0 ? this.still + dt : 0;
 
+    this.trafficStep(dt);
     this.globalRules(dt);
     if (this.state !== "running") return;
     this.taskRules(dt);
     if (this.state !== "running") return;
     this.finishRules();
+  }
+
+  // other cars at the junction: advanced in 50 ms steps; the arm of the next signal task stays empty
+  trafficStep(dt) {
+    const T = this.W.traffic; if (!T) return;
+    const next = this.W.tasks.slice(this.taskIdx).find(t => t.arm !== undefined);
+    const deg = next ? ((next.arm + 180 + 540) % 360) - 180 : null;
+    T.setBlock(deg, this.car.x, this.car.y);
+    this.trafficT = (this.trafficT || 0) + dt;
+    if (this.trafficT >= 0.05) { T.step(this.trafficT, this.clock); this.trafficT = 0; }
+    for (const c of T.cars) if (!c.hit && T.touches(c, this.car.corners())) { c.hit = true; this.pen("crash"); }
   }
 
   globalRules(dt) {
