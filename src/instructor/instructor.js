@@ -20,13 +20,13 @@ const GESTURE = { good: "thumb", pass: "thumb", crash: "brace", hill: "brace", r
 // Mood "rude" (18+) plays only the user's own recordings, shuffled, on every mistake
 // (src/instructor/source/*.ogg -> public/audio/uz/ins/rude/<name>.mp3).
 // "chingzbl" is cut to its first 7 s and "bl" to its first 4 s; "hayron" (amazement) is rarer, see below
-const RUDE_CLIPS = ["chingiz_iye", "dadangmanmi", "dal", "davlataka", "haromi", "jamshid", "uka", "bekzod1", "bekzod2", "chingiz_uka", "chingzbl", "bl", "nodon", "uka2", "qlq"];
+const RUDE_CLIPS = ["chingiz_iye", "dadangmanmi", "dal", "davlataka", "haromi", "jamshid", "uka", "bekzod1", "bekzod2", "chingiz_uka", "chingzbl", "bl", "nodon", "uka2", "qlq", "shayba", "dab", "mazgi", "tupik", "skameyka"];
 const HAYRON_EVERY = 5, HAYRON_CLEAN = 90;          // about one mistake in five; or after this many seconds of driving without a penalty
 const NOT_MISTAKES = new Set(["hello", "good", "pass"]);
 const voiceMood = mood => mood === "rude" ? "angry" : mood;
 
 export const lineIds = mood => Object.entries(LINES.lines).flatMap(([k, v]) => v[voiceMood(mood)].map((_, i) => `ins/${voiceMood(mood)}/${k}_${i}`))
-  .filter(() => mood !== "rude").concat(mood === "rude" ? RUDE_CLIPS.concat("hayron").map(c => "ins/rude/" + c) : []);
+  .filter(() => mood !== "rude").concat(mood === "rude" ? RUDE_CLIPS.concat("hayron", "barakalla").map(c => "ins/rude/" + c) : []);
 
 export class Instructor {
   constructor(audio) {
@@ -84,10 +84,13 @@ export class Instructor {
     if (!this.on) return;
     switch (ev.type) {
       case "penalty":
-        this.cleanT = 0;
+        this.cleanT = 0; this.taskPen = true;
         if (ev.code === "stopFar") break;              // main.js plays the user's own clip for this one
         this.say(PEN[ev.code] || "generic", { cooldown: 3 }); break;
-      case "taskDone": if (ev.ok) this.say("good", { cooldown: 4 }); break;
+      case "taskDone":
+        // rude mood: an exercise done without a single mistake earns a "barakalla" (its first 3 s)
+        if (this.mood === "rude") { if (ev.ok && !this.taskPen && !this.audio.talking()) { this.lastAny = this.t; this.audio.prompt("ins/rude/barakalla", null, true, { pan: 0.2, talk: true }); this.gesture = "thumb"; this.gestureUntil = this.t + 2.5; } this.taskPen = false; break; }
+        if (ev.ok) this.say("good", { cooldown: 4 }); break;
       case "limit": this.say("limit", { urgent: true }); break;
       case "end": this.say(ev.passed ? "pass" : "fail", { urgent: true, cooldown: 0 }); break;
       case "car":

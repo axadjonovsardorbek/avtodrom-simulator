@@ -4,7 +4,9 @@
 import * as THREE from "three";
 import { toWorld, toLocal, inPoly } from "../sim/geom.js";
 
-const SONG = "sedayanoch.mp3", SONG_FROM = 3;
+// the songs take turns: "Sedayanoch" (from 0:03), then "Minsom", then "Sedayanoch" again...
+const SONGS = [["sedayanoch.mp3", 3], ["minsom.mp3", 0]];
+let songTurn = 0;
 
 // cream / yellow / brown bands like the photo; `print` adds the chest print at the
 // front of a capsule (u = 0.25 faces +x)
@@ -169,7 +171,8 @@ export class KidShow {
       if (d > 0.02) { this.pos[0] += dx / d * step; this.pos[1] += dy / d * step; this.th = Math.atan2(dy, dx); }
       if (this.state === "come" && d < 0.08) {
         this.state = "sing";
-        this.song = this.audio.song(SONG, SONG_FROM, () => { if (this.state === "sing") this.goHome(); });
+        const [url, from] = SONGS[songTurn++ % SONGS.length];
+        this.song = this.audio.song(url, from, () => { if (this.state === "sing") this.goHome(); });
       }
       if (this.state === "leave" && d < 0.08) { this.state = "gone"; kid.root.visible = false; }
     }
