@@ -2,26 +2,30 @@
 import * as THREE from "three";
 import { buildWorldMeshes, updateWorldMeshes } from "./worldMesh.js";
 import { inPoly } from "../sim/geom.js";
-import { buildCar } from "./carModel.js";
-// Outdoor reflection scene: bright sky dome, horizon band, dark green ground.
-function skyEnvironment() {
-  const scene = new THREE.Scene();
-  const geo = new THREE.SphereGeometry(50, 48, 24);
-  const col = [], p = geo.attributes.position, c = new THREE.Color();
-  for (let i = 0; i < p.count; i++) {
-    const y = p.getY(i) / 50;
-    if (y > 0.04) c.setRGB(0.55 + 0.25 * (1 - y), 0.7 + 0.18 * (1 - y), 0.95);
-    else if (y > -0.04) c.setRGB(0.9, 0.92, 0.94);
-    else c.setRGB(0.18, 0.24, 0.14);
-    col.push(c.r, c.g, c.b);
-  }
-  geo.setAttribute("color", new THREE.Float32BufferAttribute(col, 3));
-  scene.add(new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ vertexColors: true, side: THREE.BackSide })));
-  const sun = new THREE.Mesh(new THREE.SphereGeometry(3, 16, 8), new THREE.MeshBasicMaterial({ color: new THREE.Color(6, 5.6, 5) }));
-  sun.position.set(30, 35, 20); scene.add(sun);
-  return scene;
-}
+import { Sky } from "three/examples/jsm/objects/Sky.js";
+import { EffectComposer } from "three/examples/jsm/postprocessing/EffectComposer.js";
+import { RenderPass } from "three/examples/jsm/postprocessing/RenderPass.js";
+import { UnrealBloomPass } from "three/examples/jsm/postprocessing/UnrealBloomPass.js";
+import { ShaderPass } from "three/examples/jsm/postprocessing/ShaderPass.js";
+import { OutputPass } from "three/examples/jsm/postprocessing/OutputPass.js";
 
+// sun direction: late-morning sun from the south-east, ~38 degrees up
+const SUN_DIR = new THREE.Vector3().setFromSphericalCoords(1, THREE.MathUtils.degToRad(52), THREE.MathUtils.degToRad(135));
+
+// final look: slight warm grade, contrast, saturation and a soft vignette
+const GradeShader = {
+  uniforms: { tDiffuse: { value: null }, vignette: { value: 0.32 }, saturation: { value: 1.12 }, contrast: { value: 1.06 }, warm: { value: 0.025 } },
+  vertexShader: "varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }",
+  fragmentShader: `uniform sampler2D tDiffuse; uniform float vignette, saturation, contrast, warm; varying vec2 vUv;
+    void main(){ vec4 c = texture2D(tDiffuse, vUv);
+      float l = dot(c.rgb, vec3(0.2126, 0.7152, 0.0722));
+      c.rgb = mix(vec3(l), c.rgb, saturation);
+      c.rgb = (c.rgb - 0.5) * contrast + 0.5;
+      c.rgb += vec3(warm, warm * 0.4, -warm);
+      vec2 d = vUv - 0.5; c.rgb *= 1.0 - vignette * smoothstep(0.35, 0.85, length(d * vec2(1.25, 1.0)));
+      gl_FragColor = c; }`
+};
+import { buildCar } from "./carModel.js";
 const MIRRORS = [
   { key: "center", pos: [1.62, 1.33, 0], yaw: 0, fov: 34, w: 640, h: 180 },
   { key: "left", pos: [2.43, 1.08, -0.96], yaw: -0.22, fov: 38, w: 320, h: 220 },
@@ -37,19 +41,27 @@ export class View {
     r.shadowMap.enabled = true;
     r.shadowMap.type = THREE.PCFSoftShadowMap;
     r.toneMapping = THREE.ACESFilmicToneMapping;
-    r.toneMappingExposure = 1.05;
+    r.toneMappingExposure = 0.72;            // the physical sky is bright; the lights below are raised to match
     r.outputColorSpace = THREE.SRGBColorSpace;
     r.localClippingEnabled = true;            // the driver figure is cut away near the camera
 
     const s = this.scene = new THREE.Scene();
-    s.background = new THREE.Color(0xa9c6e2);
-    s.fog = new THREE.Fog(0xbfd2e4, 140, 460);
-    s.add(new THREE.HemisphereLight(0xe4f0ff, 0x56663a, 1.1));
-    // soft studio reflections for the car paint and glass
+    s.fog = new THREE.Fog(0xb7cbe0, 180, 600);
+    // physical sky (atmospheric scattering) with the sun; it also lights the reflections
+    const sky = this.sky = new Sky(); sky.scale.setScalar(650);
+    const su = sky.material.uniforms;
+    su.turbidity.value = 2.2; su.rayleigh.value = 0.9; su.mieCoefficient.value = 0.003; su.mieDirectionalG.value = 0.85;
+    su.sunPosition.value.copy(SUN_DIR);
+    s.add(sky);
+    s.add(new THREE.HemisphereLight(0xdfeaff, 0x5a6a3e, 1.3));
     const pm = new THREE.PMREMGenerator(r);
-    s.environment = pm.fromScene(skyEnvironment(), 0.02).texture;
-    s.environmentIntensity = 0.55;
-    const sun = this.sun = new THREE.DirectionalLight(0xfff0d8, 2.4);
+    const envScene = new THREE.Scene(), sky2 = new Sky(); sky2.scale.setScalar(50);
+    for (const k of ["turbidity", "rayleigh", "mieCoefficient", "mieDirectionalG"]) sky2.material.uniforms[k].value = su[k].value;
+    sky2.material.uniforms.sunPosition.value.copy(SUN_DIR); envScene.add(sky2);
+    const eg = new THREE.Mesh(new THREE.CircleGeometry(40, 32), new THREE.MeshBasicMaterial({ color: 0x3a4a2c })); eg.rotation.x = -Math.PI / 2; eg.position.y = -2; envScene.add(eg);
+    s.environment = pm.fromScene(envScene, 0.02).texture;
+    s.environmentIntensity = 0.75;
+    const sun = this.sun = new THREE.DirectionalLight(0xfff1dc, 3.6);
     sun.castShadow = true;
     sun.shadow.mapSize.set(2048, 2048);
     Object.assign(sun.shadow.camera, { left: -40, right: 40, top: 40, bottom: -40, near: 1, far: 260 });
@@ -69,7 +81,7 @@ export class View {
     this.hud = new THREE.Scene();
     this.hudCam = new THREE.OrthographicCamera(0, 1, 1, 0, -1, 1);
     this.mirrors = MIRRORS.map(m => {
-      const cam = new THREE.PerspectiveCamera(m.fov, m.w / m.h, 0.1, 300);
+      const cam = new THREE.PerspectiveCamera(m.fov, m.w / m.h, 0.1, 700);
       cam.position.set(...m.pos);
       cam.rotation.y = Math.PI / 2 + m.yaw;   // look backwards, side mirrors angled outwards
       this.carView.root.add(cam);
@@ -178,11 +190,13 @@ export class View {
     if (this.sun.shadow.map) { this.sun.shadow.map.dispose(); this.sun.shadow.map = null; }
     this.ratio = this.maxRatio = Math.min(window.devicePixelRatio || 1, quality === "low" ? 1 : 1.75);
     this.renderer.setPixelRatio(this.ratio); if (this.w) this.renderer.setSize(this.w, this.h, false);
+    this.setupPost(quality !== "low");
     this.chasePos = null;
   }
 
   resize(w, h) {
     this.renderer.setSize(w, h, false);
+    if (this.composer) { this.composer.setPixelRatio(this.ratio); this.composer.setSize(w, h); }
     this.cam.aspect = w / h; this.cam.updateProjectionMatrix();
     Object.assign(this.hudCam, { left: 0, right: w, top: h, bottom: 0 }); this.hudCam.updateProjectionMatrix();
     this.w = w; this.h = h;
@@ -278,7 +292,8 @@ export class View {
     if (cam.near !== near) { cam.near = near; cam.far = 700; cam.updateProjectionMatrix(); }
     // shift the picture sideways (menu: car between the panels) without changing the view
     if (this.viewShift) cam.setViewOffset(this.w, this.h, -this.viewShift, 0, this.w, this.h); else if (cam.view) cam.clearViewOffset();
-    this.sun.position.set(car.x + 45, 85, car.y + 30);
+    this.sun.position.set(car.x + SUN_DIR.x * 110, SUN_DIR.y * 110, car.y + SUN_DIR.z * 110);
+    this.sky.position.copy(cam.position);
     this.sun.target.position.copy(cp);
   }
 
@@ -293,7 +308,20 @@ export class View {
     let r = this.ratio;
     if (this.ft > 21) r = Math.max(lo, r - 0.15);          // under ~48 fps
     else if (this.ft < 14.5) r = Math.min(hi, r + 0.05);   // over ~68 fps
-    if (Math.abs(r - this.ratio) > 1e-3) { this.ratio = r; this.renderer.setPixelRatio(r); this.renderer.setSize(this.w, this.h, false); }
+    if (Math.abs(r - this.ratio) > 1e-3) { this.ratio = r; this.renderer.setPixelRatio(r); this.renderer.setSize(this.w, this.h, false); if (this.composer) { this.composer.setPixelRatio(r); this.composer.setSize(this.w, this.h); } }
+  }
+
+  // bloom (lamps, sun glints) and the colour grade; off on the light setting
+  setupPost(on) {
+    if (!on) { this.composer = null; return; }
+    if (this.composer) return;
+    const c = this.composer = new EffectComposer(this.renderer);
+    c.addPass(new RenderPass(this.scene, this.cam));
+    this.bloom = new UnrealBloomPass(new THREE.Vector2(256, 256), 0.22, 0.5, 1.5);   // only really bright things glow
+    c.addPass(this.bloom);
+    c.addPass(new OutputPass());               // tone mapping + sRGB
+    c.addPass(new ShaderPass(GradeShader));    // the grade works on the final (display) colours
+    c.setPixelRatio(this.ratio); if (this.w) c.setSize(this.w, this.h);
   }
 
   render() {
@@ -311,7 +339,7 @@ export class View {
       this.carView.setCockpit(true);
       r.setRenderTarget(null);
     }
-    r.render(this.scene, this.cam);
+    if (this.composer) this.composer.render(); else r.render(this.scene, this.cam);
     if (mirrors) {
       r.autoClear = false; r.clearDepth();
       r.render(this.hud, this.hudCam);

@@ -1,6 +1,7 @@
 // Turns a World description into Three.js meshes.
 // Mapping: world (x, y) on the ground -> three (x, height, y).
 import * as THREE from "three";
+import { mergeVertices } from "three/examples/jsm/utils/BufferGeometryUtils.js";
 import { offsetPolyline, toWorld, polylineLength } from "../sim/geom.js";
 import { asphaltTexture, grassTexture, concreteTexture, signTexture, textTexture, facadeTexture } from "./textures.js";
 
@@ -63,6 +64,19 @@ function dashed(pts, on, off) {
 }
 
 const groundRot = (th) => Math.atan2(-Math.cos(th), -Math.sin(th));
+
+// merge plain BufferGeometries (position/normal/uv, all indexed or all not)
+function mergeGeos(geos) {
+  const parts = geos.map(g => g.index ? g.toNonIndexed() : g);
+  const out = new THREE.BufferGeometry();
+  for (const name of ["position", "normal", "uv"]) {
+    if (!parts.every(g => g.attributes[name])) continue;
+    const size = parts[0].attributes[name].itemSize, arr = new Float32Array(parts.reduce((t, g) => t + g.attributes[name].array.length, 0));
+    let o = 0; for (const g of parts) { arr.set(g.attributes[name].array, o); o += g.attributes[name].array.length; }
+    out.setAttribute(name, new THREE.BufferAttribute(arr, size));
+  }
+  return out;
+}
 
 export function buildWorldMeshes(W, quality) {
   const group = new THREE.Group();
@@ -241,29 +255,72 @@ export function buildWorldMeshes(W, quality) {
 
   // surroundings: trees, building, perimeter fence
   const rand = (() => { let s = 12345; return () => ((s = (s * 1664525 + 1013904223) >>> 0) / 4294967296); })();
+  // coarse 1 m grid of everything paved (roads with their width, pads), for the grass
+  const paved = new Set(), cell = (x, y) => Math.floor(x) + "," + Math.floor(y);
+  const mark = (x, y, r) => { for (let i = Math.floor(x - r); i <= Math.ceil(x + r); i++) for (let j = Math.floor(y - r); j <= Math.ceil(y + r); j++) if ((i + 0.5 - x) ** 2 + (j + 0.5 - y) ** 2 <= r * r) paved.add(i + "," + j); };
+  for (const r of W.roads) for (let k = 0; k < r.pts.length; k++) {
+    const a = r.pts[k], c = r.pts[Math.min(k + 1, r.pts.length - 1)], L = Math.hypot(c[0] - a[0], c[1] - a[1]), n = Math.max(1, Math.ceil(L));
+    for (let t = 0; t < n; t++) mark(a[0] + (c[0] - a[0]) * t / n, a[1] + (c[1] - a[1]) * t / n, r.width / 2 + 0.8);
+  }
+  for (const p of W.pads) { const xs = p.poly.map(q => q[0]), ys = p.poly.map(q => q[1]); for (let i = Math.floor(Math.min(...xs)) - 1; i <= Math.max(...xs) + 1; i++) for (let j = Math.floor(Math.min(...ys)) - 1; j <= Math.max(...ys) + 1; j++) paved.add(i + "," + j); }
+  const nearRoad = (x, y) => paved.has(cell(x, y));
   const occupied = (x, y) => {
     for (let i = 0; i < W.routePts.length; i += 3) { const p = W.routePts[i]; if (Math.abs(p[0] - x) < 9 && Math.abs(p[1] - y) < 9 && Math.hypot(p[0] - x, p[1] - y) < 9) return true; }
     for (const p of W.pads) { const xs = p.poly.map(q => q[0]), ys = p.poly.map(q => q[1]); if (x > Math.min(...xs) - 5 && x < Math.max(...xs) + 5 && y > Math.min(...ys) - 5 && y < Math.max(...ys) + 5) return true; }
     if (Math.abs(x) < 40 && Math.abs(y) < 40) return true;
     return false;
   };
-  const nTrees = quality === "low" ? 60 : 180;
-  const trunkGeo = new THREE.CylinderGeometry(0.12, 0.18, 2, 6), crownGeo = new THREE.IcosahedronGeometry(1.6, 1);
-  const trunks = new THREE.InstancedMesh(trunkGeo, new THREE.MeshStandardMaterial({ color: 0x5b4632, roughness: 1 }), nTrees);
-  const crowns = new THREE.InstancedMesh(crownGeo, new THREE.MeshStandardMaterial({ color: 0x3f6b2a, roughness: 1, flatShading: true }), nTrees);
-  const mtx = new THREE.Matrix4(), q = new THREE.Quaternion(), sc = new THREE.Vector3(), v = new THREE.Vector3();
+  // trees: a trunk and a canopy of three lumpy blobs, each instance tinted a little
+  // differently; grass tufts scattered over the fields; lamp posts along the outer road
+  const nTrees = quality === "low" ? 70 : 220;
+  const trunkGeo = new THREE.CylinderGeometry(0.1, 0.2, 2.4, 7);
+  const lump = (r, x, y, z, seed) => {
+    const g = new THREE.IcosahedronGeometry(r, 2), p = g.attributes.position, v = new THREE.Vector3();
+    for (let i = 0; i < p.count; i++) {
+      v.fromBufferAttribute(p, i);
+      const n = 1 + 0.16 * Math.sin(v.x * 3.1 + seed) * Math.sin(v.y * 2.7 + seed * 2) * Math.sin(v.z * 3.3 + seed * 3);
+      p.setXYZ(i, v.x * n + x, v.y * n * 0.85 + y, v.z * n + z);
+    }
+    return g;
+  };
+  const crownGeo = mergeGeos([lump(1.5, 0, 0, 0, 1), lump(1.1, 0.9, -0.35, 0.4, 2), lump(1.05, -0.75, -0.25, -0.55, 3), lump(0.9, 0.1, 0.75, -0.2, 4)]);
+  // shared vertices so the canopy shades smoothly instead of in facets
+  const crownSmooth = mergeVertices(crownGeo, 1e-3); crownSmooth.computeVertexNormals();
+  const trunks = new THREE.InstancedMesh(trunkGeo, new THREE.MeshStandardMaterial({ color: 0x5a4430, roughness: 1 }), nTrees);
+  const crowns = new THREE.InstancedMesh(crownSmooth, new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.95 }), nTrees);
+  const mtx = new THREE.Matrix4(), q = new THREE.Quaternion(), sc = new THREE.Vector3(), v = new THREE.Vector3(), col = new THREE.Color();
   let placed = 0;
   for (let tries = 0; tries < nTrees * 30 && placed < nTrees; tries++) {
     const x = b.minX - 20 + rand() * (b.maxX - b.minX + 40), y = b.minY - 20 + rand() * (b.maxY - b.minY + 40);
     if (occupied(x, y)) continue;
-    const s = 0.8 + rand() * 0.7;
-    mtx.compose(v.set(x, 1 * s, y), q.identity(), sc.set(s, s, s)); trunks.setMatrixAt(placed, mtx);
-    mtx.compose(v.set(x, 2.6 * s, y), q.setFromAxisAngle(new THREE.Vector3(0, 1, 0), rand() * 6), sc.set(s, s * (0.9 + rand() * 0.5), s)); crowns.setMatrixAt(placed, mtx);
+    const s = 0.8 + rand() * 0.8;
+    mtx.compose(v.set(x, 1.2 * s, y), q.identity(), sc.set(s, s, s)); trunks.setMatrixAt(placed, mtx);
+    mtx.compose(v.set(x, 3.0 * s, y), q.setFromAxisAngle(new THREE.Vector3(0, 1, 0), rand() * 6), sc.set(s, s * (0.9 + rand() * 0.4), s)); crowns.setMatrixAt(placed, mtx);
+    crowns.setColorAt(placed, col.setHSL(0.24 + rand() * 0.07, 0.42 + rand() * 0.2, 0.22 + rand() * 0.1));
     placed++;
   }
   trunks.count = crowns.count = placed;
-  trunks.castShadow = crowns.castShadow = true;
+  trunks.castShadow = crowns.castShadow = true; crowns.receiveShadow = true;
   group.add(trunks, crowns);
+
+  if (quality !== "low") {
+    // grass tufts: a few thin blades per tuft, thousands of them, no shadows
+    const blade = new THREE.ConeGeometry(0.025, 0.32, 3); blade.translate(0, 0.16, 0);
+    const tuftParts = [];
+    for (let k = 0; k < 5; k++) { const g = blade.clone(); g.rotateZ((k - 2) * 0.22); g.rotateY(k * 1.3); g.translate((k - 2) * 0.03, 0, (k % 2) * 0.03); tuftParts.push(g); }
+    const tuftGeo = mergeGeos(tuftParts);
+    const nTufts = 6000;
+    const tufts = new THREE.InstancedMesh(tuftGeo, new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 1 }), nTufts);
+    let n = 0;
+    for (let tries = 0; tries < nTufts * 4 && n < nTufts; tries++) {
+      const x = b.minX - 10 + rand() * (b.maxX - b.minX + 20), y = b.minY - 10 + rand() * (b.maxY - b.minY + 20);
+      if (nearRoad(x, y, 2.2)) continue;
+      const s = 0.7 + rand() * 0.9;
+      mtx.compose(v.set(x, -0.02, y), q.setFromAxisAngle(new THREE.Vector3(0, 1, 0), rand() * 6), sc.set(s, s * (0.8 + rand() * 0.6), s)); tufts.setMatrixAt(n, mtx);
+      tufts.setColorAt(n, col.setHSL(0.23 + rand() * 0.06, 0.5, 0.16 + rand() * 0.1)); n++;
+    }
+    tufts.count = n; group.add(tufts);
+  }
 
   if (W.name === "full") {
     const bld = new THREE.Mesh(new THREE.BoxGeometry(34, 9, 12), [concMat, concMat, new THREE.MeshStandardMaterial({ color: 0x9aa3ab }), concMat,
