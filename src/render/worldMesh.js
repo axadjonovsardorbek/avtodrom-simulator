@@ -280,23 +280,16 @@ export function buildWorldMeshes(W, quality) {
         pos.push(a[0], -0.02, a[1], c[0], -0.02, c[1], c[0], c[2], c[1], a[0], -0.02, a[1], c[0], c[2], c[1], a[0], a[2], a[1]);
       }
       const g = new THREE.BufferGeometry(); g.setAttribute("position", new THREE.Float32BufferAttribute(pos, 3)); g.computeVertexNormals();
-      const wall = new THREE.Mesh(g, new THREE.MeshStandardMaterial({ map: conc, color: 0xc9c6bd, roughness: 0.9, side: THREE.DoubleSide }));
+      const wall = new THREE.Mesh(g, new THREE.MeshStandardMaterial({ map: conc, color: 0xe6e3dc, roughness: 0.9, side: THREE.DoubleSide }));
       wall.castShadow = true; wall.receiveShadow = true; group.add(wall);
-      // the tall concrete parapet along the deck (as on the video)
-      { const seg = [];
-        for (let s = r.s0; s <= r.s3 + 1e-6; s += 0.5) { const [x, y] = toWorld(r.pose, s, sg * (r.halfW + 0.12)); seg.push([x, y, W.heightAt(...toWorld(r.pose, s, 0))]); }
-        const pp = [], ii = []; const hgt = 0.8;
-        seg.forEach(([x, y, hh], i) => { pp.push(x, hh, y, x, hh + hgt, y); if (i) { const a = (i - 1) * 2; ii.push(a, a + 2, a + 1, a + 1, a + 2, a + 3); } });
+      // the thick concrete kerb along the deck (as on the video): a 0.4 m block that follows the slope
+      { const pp = [], ii = [], w = 0.4, hgt = 0.45, l0 = sg * r.halfW, l1 = sg * (r.halfW + w);
+        const ring = s => { const hh = W.heightAt(...toWorld(r.pose, s, 0)), [ax, ay] = toWorld(r.pose, s, l0), [bx, by] = toWorld(r.pose, s, l1); return [[ax, hh, ay], [ax, hh + hgt, ay], [bx, hh + hgt, by], [bx, hh, by]]; };
+        let n = 0;
+        for (let s = r.s0; s <= r.s3 + 1e-6; s += 0.5, n++) { for (const v of ring(s)) pp.push(...v); if (n) { const a0 = (n - 1) * 4, a1 = n * 4; for (let k = 0; k < 3; k++) ii.push(a0 + k, a1 + k, a0 + k + 1, a0 + k + 1, a1 + k, a1 + k + 1); } }
+        for (const end of [0, n - 1]) ii.push(end * 4, end * 4 + 1, end * 4 + 2, end * 4, end * 4 + 2, end * 4 + 3);
         const pg = new THREE.BufferGeometry(); pg.setAttribute("position", new THREE.Float32BufferAttribute(pp, 3)); pg.setIndex(ii); pg.computeVertexNormals();
-        const pm = new THREE.Mesh(pg, new THREE.MeshStandardMaterial({ color: 0xd2d0c8, roughness: 0.85, side: THREE.DoubleSide })); pm.castShadow = true; group.add(pm); }
-      // railing posts
-      for (let s = r.s0 + 2; s < r.s3 - 1; s += 2) {
-        const [x, y] = toWorld(r.pose, s, sg * (r.halfW + 0.05));
-        const hh = W.heightAt(...toWorld(r.pose, s, 0));
-        if (hh < 0.3) continue;
-        const post = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.8, 0.06), concMat);
-        post.position.set(x, hh + 0.4, y); group.add(post);
-      }
+        const pm = new THREE.Mesh(pg, new THREE.MeshStandardMaterial({ color: 0xe2dfd8, roughness: 0.8, side: THREE.DoubleSide })); pm.castShadow = true; pm.receiveShadow = true; group.add(pm); }
     }
   }
 

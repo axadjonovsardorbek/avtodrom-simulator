@@ -113,11 +113,11 @@ export function estakada(W, T, opt = {}) {
   T.fwd(len);
   W.ramps.push({ pose, s0, s1, s2, s3, h, halfW: HL + 0.4 });
   // the second overpass beside it (the ground has two, side by side)
-  { const [x, y] = toWorld(pose, 0, -(2 * (HL + 0.4) + 0.5)); W.ramps.push({ pose: { x, y, th: pose.th }, s0, s1, s2, s3, h, halfW: HL + 0.4, extra: true }); }
+  { const [x, y] = toWorld(pose, 0, -(2 * (HL + 0.4) + 0.4)); W.ramps.push({ pose: { x, y, th: pose.th }, s0, s1, s2, s3, h, halfW: HL + 0.4, extra: true }); }
   stopPaint(W, pose, stopS);
   W.texts.push({ ...at(pose, stopS - 1.6, 0), th: pose.th, text: "STOP", size: 1.0 });
   // each overpass as on the video: the climb sign at its foot, STOP at its stop line, the descent sign at the top
-  const hw = HL + 0.4, side = [hw + 0.7, -(3 * hw + 0.5) - 0.7];
+  const hw = HL + 0.4, side = [hw + 0.9, -(3 * hw + 0.4) - 0.9];
   for (const l of side) {
     W.signs.push({ ...at(pose, Math.max(0.5, s0 - 2), l), th: pose.th + Math.PI, kind: "hill", ramp: true });
     W.signs.push({ ...at(pose, stopS, l), th: pose.th + Math.PI, kind: "stop", ramp: true, h: 2.3 + h * 0.5 });
