@@ -109,8 +109,30 @@ export class View {
     this.worldGroup = null;
   }
 
+  // Finish the look of a loaded car: sharp textures at oblique angles, softer normal maps (leather
+  // and plastics looked wavy), glossy clear-coated paint and chrome that mirror the sky.
+  polishCar(root) {
+    const env = this.scene.environment, maxA = this.renderer.capabilities.getMaxAnisotropy();
+    const seen = new Set();
+    root.traverse(o => {
+      if (!o.isMesh) return;
+      for (const m of [].concat(o.material)) {
+        if (!m || seen.has(m)) continue; seen.add(m);
+        for (const k of ["map", "normalMap", "roughnessMap", "metalnessMap", "aoMap", "emissiveMap"]) if (m[k]) m[k].anisotropy = maxA;
+        if (m.normalMap && m.normalScale) m.normalScale.set(0.55, 0.55);
+        if (!m.isMeshStandardMaterial) continue;
+        const name = m.name || "";
+        if (/paint/i.test(name) && !/black/i.test(name)) { Object.assign(m, { clearcoat: 1, clearcoatRoughness: 0.05 }); m.envMap = env; m.envMapIntensity = 0.95; }
+        else if (m.metalness > 0.6) { m.envMap = env; m.envMapIntensity = 1.1; }
+        else if (/glass/i.test(name) || m.transparent) { m.envMap = env; m.envMapIntensity = 1.2; }
+        m.needsUpdate = true;
+      }
+    });
+  }
+
   // Swap in another car model (e.g. one loaded from a .glb); mirrors move with it.
   setCarModel(cv, car) {
+    this.polishCar(cv.root);
     if (car) {
       this.eye = car.eye;
       for (const m of this.mirrors) if (car.mirrors && car.mirrors[m.key]) m.cam.position.set(...car.mirrors[m.key]);
