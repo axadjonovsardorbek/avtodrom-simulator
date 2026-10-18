@@ -33,13 +33,13 @@ const MIRRORS = [
 ];
 
 // per quality tier: highest render scale, mirror texture scale, shadow map size, MSAA samples, bloom
-const MAXRATIO = { low: 1, mid: 1.5, high: 1.75 };
+const MAXRATIO = { low: 1, mid: 1.5, high: 2 };
 const TIER = { low: { mirror: 0.5, shadow: 1024, aa: 0, bloom: false }, mid: { mirror: 0.65, shadow: 1024, aa: 4, bloom: false }, high: { mirror: 1, shadow: 2048, aa: 4, bloom: true } };
 
 export class View {
   constructor(canvas) {
     const r = this.renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: "high-performance" });
-    this.maxRatio = Math.min(window.devicePixelRatio || 1, 1.75);
+    this.maxRatio = Math.min(window.devicePixelRatio || 1, 2);
     this.ratio = this.maxRatio; r.setPixelRatio(this.ratio);
     this.frame = 0; this.ft = 16;          // smoothed frame time, ms
     r.shadowMap.enabled = true;
@@ -427,9 +427,9 @@ export class View {
     this.adaptT = (this.adaptT || 0) + dtMs;
     if (this.adaptT < 700) return;
     this.adaptT = 0;
-    const lo = this.quality === "low" ? 0.55 : this.quality === "mid" ? 0.6 : 0.7, hi = this.quality === "low" ? Math.min(1, this.maxRatio) : this.maxRatio;
+    const lo = this.quality === "low" ? 0.55 : this.quality === "mid" ? 0.6 : 0.9, hi = this.quality === "low" ? Math.min(1, this.maxRatio) : this.maxRatio;
     let r = this.ratio;
-    if (this.ft > 21) r = Math.max(lo, r - 0.15);          // under ~48 fps
+    if (this.ft > (this.quality === "high" ? 26 : 21)) r = Math.max(lo, r - 0.15);   // under ~48 fps (~38 on high: sharpness first)
     else if (this.ft < 14.5) r = Math.min(hi, r + 0.05);   // over ~68 fps
     if (Math.abs(r - this.ratio) > 1e-3) { this.ratio = r; this.renderer.setPixelRatio(r); this.renderer.setSize(this.w, this.h, false); if (this.composer) { this.composer.setPixelRatio(r); this.composer.setSize(this.w, this.h); } }
   }
