@@ -103,63 +103,86 @@ export class Hud {
 
   /* ---------- menu ---------- */
   showMenu(state) {
-    const m = $("#menu", this.root);
-    const els = ELEMENTS.map((e, i) => `<button class="elbtn" data-el="${e.id}"><i>${e.mapNo}</i><span>${e.name}</span></button>`).join("");
+    const m = $("#menu", this.root), S = this.h.settings;
+    const icon = d => `<svg viewBox="0 0 24 24" aria-hidden="true">${d}</svg>`;
+    const ICONS = {
+      piyoda: '<path d="M4 20h16M6 20l2-8m4 8 0-8m6 8-2-8"/><circle cx="12" cy="5" r="1.6"/>',
+      estakada: '<path d="M3 18h4l6-8h4l4 8"/><path d="M3 21h18"/>',
+      burilish: '<path d="M5 20v-8h7V5h7"/><path d="m16 2 3 3-3 3"/>',
+      chorraha: '<path d="M9 3v18M15 3v18M3 9h18M3 15h18"/>',
+      ilon: '<path d="M5 21c0-4 7-3 7-7s-7-3-7-7 4-4 7-4"/>',
+      boks: '<path d="M4 4h16v16H4z"/><path d="M10 20v-7h4v7"/>',
+      temir: '<path d="M4 7h16M4 17h16M7 4v16M12 4v16M17 4v16"/>',
+      tezlashish: '<path d="M4 18a8 8 0 1 1 16 0"/><path d="m12 18 4-6"/>',
+      avariya: '<path d="M12 4 3 20h18z"/><path d="M12 10v4M12 17v.5"/>',
+      parkovka: '<path d="M5 3h14v18H5z"/><path d="M9 17V7h4a3 3 0 0 1 0 6H9"/>'
+    };
+    const iconFor = id => icon(ICONS[id.split("-")[0]] || ICONS.chorraha);
+    const els = ELEMENTS.map(e => `<button class="elbtn" data-el="${e.id}"><span class="ico">${iconFor(e.id)}</span><span class="nm">${e.name}</span><i>${e.mapNo}</i></button>`).join("");
+    // segmented control: [value, label] pairs
+    const seg = (id, opts) => `<div class="seg" id="${id}">${opts.map(([v, t]) => `<button data-v="${v}">${t}</button>`).join("")}</div>`;
+    const COLORS = [["white", "#f3f4f2", "Oq"], ["blue", "#1b2b63", "To'q ko'k"], ["graphite", "#3a3d41", "Grafit"]];
     m.innerHTML = `
-      <div class="panel menu">
-        <span class="eyebrow">Toshkent imtihon markazi · B toifa</span>
-        <h1>Avtodrom simulyatori</h1>
-        <p class="lead">Amaliy imtihonni to'liq avtodromda yoki alohida mashqlarda takrorlang. Jarima ballari rasmiy jadval bo'yicha hisoblanadi.</p>
-        <div class="opts">
-          <label>Mashina
-            <select id="optCar">${CARS.map(c => `<option value="${c.id}">${c.name}</option>`).join("")}</select></label>
-          <label>Uzatmalar qutisi
-            <select id="optTrans"><option value="manual">Mexanik (ilashish bilan)</option><option value="auto">Avtomat</option></select></label>
-          <label>Grafika
-            <select id="optQuality"><option value="high">Yuqori</option><option value="low">Yengil (telefon)</option></select></label>
-          <label>Rangi
-            <select id="optColor"><option value="white">Oq</option><option value="blue">To'q ko'k</option><option value="graphite">Grafit</option></select></label>
-          <label>Poligon (trening, mashq)
-            <select id="optSize"><option value="wide">Keng — boshlovchi</option><option value="mid">O'rtacha</option><option value="real">Haqiqiy o'lcham</option></select></label>
-          <label>Davlat raqami
-            <input id="optPlate" maxlength="14" spellcheck="false" autocomplete="off"></label>
-          <label>Instruktor — Bobur aka
-            <select id="optInstr"><option value="angry">Jahldor</option><option value="rude">Jahldor, so'kinadi (18+)</option><option value="calm">Yumshoq</option><option value="off">Yo'q</option></select></label>
-          <label>Ovozli ko'rsatmalar
-            <select id="optVoice"><option value="on">Yoqilgan</option><option value="off">O'chirilgan</option></select></label>
-        </div>
-        <button class="showbtn" id="showroomBtn"><b>Mashinani 360° ko'rish</b><small>Tashqi ko'rinish va salon: sichqoncha yoki barmoq bilan aylantiring</small></button>
-        <h2>To'liq avtodrom</h2>
-        <div class="modes">
-          <button class="big primary" data-mode="exam"><b>Imtihon</b><small>13 mashq ketma-ket, poligon haqiqiy o'lchamda. Jarima ${PASS_LIMIT} balldan oshsa, imtihondan o'tolmaysiz va imtihon to'xtatiladi.</small></button>
-          <button class="big" data-mode="training"><b>Trening</b><small>Xuddi shu marshrut, xato qilsangiz ham davom etasiz.</small></button>
-        </div>
-        <h2>Alohida mashq <small>(raqam: xaritadagi element)</small></h2>
-        <div class="els">${els}</div>
-        ${state && state.canResume ? `<button class="btn" id="resume">Davom ettirish</button>` : ""}
-        <p class="credit">${CARS.map(c => !c.credit ? "" : c.creditUrl ? `<a href="${c.creditUrl}" target="_blank" rel="noopener">${c.credit}</a>` : `<span>${c.credit}</span>`).join("<br>")}</p>
+      <div class="menu-grid">
+        <section class="panel menu-main">
+          <span class="eyebrow">Toshkent imtihon markazi · B toifa</span>
+          <h1>Avtodrom <br>simulyatori</h1>
+          <p class="lead">Amaliy imtihonni to'liq avtodromda yoki alohida mashqlarda takrorlang. Jarima ballari rasmiy jadval bo'yicha.</p>
+          ${state && state.canResume ? `<button class="resume" id="resume"><span>▶</span> Davom ettirish</button>` : ""}
+          <div class="modes">
+            <button class="mode exam" data-mode="exam">
+              <span class="ico">${icon('<path d="M7 3h10v4l-5 4-5-4z"/><path d="M5 21h14M8 21l1-6h6l1 6"/>')}</span>
+              <b>Imtihon</b><small>13 mashq ketma-ket, haqiqiy o'lchamda. ${PASS_LIMIT} balldan oshsa — to'xtatiladi.</small></button>
+            <button class="mode train" data-mode="training">
+              <span class="ico">${icon('<path d="M4 12a8 8 0 1 0 3-6.2"/><path d="M4 4v4h4"/>')}</span>
+              <b>Trening</b><small>Xuddi shu marshrut, xato qilsangiz ham davom etasiz.</small></button>
+          </div>
+          <h2>Alohida mashq <small>raqam — xaritadagi element</small></h2>
+          <div class="els">${els}</div>
+          <p class="credit">${CARS.map(c => !c.credit ? "" : c.creditUrl ? `<a href="${c.creditUrl}" target="_blank" rel="noopener">${c.credit}</a>` : `<span>${c.credit}</span>`).join("<br>")}</p>
+        </section>
+        <aside class="panel menu-side">
+          <h3>Mashina</h3>
+          <div class="cars">${CARS.map(c => `<button class="carbtn" data-car="${c.id}"><b>${c.name.replace("Chevrolet ", "")}</b><small>Chevrolet</small></button>`).join("")}</div>
+          <div class="row"><span class="lbl">Rangi</span><div class="swatches">${COLORS.map(([v, hex, t]) => `<button class="sw" data-color="${v}" title="${t}" style="--c:${hex}"></button>`).join("")}</div></div>
+          <label class="row"><span class="lbl">Davlat raqami</span><input id="optPlate" maxlength="14" spellcheck="false" autocomplete="off"></label>
+          <button class="ghost" id="showroomBtn">${icon('<path d="M3 12a9 4 0 1 0 18 0 9 4 0 1 0-18 0"/><path d="m17 9 3 3-3 3"/>')} 360° ko'rish va salon</button>
+          <h3>Haydash</h3>
+          <span class="lbl">Uzatmalar qutisi</span>${seg("optTrans", [["manual", "Mexanik"], ["auto", "Avtomat"]])}
+          <span class="lbl">Poligon (trening, mashq)</span>${seg("optSize", [["wide", "Keng"], ["mid", "O'rta"], ["real", "Haqiqiy"]])}
+          <h3>Instruktor — Bobur aka</h3>
+          ${seg("optInstr", [["angry", "Jahldor"], ["calm", "Yumshoq"], ["rude", "18+"], ["off", "Yo'q"]])}
+          <h3>Boshqa</h3>
+          <div class="row2">
+            <div><span class="lbl">Ovozli ko'rsatma</span>${seg("optVoice", [["on", "Ha"], ["off", "Yo'q"]])}</div>
+            <div><span class="lbl">Grafika</span>${seg("optQuality", [["high", "Yuqori"], ["low", "Yengil"]])}</div>
+          </div>
+        </aside>
       </div>`;
     m.hidden = false;
-    $("#optCar", m).value = this.h.settings.car || CARS[0].id;
-    $("#optCar", m).onchange = e => { this.h.settings.car = e.target.value; this.h.useCar && this.h.useCar(e.target.value); };
-    $("#optTrans", m).value = this.h.settings.transmission;
-    $("#optQuality", m).value = this.h.settings.quality;
-    $("#optTrans", m).onchange = e => this.h.settings.transmission = e.target.value;
-    $("#optQuality", m).onchange = e => this.h.settings.quality = e.target.value;
-    $("#optColor", m).value = this.h.settings.color || "white";
-    $("#optColor", m).onchange = e => this.h.setColor && this.h.setColor(e.target.value);
-    $("#optSize", m).value = this.h.settings.size || "real";
-    $("#optSize", m).onchange = e => this.h.settings.size = e.target.value;
-    $("#optPlate", m).value = this.h.settings.plate || "01 A 070 BJ";
+    const bindSeg = (id, value, set) => {
+      const el = $("#" + id, m), mark = v => el.querySelectorAll("button").forEach(b => b.classList.toggle("on", b.dataset.v === v));
+      mark(value);
+      el.querySelectorAll("button").forEach(b => b.onclick = () => { mark(b.dataset.v); set(b.dataset.v); this.h.save && this.h.save(); });
+    };
+    bindSeg("optTrans", S.transmission, v => S.transmission = v);
+    bindSeg("optSize", S.size || "real", v => S.size = v);
+    bindSeg("optInstr", S.instructor || "angry", v => S.instructor = v);
+    bindSeg("optVoice", S.voice === false ? "off" : "on", v => S.voice = v === "on");
+    bindSeg("optQuality", S.quality, v => S.quality = v);
+    const markCar = () => m.querySelectorAll(".carbtn").forEach(b => b.classList.toggle("on", b.dataset.car === (S.car === "malibu" ? "malibu-premier" : S.car || CARS[0].id)));
+    markCar();
+    m.querySelectorAll(".carbtn").forEach(b => b.onclick = () => { S.car = b.dataset.car; markCar(); this.h.useCar && this.h.useCar(S.car); this.h.save && this.h.save(); });
+    const markColor = () => m.querySelectorAll(".sw").forEach(b => b.classList.toggle("on", b.dataset.color === (S.color || "white")));
+    markColor();
+    m.querySelectorAll(".sw").forEach(b => b.onclick = () => { this.h.setColor && this.h.setColor(b.dataset.color); markColor(); });
+    $("#optPlate", m).value = S.plate || "01 A 070 BJ";
     $("#optPlate", m).oninput = e => this.h.setPlate && this.h.setPlate(e.target.value.toUpperCase());
-    $("#optInstr", m).value = this.h.settings.instructor || "angry";
-    $("#optInstr", m).onchange = e => this.h.settings.instructor = e.target.value;
-    $("#optVoice", m).value = this.h.settings.voice === false ? "off" : "on";
-    $("#optVoice", m).onchange = e => this.h.settings.voice = e.target.value === "on";
     m.querySelectorAll("[data-mode]").forEach(b => b.onclick = () => this.h.start(b.dataset.mode));
     m.querySelectorAll("[data-el]").forEach(b => b.onclick = () => this.h.start("practice", b.dataset.el));
     const r = $("#resume", m); if (r) r.onclick = () => this.h.resume();
     $("#showroomBtn", m).onclick = () => this.h.showroom();
+    this.menuOpen = true; this.root.classList.add("menu-open");
   }
 
   showShowroom(on, handlers) {
@@ -176,7 +199,7 @@ export class Hud {
     el.hidden = !on;
     this.root.classList.toggle("showroom", on);
   }
-  hideMenu() { $("#menu", this.root).hidden = true; }
+  hideMenu() { $("#menu", this.root).hidden = true; this.menuOpen = false; this.root.classList.remove("menu-open"); }
 
   buildHelp() {
     $("#help", this.root).innerHTML = `

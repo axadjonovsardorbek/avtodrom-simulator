@@ -29,7 +29,7 @@ const saveSettings = () => { try { localStorage.setItem("avtodrom.settings", JSO
 
 let session = null, mode = null, elementId = null, paused = true, ended = false;
 const app = document.getElementById("app");
-const hud = new Hud(app, { settings, start, resume, action: onAction, resultAction, useCar, showroom: openShowroom,
+const hud = new Hud(app, { settings, start, resume, action: onAction, resultAction, useCar, showroom: openShowroom, save: () => saveSettings(),
   setPlate: t => { settings.plate = t; if (view.carView.setPlate) view.carView.setPlate(t); saveSettings(); },
   setColor: id => { settings.color = id; if (view.carView.setPaint) view.carView.setPaint(id); saveSettings(); } });
 const view = new View(hud.canvas);
@@ -257,7 +257,8 @@ useCar(settings.car);
 // a preview of the autodrome behind the menu
 session = new Session(buildFull(carDims()), { mode: "training", transmission: settings.transmission, spec: carById(settings.car).spec });
 view.setWorld(session.W, settings.quality);
-view.setMode("chase");
+// behind the menu the car turns slowly on the start pad
+view.setMode("orbit"); view.orbit = { az: 2.3, el: 0.12, dist: 9 };
 hud.reset(session, "Simulyator");
 hud.showMenu({ canResume: false });
 
@@ -352,6 +353,13 @@ function frame(now) {
     instructorFig.update(dt, instructor.pose());
     if (!paused) kidShow.update(dt); else kidShow.stopSong(0.2);
     if (!paused && session.state === "running") clipsBeforeElements();
+    if (hud.menuOpen && !mode && !inShowroom && view.mode === "orbit") {
+      view.orbit.az += dt * 0.12;
+      // keep the car in the gap between the two menu panels
+      const a = document.querySelector(".menu-main"), b = document.querySelector(".menu-side");
+      if (a && b && innerWidth > 1100) { const l = a.getBoundingClientRect().right, r = b.getBoundingClientRect().left; view.viewShift = (l + r) / 2 - innerWidth / 2; }
+      else view.viewShift = 0;
+    } else view.viewShift = 0;
     view.update(session, dt, now);
     view.render();
     if (now - lastHud > 60) { hud.update(session, view, now); lastHud = now; }

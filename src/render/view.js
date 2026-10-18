@@ -209,6 +209,8 @@ export class View {
       cam.lookAt(cp);
       if (cam.fov !== 50) { cam.fov = 50; cam.updateProjectionMatrix(); }
     }
+    // shift the picture sideways (menu: car between the panels) without changing the view
+    if (this.viewShift) cam.setViewOffset(this.w, this.h, -this.viewShift, 0, this.w, this.h); else if (cam.view) cam.clearViewOffset();
     this.sun.position.set(car.x + 45, 85, car.y + 30);
     this.sun.target.position.copy(cp);
   }
