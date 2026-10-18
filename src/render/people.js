@@ -100,7 +100,7 @@ function rigPerson(gltf, { torso, seated }) {
     if (!mats) { mats = []; scene.traverse(o => { if (o.isMesh) mats.push(...[].concat(o.material)); }); }
     const host = root.parent;
     const planes = seated && host ? [floor, ...extra] : extra;
-    if (seated && host) floor.setFromNormalAndCoplanarPoint(V().set(0, 1, 0).transformDirection(host.matrixWorld), host.localToWorld(V().set(0, 0.27, 0)));
+    if (seated && host) floor.setFromNormalAndCoplanarPoint(V().set(0, 1, 0).transformDirection(host.matrixWorld), host.localToWorld(V().set(0, root.position.y - 0.2, 0)));
     // a different number of planes needs the shader rebuilt
     for (const m of mats) if ((m.clippingPlanes ? m.clippingPlanes.length : 0) !== planes.length) { m.clippingPlanes = planes.length ? planes : null; m.needsUpdate = true; }
     else if (planes.length) m.clippingPlanes = planes;
@@ -133,8 +133,8 @@ export function realInstructor(gltf) {
       const host = P.root.parent;
       if (host) {
         const n = (x, y, z) => V().set(x, y, z).transformDirection(host.matrixWorld);
-        door.setFromNormalAndCoplanarPoint(n(0, 0, -1), host.localToWorld(V().set(0, 0, 0.62)));   // the glass leans in towards the roof
-        roof.setFromNormalAndCoplanarPoint(n(0, -1, 0), host.localToWorld(V().set(0, 1.36, 0)));
+        door.setFromNormalAndCoplanarPoint(n(0, 0, -1), host.localToWorld(V().set(0, 0, P.root.position.z + 0.23)));   // the glass leans in towards the roof
+        roof.setFromNormalAndCoplanarPoint(n(0, -1, 0), host.localToWorld(V().set(0, P.root.position.y + 0.89, 0)));
       }
       P.clipFloor([door, roof]);
       // look at the driver while speaking

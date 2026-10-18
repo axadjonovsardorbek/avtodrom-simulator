@@ -55,7 +55,7 @@ export const CARS = [
     mirrors: { center: [1.76, 1.3, 0], left: [2.15, 1.05, -0.98], right: [2.15, 1.05, 0.98] },
     spec: { mass: 1320, wb: MONZA.wheelbase, rOh: MONZA.rOh, fOh: MONZA.fOh, width: 1.80, track: MONZA.track, wheelR: MONZA.wheelR, torque: NA15, clutchCap: 300, autoForce: 4700 },
     sound: NA,
-    voice: { url: "monzachila_shottamisila.mp3", from: 0, dur: 1.3 }          // only the first second
+    voice: { url: "monzachila_shottamisila.mp3", from: 1.7, dur: 1.5 }
   },
   {
     id: "matiz", name: "Daewoo Matiz", model: "models/matiz.glb", info: "0.8 · 51 o.k. · 3,50 m",
