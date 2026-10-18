@@ -10,7 +10,7 @@ import { clone as cloneSkinned } from "three/examples/jsm/utils/SkeletonUtils.js
 const loader = new GLTFLoader().setMeshoptDecoder(MeshoptDecoder);
 const load = name => loader.loadAsync(`models/people/${name}.glb`);
 const bone = (root, re) => { let b = null; root.traverse(o => { if (!b && o.isBone && re.test(o.name)) b = o; }); return b; };
-const V = () => new THREE.Vector3(), Q = () => new THREE.Quaternion();
+const V = () => new THREE.Vector3(), Q = () => new THREE.Quaternion(), Z = new THREE.Vector3(0, 0, 1);
 
 /* ---------- materials: matte, and recoloured to match the reference photos ---------- */
 // Tint keeps the texture's light and shade but replaces its colour. `bands` paints horizontal
@@ -51,7 +51,7 @@ varying vec3 vObj; uniform vec3 uTint; uniform vec3 uBands[3]; uniform float uBa
 function dress(root, styles) {
   root.traverse(o => {
     if (!o.isMesh) return;
-    o.castShadow = true; o.frustumCulled = false;            // skinned meshes move away from their bounds
+    o.castShadow = false; o.frustumCulled = false;   // the car's shadow proxy covers the people inside            // skinned meshes move away from their bounds
     const key = Object.keys(styles).find(k => new RegExp(k, "i").test(o.name));
     const st = key ? styles[key] : {};
     if (st === null) { o.visible = false; return; }
@@ -165,12 +165,26 @@ export function realDriver(gltf) {
         // grips at a quarter to three, taken while the wheel is straight
         if (!grip && Math.abs(car.sw) < 2 && carRoot) {
           const c = carRoot.worldToLocal(wheel.getWorldPosition(V()));
-          grip = { L: wheel.worldToLocal(carRoot.localToWorld(V().set(c.x - 0.03, c.y + 0.02, c.z - 0.17))), R: wheel.worldToLocal(carRoot.localToWorld(V().set(c.x - 0.03, c.y + 0.02, c.z + 0.17))) };
+          const hL = V().set(c.x - 0.03, c.y + 0.02, c.z - 0.17), hR = V().set(c.x - 0.03, c.y + 0.02, c.z + 0.17);
+          grip = { L: wheel.worldToLocal(carRoot.localToWorld(hL.clone())), R: wheel.worldToLocal(carRoot.localToWorld(hR.clone())), homeL: hL, homeR: hR };
+        }
+        // hand over hand: the hands ride with the rim, and every quarter turn they let go and
+        // take it again near their home position (so they never twist round the wheel)
+        const regrip = Math.round(car.sw / 90) * 90 * Math.PI / 180;      // every quarter turn
+        if (grip && carRoot) {
+          // worked out in the car's frame so a moving car does not drag the hands
+          const home = { L: grip.homeL, R: grip.homeR };
+          for (const k of ["L", "R"]) {
+            const cands = [-1, 1].map(sg => carRoot.worldToLocal(wheel.localToWorld(grip[k].clone().applyAxisAngle(Z, sg * regrip))));
+            const target = cands[0].distanceTo(home[k]) <= cands[1].distanceTo(home[k]) ? cands[0] : cands[1];
+            if (!hold[k]) hold[k] = target.clone();
+            const jump = hold[k].distanceTo(target) > 0.06;          // re-grip: move across quickly, not instantly
+            hold[k].lerp(target, jump ? Math.min(1, dt * 14) : 1);
+          }
         }
         if (grip) for (const k of ["L", "R"]) {
           const a = arms[k]; if (!a.up || !a.fore || !a.hand) continue;
-          if (Math.abs(car.sw) < 100 || !hold[k]) hold[k] = wheel.localToWorld(grip[k].clone());
-          const T = hold[k], S = a.up.getWorldPosition(V()), E0 = a.fore.getWorldPosition(V()), W0 = a.hand.getWorldPosition(V());
+          const T = carRoot.localToWorld(hold[k].clone()), S = a.up.getWorldPosition(V()), E0 = a.fore.getWorldPosition(V()), W0 = a.hand.getWorldPosition(V());
           const l1 = S.distanceTo(E0), l2 = E0.distanceTo(W0);
           const d = T.clone().sub(S), L = Math.min(d.length(), l1 + l2 - 1e-3), dir = d.normalize();
           const x = (l1 * l1 - l2 * l2 + L * L) / (2 * L), h = Math.sqrt(Math.max(0, l1 * l1 - x * x));
@@ -187,7 +201,7 @@ export function realDriver(gltf) {
       const host = P.root.parent;
       if (host) {
         const fwd = V().set(1, 0, 0).transformDirection(host.matrixWorld);
-        const at = P.root.localToWorld(V().set(0.2, 0, 0));
+        const at = P.root.localToWorld(V().set(0.14, 0, 0));
         clip.setFromNormalAndCoplanarPoint(fwd, at);
       }
       P.clipFloor(cockpit ? [clip] : []);

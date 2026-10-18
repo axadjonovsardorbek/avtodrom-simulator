@@ -2,7 +2,19 @@
 // the same bytes base64-wrapped in "<name>.glb.json" (see tools/pack-models.mjs).
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import { MeshoptDecoder } from "three/examples/jsm/libs/meshopt_decoder.module.js";
+import * as THREE from "three";
 import { rigCar } from "./carModel.js";
+
+function addShadowProxy(root) {
+  const car = root.name === "car" ? root : root.getObjectByName("car") || root;
+  const d = car.userData && car.userData.dims;
+  if (!d) return;
+  const mat = new THREE.MeshBasicMaterial({ colorWrite: false, depthWrite: false });
+  const box = (len, h, w, x, y) => { const m = new THREE.Mesh(new THREE.BoxGeometry(len, h, w), mat); m.position.set(x, y, 0); m.castShadow = true; m.name = "shadow_proxy"; m.renderOrder = -1; car.add(m); };
+  const x0 = -d.rOh, x1 = d.wheelbase + d.fOh, w = Math.min(d.width, 1.9) - 0.08;
+  box(x1 - x0, d.roofY * 0.45, w, (x0 + x1) / 2, d.roofY * 0.42);                    // body
+  box((x1 - x0) * 0.5, d.roofY * 0.32, w - 0.16, (x0 + x1) / 2 - 0.1, d.roofY * 0.8);  // cabin
+}
 
 // read a response body, reporting the share received so far (0..1) when the size is known
 async function readAll(r, onProgress) {
@@ -37,6 +49,9 @@ export async function loadCarModel(url, onProgress) {
   const data = await fetchModel(url, onProgress);
   const gltf = await new GLTFLoader().setMeshoptDecoder(MeshoptDecoder).parseAsync(data, "");
   const root = gltf.scene;
-  root.traverse(o => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
+  // the detailed model does not cast shadows itself (hundreds of thousands of triangles drawn
+  // again into the shadow map); a few invisible boxes of the car's shape do it instead
+  root.traverse(o => { if (o.isMesh) { o.castShadow = false; o.receiveShadow = true; } });
+  addShadowProxy(root);
   return rigCar(root);
 }

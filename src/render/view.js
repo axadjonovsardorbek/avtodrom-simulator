@@ -31,7 +31,9 @@ const MIRRORS = [
 export class View {
   constructor(canvas) {
     const r = this.renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: "high-performance" });
-    r.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.75));
+    this.maxRatio = Math.min(window.devicePixelRatio || 1, 1.75);
+    this.ratio = this.maxRatio; r.setPixelRatio(this.ratio);
+    this.frame = 0; this.ft = 16;          // smoothed frame time, ms
     r.shadowMap.enabled = true;
     r.shadowMap.type = THREE.PCFSoftShadowMap;
     r.toneMapping = THREE.ACESFilmicToneMapping;
@@ -148,6 +150,14 @@ export class View {
     this.dressPedestrians();
     this.scene.add(group);
     this.renderer.shadowMap.enabled = quality !== "low";
+    this.quality = quality;
+    // lighter mirrors and shadows on the light setting
+    const scale = quality === "low" ? 0.5 : 1;
+    for (const m of this.mirrors) m.rt.setSize(Math.round(m.w * scale), Math.round(m.h * scale));
+    this.sun.shadow.mapSize.set(quality === "low" ? 1024 : 2048, quality === "low" ? 1024 : 2048);
+    if (this.sun.shadow.map) { this.sun.shadow.map.dispose(); this.sun.shadow.map = null; }
+    this.ratio = this.maxRatio = Math.min(window.devicePixelRatio || 1, quality === "low" ? 1 : 1.75);
+    this.renderer.setPixelRatio(this.ratio); if (this.w) this.renderer.setSize(this.w, this.h, false);
     this.chasePos = null;
   }
 
@@ -236,12 +246,32 @@ export class View {
     this.sun.target.position.copy(cp);
   }
 
+  // Keeps the frame rate up on any device: the render resolution follows the measured frame time
+  // (down quickly when frames are slow, back up slowly when there is headroom).
+  adapt(dtMs) {
+    this.ft += (Math.min(dtMs, 100) - this.ft) * 0.05;
+    this.adaptT = (this.adaptT || 0) + dtMs;
+    if (this.adaptT < 700) return;
+    this.adaptT = 0;
+    const lo = this.quality === "low" ? 0.55 : 0.7, hi = this.quality === "low" ? Math.min(1, this.maxRatio) : this.maxRatio;
+    let r = this.ratio;
+    if (this.ft > 21) r = Math.max(lo, r - 0.15);          // under ~48 fps
+    else if (this.ft < 14.5) r = Math.min(hi, r + 0.05);   // over ~68 fps
+    if (Math.abs(r - this.ratio) > 1e-3) { this.ratio = r; this.renderer.setPixelRatio(r); this.renderer.setSize(this.w, this.h, false); }
+  }
+
   render() {
     const r = this.renderer;
+    this.frame++;
+    // the sun's shadow map is redrawn every other frame (the car moves little in 1/30 s)
+    r.shadowMap.autoUpdate = false;
+    if (r.shadowMap.enabled && this.frame % 2 === 0) r.shadowMap.needsUpdate = true;
     const mirrors = this.mode === "cockpit";
     if (mirrors) {
+      // one mirror per frame, in turn: each still updates 20 times a second at 60 fps
+      const m = this.mirrors[this.frame % this.mirrors.length];
       this.carView.setCockpit(false);
-      for (const m of this.mirrors) { r.setRenderTarget(m.rt); r.render(this.scene, m.cam); }
+      r.setRenderTarget(m.rt); r.render(this.scene, m.cam);
       this.carView.setCockpit(true);
       r.setRenderTarget(null);
     }

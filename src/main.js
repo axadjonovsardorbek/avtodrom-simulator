@@ -362,6 +362,7 @@ function frame(now) {
       else view.viewShift = 0;
     } else view.viewShift = 0;
     view.update(session, dt, now);
+    view.adapt(dt * 1000);
     view.render();
     if (now - lastHud > 60) { hud.update(session, view, now); lastHud = now; }
     audio.update(session.car, { alarm: session.W.alarm && !paused }, now);
