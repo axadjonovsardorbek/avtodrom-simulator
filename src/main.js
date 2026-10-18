@@ -36,7 +36,7 @@ const saveSettings = () => { try { localStorage.setItem("avtodrom.settings", JSO
 
 let session = null, mode = null, elementId = null, paused = true, ended = false;
 const app = document.getElementById("app");
-const hud = new Hud(app, { settings, start, resume, action: onAction, resultAction, useCar, showroom: openShowroom, save: () => saveSettings(), garage: () => openGarage(),
+const hud = new Hud(app, { settings, protocolBack: () => lastResult && hud.showResult(...lastResult), start, resume, action: onAction, resultAction, useCar, showroom: openShowroom, save: () => saveSettings(), garage: () => openGarage(),
   setPlate: t => { settings.plate = t; if (view.carView.setPlate) view.carView.setPlate(t); saveSettings(); },
   setColor: id => { settings.color = id; if (view.carView.setPaint) view.carView.setPaint(id); saveSettings(); } });
 const view = new View(hud.canvas);
@@ -213,6 +213,7 @@ function handleEvent(ev) {
           ? [["Qaytadan", "retry", !passed], ...(nextElement() ? [["Keyingi mashq", "next", passed]] : []), ["Menyu", "menu"]]
           : [["Qayta topshirish", "retry", true], ["Menyu", "menu"]];
         rec.next = 0; rec.sample(s);
+        if (mode !== "practice") acts.splice(acts.length - 1, 0, ["Bayonnoma", "protocol"]);
         if (rec.duration > 1) acts.splice(acts.length - 1, 0, ["Takroriy ko'rish", "replay"]);
         lastResult = [s, ev, acts, recordAttempt(s, { passed, key: keyFor(mode, elementId) })];
         hud.showResult(...lastResult);
@@ -251,6 +252,10 @@ function startReplay() {
 
 function resultAction(id) {
   if (id === "replay") return startReplay();
+  if (id === "protocol") {
+    const [s, ev] = lastResult, car = carById(settings.car);
+    return hud.showProtocol(s, ev.passed, { date: new Date(), modeLabel: mode === "exam" ? "Amaliy imtihon (to'liq avtodrom)" : "Trening (to'liq avtodrom)", car: car.name, plate: settings.plate || DEFAULT_PLATE });
+  }
   if (id === "retry") start(mode, elementId);
   else if (id === "next") start("practice", nextElement());
   else { document.getElementById("result").hidden = true; hud.showMenu({ canResume: false }); }

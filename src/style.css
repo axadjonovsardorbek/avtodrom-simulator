@@ -519,3 +519,10 @@ tr:last-child td { border-bottom: 0; }
 .rp-note { min-height: 20px; margin-bottom: 6px; font-weight: 600; color: var(--muted); font-size: 13px; }
 .rp-note.on { color: #ff6a5e; }
 #app.replaying .cluster, #app.replaying .touchpad, #app.replaying .task, #app.replaying .tutor, #app.replaying .startlight { display: none !important; }
+
+/* protocol sheet */
+.proto { max-width: min(860px, 96vw); max-height: 94vh; overflow: auto; }
+.protoname { display: grid; gap: 4px; margin: 8px 0 12px; }
+.protoname input { background: var(--raise); border: 1px solid var(--rule); border-radius: 8px; padding: 9px 12px; color: var(--fg); font-size: 15px; font-family: inherit; max-width: 340px; }
+.protoimg { border: 1px solid var(--rule); border-radius: 8px; overflow: auto; max-height: 56vh; background: #fff; }
+.protocanvas { display: block; width: 100%; height: auto; }

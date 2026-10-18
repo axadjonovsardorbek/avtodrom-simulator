@@ -10,7 +10,7 @@ Bajarilganini `[x]` bilan belgilang.
 - [x] **Takroriy ko'rish (replay).** Mashqdan keyin o'z haydashni tepadan qayta ko'rish, xato joylari qizil nuqta bilan.
 - [x] **Ko'zgularni sozlash.** Chap, o'ng va salon ko'zgusini burish (imtihonda bu ham tekshiriladi).
 - [x] **Qadamma-qadam o'quv rejimi.** Kamar, kalit, uzatma, qo'l tormozi, start: har bir qadam ko'rsatiladi va bajarilguncha keyingisiga o'tilmaydi.
-- [ ] **Imtihon bayonnomasi.** Rasmiy shakldagi varaqa: sana, ism, jarima bandlari, natija.
+- [x] **Imtihon bayonnomasi.** Rasmiy shakldagi varaqa: sana, ism, jarima bandlari, natija.
 
 ## 2. O'yin hissi
 

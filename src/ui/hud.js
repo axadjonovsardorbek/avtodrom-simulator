@@ -2,6 +2,7 @@
 // penalty log, start light, menus and the result protocol.
 import { PASS_LIMIT } from "../sim/penalties.js";
 import { analyse, clearHistory } from "../sim/history.js";
+import { drawProtocol } from "./protocol.js";
 import { ELEMENTS } from "../world/tracks.js";
 import { CARS } from "../cars/index.js";
 
@@ -376,6 +377,37 @@ export class Hud {
     g.restore();
   }
   toggleMinimap() { if (this.root.classList.contains("touch")) { this.mm.hidden = false; this.root.classList.toggle("showmap"); } else this.mm.hidden = !this.mm.hidden; }
+
+  /* ---------- protocol sheet ---------- */
+  // info: { date, modeLabel, car, plate }
+  showProtocol(s, passed, info) {
+    const res = $("#result", this.root), S = this.h.settings;
+    const build = () => drawProtocol({ ...info, name: S.name || "", time: s.t, total: s.total, passed, log: s.log });
+    res.innerHTML = `
+      <div class="panel result proto">
+        <span class="eyebrow">Imtihon bayonnomasi</span>
+        <label class="protoname"><span class="lbl">Nomzodning ismi</span><input id="protoName" maxlength="40" autocomplete="off" placeholder="Ism familiya"></label>
+        <div class="protoimg" id="protoImg"></div>
+        <div class="acts"><button class="btn primary" data-p="save">Rasm sifatida saqlash</button><button class="btn" data-p="print">Chop etish</button><button class="btn" data-p="back">Orqaga</button></div>
+      </div>`;
+    const img = $("#protoImg", res), name = $("#protoName", res);
+    name.value = S.name || "";
+    let canvas = null;
+    const render = () => { canvas = build(); canvas.className = "protocanvas"; img.replaceChildren(canvas); };
+    render();
+    name.oninput = () => { S.name = name.value.trim(); this.h.save && this.h.save(); render(); };
+    res.querySelector('[data-p="back"]').onclick = () => this.h.protocolBack && this.h.protocolBack();
+    res.querySelector('[data-p="save"]').onclick = () => {
+      const a = document.createElement("a"); a.download = "imtihon-bayonnomasi.png"; a.href = canvas.toDataURL("image/png"); a.click();
+    };
+    res.querySelector('[data-p="print"]').onclick = () => {
+      const w = window.open("", "_blank");
+      if (!w) return;
+      w.document.write(`<title>Imtihon bayonnomasi</title><style>@page{size:A4;margin:0}body{margin:0}img{width:100%;display:block}</style><img src="${canvas.toDataURL("image/png")}">`);
+      w.document.close(); w.onload = () => w.print();
+    };
+    res.hidden = false;
+  }
 
   /* ---------- replay bar ---------- */
   // rec: Recorder; ctl: { toggle, seek(t), speed(), exit() }
