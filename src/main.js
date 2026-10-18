@@ -83,6 +83,7 @@ function start(m, el) {
   app.classList.toggle("auto", settings.transmission === "auto");
   const W = m === "practice" ? buildPractice(el, carDims()) : buildFull(carDims(m === "exam"));
   session = new Session(W, { mode: m, transmission: settings.transmission, spec: carById(settings.car).spec });
+  view.setZonesVisible(m !== "exam");            // the 1 m stop zones are a training aid only
   view.setWorld(W, settings.quality);
   view.setMode(settings.camera || "cockpit");
   hud.reset(session, m === "practice" ? ELEMENTS.find(e => e.id === el).name : TITLES[m]);

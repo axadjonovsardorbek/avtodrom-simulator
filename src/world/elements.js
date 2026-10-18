@@ -41,7 +41,10 @@ export function stopLineRule(ctx, key, lineS, required, missCode) {
   return st;
 }
 
-function stopPaint(W, pose, s, l0 = -HL, l1 = HL) { W.addPaint(rect(pose, s - 0.4, s, l0, l1)); }
+// Training aid: the 1 m stop zone before each stop line (front bumper between s-1 and s).
+// Drawn only outside the exam (see View.setWorld); rule distances are measured to s.
+function stopZone(W, pose, s, l0 = -HL, l1 = HL) { (W.stopZones || (W.stopZones = [])).push({ pose, s, l0, l1 }); }
+function stopPaint(W, pose, s, l0 = -HL, l1 = HL) { W.addPaint(rect(pose, s - 0.4, s, l0, l1)); stopZone(W, pose, s, l0, l1); }
 function stopHint(ctx, st, lineS) {
   if (!st || st.crossed) return "";
   if (st.still) return `Turibsiz: ${st.standT.toFixed(1)} s · chiziqqacha ${st.stopD.toFixed(2)} m`;
@@ -333,6 +336,7 @@ export function chorraha(W, center, approachDeg, dir, A) {
   const th = approachDeg * DEG, c = Math.cos(th), n = Math.sin(th);
   const pose = { x: center.x - c * A - n * HL, y: center.y - n * A + c * HL, th };
   const stopS = A - 10;
+  stopZone(W, pose, stopS);
   const turn = { straight: 0, left: -1, right: 1 }[dir];
   const exitTh = th + turn * 90 * DEG;
   const axis = Math.abs(Math.sin(th)) > 0.5 ? "NS" : "EW";

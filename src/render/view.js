@@ -140,6 +140,25 @@ export class View {
     }
   }
 
+  // translucent 1 m zones before the stop lines; green when the car stands inside one
+  buildStopZones(W) {
+    this.zones = [];
+    for (const z of W.stopZones || []) {
+      const { pose, s, l0, l1 } = z, c = Math.cos(pose.th), n = Math.sin(pose.th);
+      const P = (ss, l) => new THREE.Vector3(pose.x + c * ss - n * l, 0, pose.y + n * ss + c * l);
+      const pts = [P(s - 1, l0), P(s - 0.4, l0), P(s - 0.4, l1), P(s - 1, l1)];
+      const g = new THREE.BufferGeometry().setFromPoints(pts.map(p => p.setY(W.heightAt(p.x, p.z) + 0.024)));
+      g.setIndex([0, 1, 2, 0, 2, 3, 0, 2, 1, 0, 3, 2]);
+      const mat = new THREE.MeshBasicMaterial({ color: 0x3ddc84, transparent: true, opacity: 0.28, depthWrite: false });
+      const m = new THREE.Mesh(g, mat); m.renderOrder = 2;
+      // "1 m" marks at the sides
+      this.worldGroup.add(m);
+      this.zones.push({ z, m, mat });
+    }
+    this.setZonesVisible(this.zonesOn !== false);
+  }
+  setZonesVisible(on) { this.zonesOn = on; for (const z of this.zones || []) z.m.visible = on; }
+
   setWorld(W, quality = "high") {
     if (this.worldGroup) {
       this.scene.remove(this.worldGroup);
@@ -148,6 +167,7 @@ export class View {
     const { group, dyn } = buildWorldMeshes(W, quality);
     this.W = W; this.dyn = dyn; this.worldGroup = group;
     this.dressPedestrians();
+    this.buildStopZones(W);
     this.scene.add(group);
     this.renderer.shadowMap.enabled = quality !== "low";
     this.quality = quality;
@@ -196,6 +216,17 @@ export class View {
     this.cabinLight.visible = this.mode === "cockpit" || this.mode === "interiorRear";
     if (this.cabinLight.visible) this.cabinLight.position.copy(root.localToWorld(new THREE.Vector3(1.2, 1.12, 0)));
     updateWorldMeshes(this.W, this.dyn, session.clock, now);
+    if (this.zones && this.zonesOn) {
+      const [fx, fy] = car.frontPoint();
+      for (const { z, mat } of this.zones) {
+        const dx = fx - z.pose.x, dy = fy - z.pose.y, c = Math.cos(z.pose.th), n = Math.sin(z.pose.th);
+        const s = dx * c + dy * n, l = -dx * n + dy * c, d = z.s - s;
+        const near = l > z.l0 - 1 && l < z.l1 + 1 && d > -0.5 && d < 6;
+        const ok = near && d >= 0 && d <= 1, stopped = ok && car.v === 0;
+        mat.color.setHex(ok ? 0x3ddc84 : near ? 0xf2b632 : 0x3ddc84);
+        mat.opacity = stopped ? 0.6 + 0.15 * Math.sin(now / 150) : ok ? 0.5 : near ? 0.32 : 0.22;
+      }
+    }
     for (const d of this.dyn.peds) if (d.fig) {
       // walks only while actually moving (he stops on the far pavement)
       const moving = d.lastL !== undefined && Math.abs(d.p.l - d.lastL) > 1e-4; d.lastL = d.p.l;
