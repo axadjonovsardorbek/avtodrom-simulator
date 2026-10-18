@@ -31,7 +31,8 @@ export const CARS = [
     dims: PREMIER, eye: [1.37, 1.18, -0.389], seat: [1.5, 0.47, 0.389],
     mirrors: { center: [1.92, 1.32, 0], left: [2.3, 1.06, -1.0], right: [2.3, 1.06, 1.0] },
     spec: { mass: 1500, wb: PREMIER.wheelbase, rOh: PREMIER.rOh, fOh: PREMIER.fOh, width: 1.854, track: PREMIER.track, wheelR: PREMIER.wheelR, torque: TURBO, clutchCap: 400, autoForce: 5600 },
-    sound: TURBO_SOUND
+    sound: TURBO_SOUND,
+    voice: { url: "guvohnoma.ogg", from: 0 }
   },
   {
     id: "malibu-2019", name: "Chevrolet Malibu 2019", model: "models/malibu-2019.glb", info: "1.5 Turbo · 163 o.k. · 4,92 m",
@@ -39,7 +40,8 @@ export const CARS = [
     dims: MALIBU19, eye: [1.35, 1.17, -0.385], seat: [1.48, 0.46, 0.385],
     mirrors: { center: [1.9, 1.32, 0], left: [2.3, 1.06, -1.0], right: [2.3, 1.06, 1.0] },
     spec: { mass: 1500, wb: MALIBU19.wheelbase, rOh: MALIBU19.rOh, fOh: MALIBU19.fOh, width: 1.854, track: MALIBU19.track, wheelR: MALIBU19.wheelR, torque: TURBO, clutchCap: 400, autoForce: 5600 },
-    sound: TURBO_SOUND
+    sound: TURBO_SOUND,
+    voice: { url: "guvohnoma.ogg", from: 0 }
   },
   {
     id: "monza", name: "Chevrolet Monza", model: "models/monza.glb", info: "1.5 · 113 o.k. · 4,66 m",
