@@ -51,7 +51,9 @@ export async function loadCarModel(url, onProgress) {
   const root = gltf.scene;
   // the detailed model does not cast shadows itself (hundreds of thousands of triangles drawn
   // again into the shadow map); a few invisible boxes of the car's shape do it instead
-  root.traverse(o => { if (o.isMesh) { o.castShadow = false; o.receiveShadow = true; } });
+  // and the body does not receive shadows: the proxy boxes inside it would mark the paint
+  // with dark blotches wherever the body dips below their flat sides
+  root.traverse(o => { if (o.isMesh) { o.castShadow = false; o.receiveShadow = false; } });
   addShadowProxy(root);
   return rigCar(root);
 }
