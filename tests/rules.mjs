@@ -8,7 +8,8 @@ let failed = 0;
 const check = (name, cond, extra = "") => { console.log(`${cond ? "ok  " : "FAIL"} ${name}${extra ? "  " + extra : ""}`); if (!cond) failed++; };
 
 function setup(id) {
-  const s = new Session(buildPractice(id), { mode: "practice", transmission: "auto" });
+  const w = buildPractice(id); w.traffic = null;      // the rule checks drive a scripted car: no random cross traffic
+  const s = new Session(w, { mode: "practice", transmission: "auto" });
   const c = s.car;
   c.belt = true; c.startEngine(); c.shift("D"); c.handbrake = false;
   return s;

@@ -86,7 +86,7 @@ function goFullscreen() {
 }
 
 const TITLES = { exam: "To'liq avtodrom · Imtihon", training: "To'liq avtodrom · Trening", learn: "Qadamma-qadam o'quv" };
-let tutorial = null, replay = null, lastResult = null;
+let bumpT = 0, tutorial = null, replay = null, lastResult = null;
 const rec = new Recorder();
 
 function start(m, el) {
@@ -208,6 +208,7 @@ function handleEvent(ev) {
     case "task": hud.toast(`Mashq: ${ev.task.name}`); if (mode !== "practice") audio.prompt("task_" + ev.task.id, ev.task.name); break;
     case "taskDone": if (ev.ok) { hud.toast(`${ev.task.short}: bajarildi`, "good"); audio.chime(); audio.prompt("done"); } break;
     case "stage": hud.toast("Bosqich bajarildi", "good"); audio.chime(); audio.prompt("stage"); break;
+    case "bump": if (!bumpT || performance.now() - bumpT > 400) { bumpT = performance.now(); audio.thump(0.5 + ev.strength); view.bump(ev.strength); if (ev.strength > 0.25) hud.toast("To'qnashuv!", "bad"); } break;
     case "alarm": hud.toast("TO'XTANG!", "bad"); audio.prompt("stop", "To'xtang!", true); break;
     case "car":
       if (ev.kind === "stall") { hud.toast("Dvigatel o'chib qoldi", "bad"); audio.stall(); }

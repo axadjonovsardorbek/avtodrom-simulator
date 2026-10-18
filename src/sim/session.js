@@ -3,6 +3,7 @@
 import { Vehicle } from "./vehicle.js";
 import { PEN, PASS_LIMIT, SPEED_TOL } from "./penalties.js";
 import { toLocal, polyTouchesSeg, polyNearPoint } from "./geom.js";
+import { buildSolidGrid, collideCar } from "./collide.js";
 
 export const START_SIGNAL_AT = 3;   // seconds after load the "Start" signal is given
 
@@ -99,11 +100,23 @@ export class Session {
     this.still = car.v === 0 ? this.still + dt : 0;
 
     this.trafficStep(dt);
+    this.contacts();
     this.globalRules(dt);
     if (this.state !== "running") return;
     this.taskRules(dt);
     if (this.state !== "running") return;
     this.finishRules();
+  }
+
+  // solid things (poles, trunks, fence, walls): the car is pushed out and slowed; a hard hit counts as a crash
+  contacts() {
+    const W = this.W; if (!W.solids || !W.solids.length) return;
+    if (!W.solidGrid) W.solidGrid = buildSolidGrid(W.solids);
+    const hit = collideCar(this.car, W.solids, W.solidGrid);
+    if (!hit || hit.speed < 0.6) return;
+    this.hits = this.hits || new Set();
+    this.emit("bump", { strength: Math.min(1, hit.speed / 8), what: "solid" });
+    if (!this.hits.has(hit.index) && hit.speed > 1.2) { this.hits.add(hit.index); this.pen("crash"); }
   }
 
   // other cars at the junction: advanced in 50 ms steps; the arm of the next signal task stays empty
@@ -114,7 +127,14 @@ export class Session {
     T.setBlock(deg, this.car.x, this.car.y);
     this.trafficT = (this.trafficT || 0) + dt;
     if (this.trafficT >= 0.05) { T.step(this.trafficT, this.clock); this.trafficT = 0; }
-    for (const c of T.cars) if (!c.hit && T.touches(c, this.car.corners())) { c.hit = true; this.pen("crash"); }
+    for (const c of T.cars) if (T.touches(c, this.car.corners())) {
+      // pushed away from the other car, and slowed
+      const p = T.worldPose(c), dx = this.car.x - p.x, dy = this.car.y - p.y, d = Math.hypot(dx, dy) || 1;
+      this.car.x += dx / d * 0.04; this.car.y += dy / d * 0.04;
+      const closing = Math.abs(this.car.v);
+      if (closing > 0.3) { this.car.v *= -0.1; this.emit("bump", { strength: Math.min(1, closing / 8), what: "car" }); }
+      if (!c.hit) { c.hit = true; this.pen("crash"); }
+    }
   }
 
   globalRules(dt) {

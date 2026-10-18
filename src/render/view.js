@@ -318,6 +318,7 @@ export class View {
     if (this.walker && this.walker.root.parent !== this.carView.root) this.carView.root.add(this.walker.root);
   }
   setWalker(w) { this.walker = w; }
+  bump(strength) { this.kick = Math.max(this.kick || 0, 0.4 + strength * 1.4); }
   skipBoarding() {
     if (this.boarding) {
       this.boarding = null; if (this.carView.setDoor) { this.carView.setDoor("lf", 0); this.carView.setDoor("rf", 0); }
@@ -450,6 +451,12 @@ export class View {
       cam.position.set(car.x, car.h + 34, car.y + 0.01);
       cam.lookAt(cp);
       if (cam.fov !== 50) { cam.fov = 50; cam.updateProjectionMatrix(); }
+    }
+    // a bump shakes the picture for a moment
+    if (this.kick > 0.002) {
+      const k = this.kick;
+      cam.position.x += (Math.random() - 0.5) * k * 0.12; cam.position.y += (Math.random() - 0.5) * k * 0.12; cam.position.z += (Math.random() - 0.5) * k * 0.12;
+      cam.rotateZ((Math.random() - 0.5) * k * 0.08); this.kick *= Math.exp(-dt * 5);
     }
     // depth precision: the near plane decides it. Inside the cabin things are close, outside
     // a near plane of 5 cm wastes the depth buffer and close layers of the body (paint over

@@ -86,12 +86,12 @@ export class Controls {
       // a tap nudges the wheel, holding winds it faster (hand over hand); reversing direction is quick
       this.steerHeld = Math.sign(car.sw) && Math.sign(car.sw) !== steerDir ? 0.35 : (this.steerHeld || 0) + dt;
       // up to 900 deg/s when slow (manoeuvres); calmer at speed so the car does not dart about
-      const rate = (300 + Math.min(1, this.steerHeld / 0.35) * 600) / (1 + Math.abs(car.v) / 9);
+      const rate = (420 + Math.min(1, this.steerHeld / 0.3) * 640) / (1 + Math.abs(car.v) / 14);
       car.sw = clamp(car.sw + steerDir * rate * dt, -540, 540);
     } else {
       this.steerHeld = 0;
       // let go and the caster brings the wheel back while rolling (not when standing still)
-      const back = Math.min(Math.abs(car.sw), Math.min(540, Math.abs(car.v) * 110) * dt);
+      const back = Math.min(Math.abs(car.sw), Math.min(900, 90 + Math.abs(car.v) * 150) * dt);
       car.sw -= Math.sign(car.sw) * back;
     }
   }

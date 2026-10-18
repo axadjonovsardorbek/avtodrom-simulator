@@ -82,6 +82,9 @@ export function buildWorldMeshes(W, quality) {
   const group = new THREE.Group();
   const h = (x, y) => W.heightAt(x, y);
   const dyn = { lights: [], peds: [], gantryLamps: [], cones: [], lines: [] };
+  W.solids = []; W.solidGrid = null;
+  const solid = (x, y, r) => W.solids.push([x, y, r]);
+  const wall = (x0, y0, x1, y1, r = 0.2, step = 0.7) => { const L = Math.hypot(x1 - x0, y1 - y0), n = Math.max(1, Math.ceil(L / step)); for (let i = 0; i <= n; i++) solid(x0 + (x1 - x0) * i / n, y0 + (y1 - y0) * i / n, r); };
 
   const asph = asphaltTexture(), grass = grassTexture(), conc = concreteTexture();
   const asphaltMat = new THREE.MeshStandardMaterial({ map: asph, roughness: 0.92, metalness: 0, polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -1 });
@@ -235,6 +238,11 @@ export function buildWorldMeshes(W, quality) {
     group.add(g);
   }
 
+  // posts of signs, signal heads and the alarm gantries are solid too
+  for (const g of W.signs) solid(g.x, g.y, 0.14);
+  for (const L of W.lights) solid(L.x, L.y, 0.16);
+  for (const gt of W.gantries) { const a = gt.th + Math.PI / 2; for (const sg of [-1, 1]) solid(gt.x + Math.cos(a) * sg * gt.width / 2, gt.y + Math.sin(a) * sg * gt.width / 2, 0.25); }
+
   // other cars: simple low-poly bodies, made when they first appear
   dyn.traffic = { group, made: new Map() };
 
@@ -297,6 +305,7 @@ export function buildWorldMeshes(W, quality) {
     const x = b.minX - 20 + rand() * (b.maxX - b.minX + 40), y = b.minY - 20 + rand() * (b.maxY - b.minY + 40);
     if (occupied(x, y)) continue;
     const s = 0.8 + rand() * 0.8;
+    solid(x, y, 0.28 * s);
     mtx.compose(v.set(x, 1.2 * s, y), q.identity(), sc.set(s, s, s)); trunks.setMatrixAt(placed, mtx);
     mtx.compose(v.set(x, 3.0 * s, y), q.setFromAxisAngle(new THREE.Vector3(0, 1, 0), rand() * 6), sc.set(s, s * (0.9 + rand() * 0.4), s)); crowns.setMatrixAt(placed, mtx);
     crowns.setColorAt(placed, col.setHSL(0.24 + rand() * 0.07, 0.42 + rand() * 0.2, 0.22 + rand() * 0.1));
@@ -318,6 +327,7 @@ export function buildWorldMeshes(W, quality) {
       if (nearRoad(x, y) || spots.some(p => Math.hypot(p[0] - x, p[1] - y) < 18)) continue;
       spots.push([x, y, Math.atan2(-ny * side, -nx * side)]); acc = 0;
     }
+    for (const sp of spots) solid(sp[0], sp[1], 0.16);
     const poleGeo = new THREE.CylinderGeometry(0.06, 0.1, 6.5, 8); poleGeo.translate(0, 3.25, 0);
     const armGeo = new THREE.BoxGeometry(1.4, 0.07, 0.07); armGeo.translate(0.65, 6.35, 0);
     const headGeo = new THREE.BoxGeometry(0.55, 0.12, 0.24); headGeo.translate(1.3, 6.28, 0);
@@ -352,6 +362,8 @@ export function buildWorldMeshes(W, quality) {
     // exam centre building north of the track: two storeys, glazing, a canopy over the
     // entrance, the sign, flag poles with the Uzbek flag and a camera tower at the corner
     const B = new THREE.Group(); B.position.set(40, 0, -160); group.add(B);
+    wall(40 - 18, -160 - 6.5, 40 + 18, -160 - 6.5, 0.3, 1); wall(40 - 18, -160 + 6.5, 40 + 18, -160 + 6.5, 0.3, 1); wall(40 - 18, -160 - 6.5, 40 - 18, -160 + 6.5, 0.3, 1); wall(40 + 18, -160 - 6.5, 40 + 18, -160 + 6.5, 0.3, 1);
+    solid(40 - 4.2, -160 + 9.6, 0.16); solid(40 + 4.2, -160 + 9.6, 0.16);
     const wallM = new THREE.MeshStandardMaterial({ color: 0xe6e2da, roughness: 0.85 });
     const darkM = new THREE.MeshStandardMaterial({ color: 0x2b3038, roughness: 0.4, metalness: 0.4 });
     const glassM = new THREE.MeshPhysicalMaterial({ color: 0x5f7f99, roughness: 0.08, metalness: 0.2, clearcoat: 1, envMapIntensity: 1.4 });
@@ -436,6 +448,7 @@ export function buildWorldMeshes(W, quality) {
   const fx0 = b.minX - 8, fx1 = b.maxX + 8, fy0 = b.minY - 8, fy1 = b.maxY + 8;
   for (const [x0, y0, x1, y1] of [[fx0, fy0, fx1, fy0], [fx1, fy0, fx1, fy1], [fx1, fy1, fx0, fy1], [fx0, fy1, fx0, fy0]]) {
     const len = Math.hypot(x1 - x0, y1 - y0);
+    wall(x0, y0, x1, y1, 0.25, 1.2);
     const f = new THREE.Mesh(new THREE.BoxGeometry(len, 1.8, 0.05), fenceMat);
     f.position.set((x0 + x1) / 2, 0.9, (y0 + y1) / 2); f.rotation.y = -Math.atan2(y1 - y0, x1 - x0);
     group.add(f);

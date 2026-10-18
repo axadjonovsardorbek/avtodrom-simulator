@@ -26,6 +26,7 @@ export class World {
     this.finishLine = null; // { pose, s, halfW }
     this.lightOffset = Math.random() * 26;
     this.alarm = false;
+    this.solids = [];     // [x, y, radius]: poles, trunks, fence posts, walls (filled by the mesh builder)
   }
 
   addLine(pts, kind = "edge", opts = {}) {

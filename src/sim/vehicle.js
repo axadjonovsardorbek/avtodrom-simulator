@@ -111,7 +111,10 @@ export class Vehicle {
   step(dt, heightAt) {
     const s = this.spec;
     // the front wheels follow the steering wheel through the rack (a little lag, not instant)
-    const want = clamp(this.sw / s.wheelLock, -1, 1) * s.maxSteer, ds = want - this.steer;
+    // like power steering and stability control: full lock only when crawling, less and less as speed rises
+    // (so the car cannot be thrown sideways), which also makes steering with keys much easier
+    const lim = Math.min(s.maxSteer, Math.atan(6.5 * s.wb / Math.max(this.v * this.v, 0.01)));
+    const want = clamp(this.sw / s.wheelLock * s.maxSteer, -lim, lim), ds = want - this.steer;
     this.steer += Math.sign(ds) * Math.min(Math.abs(ds), s.steerRate * dt);
 
     // terrain under the four wheels: the car rests on them (pitch along, roll across)
