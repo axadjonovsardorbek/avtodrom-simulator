@@ -83,7 +83,7 @@ Toshkent imtihon markazi sxemasi bo'yicha: o'rtada svetoforli chorraha, shimolda
 ## Mashinalar
 
 Mashinalar ro'yxati `src/cars/index.js` da. Har bir mashina `public/models/` dagi `.glb` fayldan yuklanadi.
-Mashinalar: Chevrolet Cobalt (`cobalt.glb`) va Chevrolet Malibu 2 Premier (`malibu-premier.glb`). Menyuda mashina va kuzov rangi tanlanadi.
+Mashinalar: Chevrolet Cobalt, Malibu 2 Premier, Malibu 2019 va Monza. Garajda tanlanadi. Yangi mashina: FBX bo'lsa Blender bilan GLB ga o'giriladi, so'ng `tools/cars/<id>.json` sozlamasi bilan `npm run prepare:car -- tools/cars/<id>.json` (o'qlar, g'ildiraklar, rul, chiroqlar, material tuzatishlari). Menyuda mashina va kuzov rangi tanlanadi.
 
 3D model: ["Chevrolet Cobalt LTZ 2014"](https://sketchfab.com/3d-models/chevrolet-cobalt-ltz-2014-f91cbef731444f939e263041400216ca), muallif [Q.SARDOR](https://sketchfab.com/qsardor57913), litsenziya [CC BY 4.0](http://creativecommons.org/licenses/by/4.0/).
 O'zgartirishlar (`tools/prepare-cobalt.mjs`): takrorlangan g'ildiraklar olib tashlangan, o'lcham va o'qlar moslangan, g'ildiraklar va rul harakatlanadigan qilingan, materiallar sozlangan, burilish chiroqlari qo'shilgan, uchburchaklar soni kamaytirilib siqilgan (33 MB dan 1,8 MB ga).

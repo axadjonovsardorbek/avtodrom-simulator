@@ -12,7 +12,8 @@
     "export:procedural": "node tools/export-car.mjs",
     "prepare:cobalt": "node tools/prepare-cobalt.mjs",
     "prepare:malibu-premier": "node tools/prepare-malibu-premier.mjs",
-    "prepare:people": "node tools/prepare-people.mjs"
+    "prepare:people": "node tools/prepare-people.mjs",
+    "prepare:car": "node tools/prepare-car.mjs"
   },
   "dependencies": {
     "three": "0.170.0"

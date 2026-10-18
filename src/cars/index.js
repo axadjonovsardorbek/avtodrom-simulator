@@ -4,7 +4,11 @@
 // spec: physics overrides of src/sim/vehicle.js SPEC (dimensions come from tools/prepare-*.mjs).
 import COBALT from "./cobalt-dims.json";
 import PREMIER from "./malibu-premier-dims.json";
+import MALIBU19 from "./malibu-2019-dims.json";
+import MONZA from "./monza-dims.json";
 
+// Monza 1.5 (113 hp): a little more torque than the Cobalt's
+const NA15 = [[0, 55], [1000, 112], [2000, 132], [3000, 140], [4000, 146], [5000, 140], [6000, 118], [6600, 0]];
 // 1.5 turbo of the Malibu: flat torque from low revs
 const TURBO = [[0, 60], [1000, 150], [1500, 235], [2500, 250], [4000, 250], [5000, 228], [5600, 200], [6200, 0]];
 // engine sound: Cobalt 1.5 (naturally aspirated, buzzy) vs Malibu 1.5T (deeper, smoother, turbo whistle)
@@ -12,7 +16,7 @@ const NA = { harm: [0.55, 0.35, 0.3], drive: 2.6, filter: [700, 2600], gain: 1, 
 const TURBO_SOUND = { harm: [0.5, 0.2, 0.45], drive: 1.8, filter: [480, 1700], gain: 0.9, turbo: 1 };
 export const CARS = [
   {
-    id: "cobalt", name: "Chevrolet Cobalt", model: "models/cobalt.glb",
+    id: "cobalt", name: "Chevrolet Cobalt", model: "models/cobalt.glb", info: "1.5 · 106 o.k. · 4,48 m",
     credit: "3D model: \"Chevrolet Cobalt LTZ 2014\" by Q.SARDOR (Sketchfab), CC BY 4.0, modified",
     creditUrl: "https://sketchfab.com/3d-models/chevrolet-cobalt-ltz-2014-f91cbef731444f939e263041400216ca",
     dims: COBALT, eye: [1.38, 1.15, -0.3], seat: [1.5, 0.46, 0.36],
@@ -20,13 +24,29 @@ export const CARS = [
     sound: NA
   },
   {
-    id: "malibu-premier", name: "Chevrolet Malibu 2 Premier", model: "models/malibu-premier.glb",
+    id: "malibu-premier", name: "Chevrolet Malibu 2 Premier", model: "models/malibu-premier.glb", info: "1.5 Turbo · 163 o.k. · 4,93 m",
     credit: "3D model: \"2021 Chevrolet Malibu 2LZ Premier\" by twr422 (Sketchfab), CC BY 4.0, modified",
     creditUrl: "https://sketchfab.com/3d-models/2021-chevrolet-malibu-2lz-premier-c1e8e127ce114b14a166e93100642424",
     dims: PREMIER, eye: [1.37, 1.18, -0.389], seat: [1.5, 0.47, 0.389],
     mirrors: { center: [1.92, 1.32, 0], left: [2.3, 1.06, -1.0], right: [2.3, 1.06, 1.0] },
     spec: { mass: 1500, wb: PREMIER.wheelbase, rOh: PREMIER.rOh, fOh: PREMIER.fOh, width: 1.854, track: PREMIER.track, wheelR: PREMIER.wheelR, torque: TURBO, clutchCap: 400, autoForce: 5600 },
     sound: TURBO_SOUND
+  },
+  {
+    id: "malibu-2019", name: "Chevrolet Malibu 2019", model: "models/malibu-2019.glb", info: "1.5 Turbo · 163 o.k. · 4,92 m",
+    credit: "3D model: \"2019 Chevrolet Malibu Premier\" (Sketchfab), modified", creditUrl: "",
+    dims: MALIBU19, eye: [1.35, 1.17, -0.385], seat: [1.48, 0.46, 0.385],
+    mirrors: { center: [1.9, 1.32, 0], left: [2.3, 1.06, -1.0], right: [2.3, 1.06, 1.0] },
+    spec: { mass: 1500, wb: MALIBU19.wheelbase, rOh: MALIBU19.rOh, fOh: MALIBU19.fOh, width: 1.854, track: MALIBU19.track, wheelR: MALIBU19.wheelR, torque: TURBO, clutchCap: 400, autoForce: 5600 },
+    sound: TURBO_SOUND
+  },
+  {
+    id: "monza", name: "Chevrolet Monza", model: "models/monza.glb", info: "1.5 · 113 o.k. · 4,66 m",
+    credit: "3D model: \"2023 Chevrolet Monza\" (Sketchfab), modified", creditUrl: "",
+    dims: MONZA, eye: [1.21, 1.16, -0.41], seat: [1.35, 0.46, 0.41],
+    mirrors: { center: [1.76, 1.3, 0], left: [2.15, 1.05, -0.98], right: [2.15, 1.05, 0.98] },
+    spec: { mass: 1320, wb: MONZA.wheelbase, rOh: MONZA.rOh, fOh: MONZA.fOh, width: 1.80, track: MONZA.track, wheelR: MONZA.wheelR, torque: NA15, clutchCap: 300, autoForce: 4700 },
+    sound: NA
   }
 ];
 // "malibu" was the Malibu XL model, now replaced by the Premier

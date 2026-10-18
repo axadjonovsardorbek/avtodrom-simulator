@@ -144,7 +144,7 @@ export class Hud {
         </section>
         <aside class="panel menu-side">
           <h3>Mashina</h3>
-          <div class="cars">${CARS.map(c => `<button class="carbtn" data-car="${c.id}"><b>${c.name.replace("Chevrolet ", "")}</b><small>Chevrolet</small></button>`).join("")}</div>
+          <div class="cars">${CARS.map(c => `<button class="carbtn" data-car="${c.id}"><b>${c.name.replace("Chevrolet ", "")}</b><small>${c.info ? c.info.split(" · ")[0] : "Chevrolet"}</small></button>`).join("")}</div>
           <div class="row"><span class="lbl">Rangi</span><div class="swatches">${COLORS.map(([v, hex, t]) => `<button class="sw" data-color="${v}" title="${t}" style="--c:${hex}"></button>`).join("")}</div></div>
           <label class="row"><span class="lbl">Davlat raqami</span><input id="optPlate" maxlength="14" spellcheck="false" autocomplete="off"></label>
           <button class="garagebtn" id="garageBtn"><svg viewBox="0 0 24 24"><path d="M3 21V9l9-5 9 5v12"/><path d="M7 21v-7h10v7M7 17h10"/></svg><span><b>Garaj</b><small>Mashinani ko'rib tanlang</small></span><i>›</i></button>
@@ -196,7 +196,7 @@ export class Hud {
     el.hidden = false;
     const COLS = [["white", "#f3f4f2", "Oq"], ["blue", "#1b2b63", "To'q ko'k"], ["graphite", "#3a3d41", "Grafit"]];
     el.innerHTML = `
-      <div class="g-title"><span class="eyebrow">Garaj</span><h2>${car.name}</h2><small>${car.id === "cobalt" ? "1.5 · 106 o.k. · 4,48 m" : "1.5 Turbo · 163 o.k. · 4,93 m"}</small></div>
+      <div class="g-title"><span class="eyebrow">Garaj</span><h2>${car.name}</h2><small>${car.info || ""}</small></div>
       <div class="g-row">
         <button class="g-arrow" data-g="prev" aria-label="Oldingi">‹</button>
         <div class="swatches">${COLS.map(([v, hex, t]) => `<button class="sw${v === color ? " on" : ""}" data-c="${v}" title="${t}" style="--c:${hex}"></button>`).join("")}</div>

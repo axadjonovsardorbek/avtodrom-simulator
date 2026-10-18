@@ -1,0 +1,140 @@
+{
+ "id": "monza",
+ "src": "/private/tmp/claude-501/-Users-sardorbek-avtodrom-simulator/08e87003-4e0b-45d1-8bb9-9aa5c4308a9c/scratchpad/dl/monza.glb",
+ "length": 4.66,
+ "forward": "+z",
+ "tyre": "tire_AO",
+ "wheelParts": "tire_AO|Rim_Chrome|Blakc_rim|Metal_RIM",
+ "paint": "^CarPaint1$|^CarPaint_2$",
+ "head": "^light1$",
+ "tail": "^red_glass$",
+ "credit": "3D model: \"2023 Chevrolet Monza\" (Sketchfab), modified",
+ "source": "",
+ "license": "",
+ "clearEmissive": true,
+ "fix": [
+  [
+   "^CarPaint",
+   {
+    "color": "#f2f3f1",
+    "metal": 0.2,
+    "rough": 0.3,
+    "keepTex": false
+   }
+  ],
+  [
+   "^EXT_CP_N$",
+   {
+    "color": "#f2f3f1",
+    "metal": 0.2,
+    "rough": 0.3
+   }
+  ],
+  [
+   "GOLD",
+   {
+    "color": "#d7a531",
+    "metal": 1,
+    "rough": 0.25
+   }
+  ],
+  [
+   "chrome|chome|rim_chrome|metal_rim",
+   {
+    "color": "#c9ccd0",
+    "metal": 1,
+    "rough": 0.18
+   }
+  ],
+  [
+   "ext_metal|seat_metal|door_metal",
+   {
+    "color": "#9ea2a7",
+    "metal": 0.8,
+    "rough": 0.35
+   }
+  ],
+  [
+   "blakc_rim",
+   {
+    "color": "#18191b",
+    "metal": 0.5,
+    "rough": 0.4
+   }
+  ],
+  [
+   "tire",
+   {
+    "color": "#1c1c1e",
+    "metal": 0,
+    "rough": 0.9
+   }
+  ],
+  [
+   "^windows$|^d_glass$",
+   {
+    "color": "#1a222a",
+    "metal": 0.1,
+    "rough": 0.05,
+    "alpha": 0.35,
+    "keepTex": false
+   }
+  ],
+  [
+   "glass_int",
+   {
+    "color": "#1a222a",
+    "alpha": 0.25,
+    "keepTex": false
+   }
+  ],
+  [
+   "ext_rubber|^platic$|chassis|ext_plastic|plastic_shione|glass_surr|ext_color_plas",
+   {
+    "color": "#1b1c1f",
+    "metal": 0.1,
+    "rough": 0.6
+   }
+  ],
+  [
+   "leather|seat_n|seatb|^seat_ll",
+   {
+    "color": "#2c2d31",
+    "metal": 0,
+    "rough": 0.7
+   }
+  ],
+  [
+   "roof|int_white",
+   {
+    "color": "#b9b5ad",
+    "metal": 0,
+    "rough": 0.95
+   }
+  ],
+  [
+   "costuras",
+   {
+    "color": "#6a6c70",
+    "metal": 0,
+    "rough": 0.8
+   }
+  ],
+  [
+   "brushed",
+   {
+    "color": "#8d9196",
+    "metal": 0.6,
+    "rough": 0.4
+   }
+  ],
+  [
+   "^int_|^door_|^n_texture|^normal_l|seat_plas|^int_mat",
+   {
+    "color": "#25262a",
+    "metal": 0.05,
+    "rough": 0.75
+   }
+  ]
+ ]
+}
