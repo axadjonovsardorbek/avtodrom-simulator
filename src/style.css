@@ -441,3 +441,31 @@ tr:last-child td { border-bottom: 0; }
   .menu-grid { grid-template-columns: 1fr; }
   .menu-side { grid-column: 1; }
 }
+
+/* ---------- garage ---------- */
+.garagebtn { width: 100%; margin-top: 10px; display: flex; align-items: center; gap: 12px; text-align: left; border: 1px solid rgba(242, 182, 50, .55); background: linear-gradient(120deg, rgba(242, 182, 50, .18), rgba(242, 182, 50, .03)); border-radius: 12px; padding: 10px 14px; cursor: pointer; color: var(--fg); }
+.garagebtn svg { width: 26px; height: 26px; fill: none; stroke: var(--amber); stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; flex: none; }
+.garagebtn span { display: grid; flex: 1; }
+.garagebtn b { font-family: var(--f-display); font-size: 20px; color: var(--amber); line-height: 1.05; }
+.garagebtn small { color: var(--muted); font-size: 12px; }
+.garagebtn i { font-style: normal; font-size: 26px; color: var(--amber); }
+#app.garage-open .topbar, #app.garage-open .task, #app.garage-open .score, #app.garage-open .minimap, #app.garage-open .cluster,
+#app.garage-open .touchpad, #app.garage-open .startlight, #app.garage-open .log, #app.garage-open .toasts:empty { display: none !important; }
+.garage-bar { position: absolute; z-index: 8; left: 50%; bottom: calc(22px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); width: min(460px, calc(100% - 24px));
+  display: grid; gap: 10px; justify-items: center; text-align: center; background: rgba(12, 14, 18, .78); backdrop-filter: blur(10px); border: 1px solid var(--rule); border-radius: 16px; padding: 14px 16px 12px; }
+.garage-bar h2 { margin: 2px 0 0; font-family: var(--f-display); font-size: 34px; line-height: 1; letter-spacing: .01em; }
+.garage-bar .g-title small { color: var(--muted); }
+.g-row { display: flex; align-items: center; justify-content: center; gap: 14px; width: 100%; }
+.g-row .btn { margin: 0; flex: 1; }
+.g-arrow { width: 44px; height: 44px; border-radius: 50%; border: 1px solid var(--rule); background: var(--raise); color: var(--fg); font-size: 26px; line-height: 1; cursor: pointer; }
+.g-arrow:hover { border-color: var(--amber); color: var(--amber); }
+.g-hint { color: var(--muted); font-size: 11.5px; }
+@media (max-height: 520px) {
+  .garage-bar { bottom: 8px; padding: 8px 12px; gap: 6px; width: min(400px, calc(100% - 16px)); }
+  .garage-bar h2 { font-size: 22px; }
+  .g-arrow { width: 36px; height: 36px; font-size: 20px; }
+  .g-hint { display: none; }
+  .garagebtn { padding: 6px 10px; margin-top: 6px; }
+  .garagebtn b { font-size: 15px; }
+  .garagebtn small { display: none; }
+}

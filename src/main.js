@@ -16,6 +16,8 @@ import PHRASES from "./audio/phrases.json";
 import { Instructor, lineIds } from "./instructor/instructor.js";
 import { buildInstructor } from "./render/instructorFigure.js";
 import { KidShow } from "./render/singerKid.js";
+import { Garage } from "./render/garage.js";
+import { CARS } from "./cars/index.js";
 import { buildDriver } from "./render/driverFigure.js";
 import { loadPeople, realInstructor, realDriver, realKid, realPedestrian } from "./render/people.js";
 
@@ -29,7 +31,7 @@ const saveSettings = () => { try { localStorage.setItem("avtodrom.settings", JSO
 
 let session = null, mode = null, elementId = null, paused = true, ended = false;
 const app = document.getElementById("app");
-const hud = new Hud(app, { settings, start, resume, action: onAction, resultAction, useCar, showroom: openShowroom, save: () => saveSettings(),
+const hud = new Hud(app, { settings, start, resume, action: onAction, resultAction, useCar, showroom: openShowroom, save: () => saveSettings(), garage: () => openGarage(),
   setPlate: t => { settings.plate = t; if (view.carView.setPlate) view.carView.setPlate(t); saveSettings(); },
   setColor: id => { settings.color = id; if (view.carView.setPaint) view.carView.setPaint(id); saveSettings(); } });
 const view = new View(hud.canvas);
@@ -104,6 +106,37 @@ function start(m, el) {
 
 // 360-degree showroom: the car parked, camera driven by mouse/touch
 let inShowroom = false;
+
+/* ---------- garage: all cars on lit bays, pick one ---------- */
+let garage = null, garageComposer = null, inGarage = false, garageDrag = null;
+function openGarage() {
+  if (!garage) {
+    garage = new Garage(CARS, view.renderer);
+    CARS.forEach((car, i) => prepareCar(car).then(cv => garage.setModel(i, cv)).catch(() => {}));
+  }
+  garage.index = Math.max(0, CARS.findIndex(c => c.id === carById(settings.car).id));
+  garage.camX = garage.index * 7.5;
+  garage.resize(view.w, view.h);
+  garageComposer = view.composerFor(garage.scene, garage.cam);
+  hud.hideMenu(); inGarage = true; paused = true;
+  app.classList.add("garage-open");
+  hud.showGarage(true, garageAction, CARS[garage.index], settings.color);
+}
+function garageAction(a, v) {
+  if (a === "prev" || a === "next") {
+    garage.index = (garage.index + (a === "next" ? 1 : CARS.length - 1)) % CARS.length; garageDrag = null;
+    hud.showGarage(true, garageAction, CARS[garage.index], settings.color);
+  } else if (a === "color") {
+    settings.color = v; saveSettings();
+    for (const b of garage.bays) if (b.cv && b.cv.setPaint) b.cv.setPaint(v);
+    if (view.carView.setPaint) view.carView.setPaint(v);
+    hud.showGarage(true, garageAction, CARS[garage.index], v);
+  } else if (a === "pick" || a === "back") {
+    if (a === "pick") { settings.car = CARS[garage.index].id; saveSettings(); useCar(settings.car); hud.toast(`${CARS[garage.index].name} tanlandi`, "good"); }
+    inGarage = false; app.classList.remove("garage-open");
+    hud.showGarage(false); hud.showMenu({ canResume: false });
+  }
+}
 function openShowroom() {
   audio.start(); audio.setMuted(settings.muted);
   const W = buildPractice("tezlashish", carDims());
@@ -253,6 +286,17 @@ const SIZES = { wide: 1.5, mid: 1.25, real: 1 };
 function carDims(exam) { const d = carById(settings.car).dims; return { length: d.length, rOh: d.rOh, k: exam ? 1 : SIZES[settings.size] || 1 }; }
 // car model: generated Cobalt right away, then the .glb file once it has loaded
 let carModelId = null;
+// load a car model and dress it (paint, plates, Cobalt facelift parts)
+function prepareCar(car, onProgress) {
+  return loadCarModel(car.model, onProgress).then(cv => {
+    if (car.id === "cobalt") dressCobalt(cv); else addPaint(cv);
+    // the Cobalt file has no plates of its own: put them on the plate holders
+    addPlates(cv, settings.plate, car.id === "cobalt" ? [{ pos: [3.582, 0.45, 0], back: false }, { pos: [-0.882, 0.47, 0], back: true }] : undefined);
+    if (cv.setPaint) cv.setPaint(settings.color);
+    return cv;
+  });
+}
+
 function useCar(id) {
   const car = carById(id);
   if (carModelId === car.id) return;
@@ -260,14 +304,10 @@ function useCar(id) {
   const first = !boot.isDone();
   const slow = first ? 0 : setTimeout(() => hud.toast(`${car.name} yuklanmoqda…`), 600);
   if (first) boot.step(`${car.name} yuklanmoqda…`, 0.15);
-  loadCarModel(car.model, first ? f => boot.step(`${car.name} yuklanmoqda… ${Math.round(f * 100)}%`, 0.15 + f * 0.8) : undefined).then(cv => {
+  prepareCar(car, first ? f => boot.step(`${car.name} yuklanmoqda… ${Math.round(f * 100)}%`, 0.15 + f * 0.8) : undefined).then(cv => {
     clearTimeout(slow);
     if (carModelId !== car.id) return;                  // another car was picked meanwhile
     audio.setProfile(car.sound);
-    if (car.id === "cobalt") dressCobalt(cv); else addPaint(cv);
-    // the Cobalt file has no plates of its own: put them on the plate holders
-    addPlates(cv, settings.plate, car.id === "cobalt" ? [{ pos: [3.582, 0.45, 0], back: false }, { pos: [-0.882, 0.47, 0], back: true }] : undefined);
-    if (cv.setPaint) cv.setPaint(settings.color);
     view.setCarModel(cv, car);
     boot.done();
   }).catch(e => { clearTimeout(slow); boot.done(); hud.toast(`${car.name} yuklanmadi`, "bad"); console.warn("car model not loaded, using the built-in one:", e.message); });
@@ -282,7 +322,10 @@ view.setMode("orbit"); view.orbit = { az: 2.3, el: 0.12, dist: 9 };
 hud.reset(session, "Simulyator");
 hud.showMenu({ canResume: false });
 
-function resize() { view.resize(app.clientWidth, app.clientHeight); }
+function resize() {
+  view.resize(app.clientWidth, app.clientHeight);
+  if (garage) { garage.resize(view.w, view.h); if (garageComposer) garageComposer.setSize(view.w, view.h); }
+}
 new ResizeObserver(resize).observe(app);
 resize();
 
@@ -315,6 +358,7 @@ let countdown = -1;
     const p = pts.get(e.pointerId); if (!p) return;
     const dx = e.clientX - p[0], dy = e.clientY - p[1];
     pts.set(e.pointerId, [e.clientX, e.clientY]);
+    if (inGarage) { const b = garage.bays[garage.index]; garageDrag = (garageDrag ?? b.turn.rotation.y) + dx * 0.008; return; }
     if (pts.size === 2) {
       const [a, b] = [...pts.values()], d = Math.hypot(a[0] - b[0], a[1] - b[1]);
       if (pinch) view.orbit.dist = Math.min(18, Math.max(3, view.orbit.dist * pinch / d));
@@ -352,6 +396,11 @@ let last = performance.now(), acc = 0, lastHud = 0;
 const H = 1 / 240;
 function frame(now) {
   const dt = Math.max(0, Math.min(0.1, (now - last) / 1000)); last = now;   // the first frame can be stamped before `last`
+  if (inGarage) {
+    garage.update(dt, garageDrag);
+    if (garageComposer) garageComposer.render(); else garage.render(view.renderer);
+    requestAnimationFrame(frame); return;
+  }
   if (session) {
     if (!paused && session.state === "running") {
       controls.apply(session.car, dt);

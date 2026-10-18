@@ -303,6 +303,29 @@ export function buildWorldMeshes(W, quality) {
   trunks.castShadow = crowns.castShadow = true; crowns.receiveShadow = true;
   group.add(trunks, crowns);
 
+  // street lamps along the route, set back from the edge, with a lit head
+  {
+    const spots = [];
+    let acc = 0;
+    for (let i = 1; i < W.routePts.length; i++) {
+      const [x0, y0] = W.routePts[i - 1], [x1, y1] = W.routePts[i], L = Math.hypot(x1 - x0, y1 - y0);
+      acc += L; if (acc < 32 || L < 1e-6) continue;
+      const nx = -(y1 - y0) / L, ny = (x1 - x0) / L, side = spots.length % 2 ? 1 : -1;
+      const x = x1 + nx * 4.6 * side, y = y1 + ny * 4.6 * side;
+      if (nearRoad(x, y) || spots.some(p => Math.hypot(p[0] - x, p[1] - y) < 18)) continue;
+      spots.push([x, y, Math.atan2(-ny * side, -nx * side)]); acc = 0;
+    }
+    const poleGeo = new THREE.CylinderGeometry(0.06, 0.1, 6.5, 8); poleGeo.translate(0, 3.25, 0);
+    const armGeo = new THREE.BoxGeometry(1.4, 0.07, 0.07); armGeo.translate(0.65, 6.35, 0);
+    const headGeo = new THREE.BoxGeometry(0.55, 0.12, 0.24); headGeo.translate(1.3, 6.28, 0);
+    const steel = new THREE.MeshStandardMaterial({ color: 0x8a9096, roughness: 0.5, metalness: 0.7 });
+    const lampMat = new THREE.MeshStandardMaterial({ color: 0xf4f1e6, emissive: 0xfff2d0, emissiveIntensity: 0.35 });
+    const poles = new THREE.InstancedMesh(mergeGeos([poleGeo, armGeo]), steel, spots.length);
+    const heads = new THREE.InstancedMesh(headGeo, lampMat, spots.length);
+    spots.forEach(([x, y, a], i) => { mtx.compose(v.set(x, 0, y), q.setFromAxisAngle(new THREE.Vector3(0, 1, 0), -a), sc.set(1, 1, 1)); poles.setMatrixAt(i, mtx); heads.setMatrixAt(i, mtx); });
+    poles.castShadow = true; group.add(poles, heads);
+  }
+
   if (quality !== "low") {
     // grass tufts: a few thin blades per tuft, thousands of them, no shadows
     const blade = new THREE.ConeGeometry(0.025, 0.32, 3); blade.translate(0, 0.16, 0);

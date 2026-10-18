@@ -311,6 +311,17 @@ export class View {
     if (Math.abs(r - this.ratio) > 1e-3) { this.ratio = r; this.renderer.setPixelRatio(r); this.renderer.setSize(this.w, this.h, false); if (this.composer) { this.composer.setPixelRatio(r); this.composer.setSize(this.w, this.h); } }
   }
 
+  // a composer with the same bloom and grade for another scene (the garage)
+  composerFor(scene, cam) {
+    if (this.quality === "low") return null;
+    const c = new EffectComposer(this.renderer);
+    c.addPass(new RenderPass(scene, cam));
+    c.addPass(new UnrealBloomPass(new THREE.Vector2(256, 256), 0.3, 0.5, 1.8));
+    c.addPass(new OutputPass()); c.addPass(new ShaderPass(GradeShader));
+    c.setPixelRatio(this.ratio); c.setSize(this.w, this.h);
+    return c;
+  }
+
   // bloom (lamps, sun glints) and the colour grade; off on the light setting
   setupPost(on) {
     if (!on) { this.composer = null; return; }

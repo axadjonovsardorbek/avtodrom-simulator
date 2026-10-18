@@ -147,6 +147,7 @@ export class Hud {
           <div class="cars">${CARS.map(c => `<button class="carbtn" data-car="${c.id}"><b>${c.name.replace("Chevrolet ", "")}</b><small>Chevrolet</small></button>`).join("")}</div>
           <div class="row"><span class="lbl">Rangi</span><div class="swatches">${COLORS.map(([v, hex, t]) => `<button class="sw" data-color="${v}" title="${t}" style="--c:${hex}"></button>`).join("")}</div></div>
           <label class="row"><span class="lbl">Davlat raqami</span><input id="optPlate" maxlength="14" spellcheck="false" autocomplete="off"></label>
+          <button class="garagebtn" id="garageBtn"><svg viewBox="0 0 24 24"><path d="M3 21V9l9-5 9 5v12"/><path d="M7 21v-7h10v7M7 17h10"/></svg><span><b>Garaj</b><small>Mashinani ko'rib tanlang</small></span><i>›</i></button>
           <button class="ghost" id="showroomBtn">${icon('<path d="M3 12a9 4 0 1 0 18 0 9 4 0 1 0-18 0"/><path d="m17 9 3 3-3 3"/>')} 360° ko'rish va salon</button>
           <h3>Haydash</h3>
           <span class="lbl">Uzatmalar qutisi</span>${seg("optTrans", [["manual", "Mexanik"], ["auto", "Avtomat"]])}
@@ -183,7 +184,28 @@ export class Hud {
     m.querySelectorAll("[data-el]").forEach(b => b.onclick = () => this.h.start("practice", b.dataset.el));
     const r = $("#resume", m); if (r) r.onclick = () => this.h.resume();
     $("#showroomBtn", m).onclick = () => this.h.showroom();
+    $("#garageBtn", m).onclick = () => this.h.garage && this.h.garage();
     this.menuOpen = true; this.root.classList.add("menu-open");
+  }
+
+  // garage bar: previous / next car, name, colours, pick / back
+  showGarage(on, act, car, color) {
+    let el = $("#garageBar", this.root);
+    if (!on) { if (el) el.hidden = true; return; }
+    if (!el) { el = document.createElement("div"); el.id = "garageBar"; el.className = "garage-bar"; this.root.appendChild(el); }
+    el.hidden = false;
+    const COLS = [["white", "#f3f4f2", "Oq"], ["blue", "#1b2b63", "To'q ko'k"], ["graphite", "#3a3d41", "Grafit"]];
+    el.innerHTML = `
+      <div class="g-title"><span class="eyebrow">Garaj</span><h2>${car.name}</h2><small>${car.id === "cobalt" ? "1.5 · 106 o.k. · 4,48 m" : "1.5 Turbo · 163 o.k. · 4,93 m"}</small></div>
+      <div class="g-row">
+        <button class="g-arrow" data-g="prev" aria-label="Oldingi">‹</button>
+        <div class="swatches">${COLS.map(([v, hex, t]) => `<button class="sw${v === color ? " on" : ""}" data-c="${v}" title="${t}" style="--c:${hex}"></button>`).join("")}</div>
+        <button class="g-arrow" data-g="next" aria-label="Keyingi">›</button>
+      </div>
+      <div class="g-row"><button class="btn" data-g="back">Orqaga</button><button class="btn primary" data-g="pick">Shu mashinani tanlash</button></div>
+      <small class="g-hint">Sudrab aylantiring</small>`;
+    el.querySelectorAll("[data-g]").forEach(b => b.onclick = () => act(b.dataset.g));
+    el.querySelectorAll("[data-c]").forEach(b => b.onclick = () => act("color", b.dataset.c));
   }
 
   showShowroom(on, handlers) {
