@@ -80,6 +80,7 @@ export class Hud {
           </div>
         </div>
         <div class="tp-right">
+          <div class="tspd"><b id="tSpd">0</b><small>km/soat</small></div>
           <div class="gearbox">
             <button class="rnd gearbtn manual-only" data-act="gUp" aria-label="Uzatma yuqori">+</button>
             <button class="rnd gearbtn" data-act="gToggle" id="tGear" aria-label="Uzatma">D</button>
@@ -262,6 +263,7 @@ export class Hud {
     set("tSigL", (car.sig === -1 || car.hazard) && blink); set("tSigR", (car.sig === 1 || car.hazard) && blink);
     set("tHaz", car.hazard); set("tBelt", car.belt); set("tEng", car.engineOn); set("tHand", car.handbrake);
     const g = r.querySelector("#tGear"); if (g && g.textContent !== String(car.gear)) g.textContent = car.gear;
+    const sp = r.querySelector("#tSpd"), k = String(Math.round(car.kmh)); if (sp && sp.textContent !== k) sp.textContent = k;
   }
 
   update(s, view, now) {
@@ -344,7 +346,7 @@ export class Hud {
     g.fillStyle = "#ff6a2b"; g.beginPath(); g.moveTo(7, 0); g.lineTo(-5, 4.5); g.lineTo(-5, -4.5); g.closePath(); g.fill();
     g.restore();
   }
-  toggleMinimap() { this.mm.hidden = !this.mm.hidden; }
+  toggleMinimap() { if (this.root.classList.contains("touch")) { this.mm.hidden = false; this.root.classList.toggle("showmap"); } else this.mm.hidden = !this.mm.hidden; }
 
   /* ---------- result ---------- */
   showResult(s, ev, handlers) {
