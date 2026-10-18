@@ -5,7 +5,7 @@ import { mergeVertices, mergeGeometries } from "three/examples/jsm/utils/BufferG
 import { offsetPolyline, untangle, toWorld, polylineLength } from "../sim/geom.js";
 import { asphaltTexture, grassTexture, concreteTexture, signTexture, textTexture, facadeTexture } from "./textures.js";
 
-const Y_ROAD = 0.0, Y_PAD = 0.006, Y_PAINT = 0.016, Y_LINE = 0.02;
+const Y_ROAD = 0.0, Y_PAD = 0.006, Y_PAINT = 0.05, Y_LINE = 0.055;      // the plan's layers (grass, kerb band, pads) lie between 0.02 and 0.04
 
 // many small static meshes with one material become one draw call
 function addMerged(group, geos, mat, shadow = true) {
@@ -90,7 +90,7 @@ export function buildWorldMeshes(W, quality) {
   const group = new THREE.Group();
   const h = (x, y) => W.heightAt(x, y);
   const dyn = { lights: [], peds: [], gantryLamps: [], cones: [], lines: [] };
-  W.solids = []; W.solidGrid = null;
+  W.solids = (W.baseSolids || []).slice(); W.solidGrid = null;     // the kerbs of the plan are already there
   const solid = (x, y, r) => W.solids.push([x, y, r]);
   const wall = (x0, y0, x1, y1, r = 0.2, step = 0.7) => { const L = Math.hypot(x1 - x0, y1 - y0), n = Math.max(1, Math.ceil(L / step)); for (let i = 0; i <= n; i++) solid(x0 + (x1 - x0) * i / n, y0 + (y1 - y0) * i / n, r); };
 
@@ -107,7 +107,7 @@ export function buildWorldMeshes(W, quality) {
   grass.repeat.set(gw / 6, gh / 6);
   const ground = new THREE.Mesh(new THREE.PlaneGeometry(gw, gh), new THREE.MeshStandardMaterial({ map: grass, roughness: 1 }));
   ground.rotation.x = -Math.PI / 2;
-  ground.position.set((b.minX + b.maxX) / 2, -0.02, (b.minY + b.maxY) / 2);
+  ground.position.set((b.minX + b.maxX) / 2, W.board ? -0.15 : -0.02, (b.minY + b.maxY) / 2);   // well below the asphalt of the plan: seen from high up the two would fight
   ground.receiveShadow = true;
   group.add(ground);
 
@@ -116,17 +116,22 @@ export function buildWorldMeshes(W, quality) {
     const bd = W.board, grassTex = grassTexture(), islandMat = new THREE.MeshStandardMaterial({ map: grassTex, roughness: 1, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 });
     const kerbMat = new THREE.MeshStandardMaterial({ color: 0xcfcdc6, roughness: 0.9 });
     const frame = new THREE.Mesh(flatPoly(bd.frame, h, Y_ROAD, 7), asphaltMat); frame.receiveShadow = true; group.add(frame);
+    // asphalt; the islands raised 10 cm inside a 12 cm kerb; the pads (cut out of the islands) at road level, painted pale
+    const flatShape = (shape, y) => { const g = new THREE.ShapeGeometry(shape); const p = g.attributes.position, uv = [];
+      for (let i = 0; i < p.count; i++) { const x = p.getX(i), z = -p.getY(i); p.setXYZ(i, x, y, z); uv.push(x / 7, z / 7); }
+      g.setAttribute("uv", new THREE.Float32BufferAttribute(uv, 2)); g.computeVertexNormals(); return g; };
     const grassGeos = [], kerbGeos = [];
     for (const isl of bd.islands) {
       const shape = new THREE.Shape(isl.kerb.map(([x, y]) => new THREE.Vector2(x, -y)));
       shape.holes.push(new THREE.Path(isl.grass.map(([x, y]) => new THREE.Vector2(x, -y))));
-      const g = new THREE.ExtrudeGeometry(shape, { depth: 0.13, bevelEnabled: false }); g.rotateX(-Math.PI / 2);
-      kerbGeos.push(g.index ? g.toNonIndexed() : g);
+      const kg = new THREE.ExtrudeGeometry(shape, { depth: 0.12, bevelEnabled: false }); kg.rotateX(-Math.PI / 2);   // a raised kerb round the raised island
+      kerbGeos.push(kg.index ? kg.toNonIndexed() : kg);
       grassGeos.push(flatPoly(isl.grass, h, 0.1, 7));
     }
     addMerged(group, grassGeos, islandMat);
-    for (const g of kerbGeos) { const m = new THREE.Mesh(g, kerbMat); m.receiveShadow = true; group.add(m); }
-    const padG = bd.pads.map(p => flatPoly(p, h, Y_PAD, 7));
+    for (const g of kerbGeos) g.deleteAttribute("uv");
+    addMerged(group, kerbGeos, kerbMat);
+    const padG = bd.pads.map(p => flatPoly(p, h, 0.03, 7));
     addMerged(group, padG, padLightMat);
   }
 

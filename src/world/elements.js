@@ -303,11 +303,11 @@ export function parkovka(W, T, opt = {}) {
 }
 
 /* 7. Temir yo'l kesishmasi (tartibga solinmagan) */
-export function temir(W, T) {
+export function temir(W, T, opt = {}) {
   const pose = T.pose, stopS = 12, r0 = 17.5;
   T.fwd(36);
   stopPaint(W, pose, stopS);
-  W.rails.push({ pose, s: r0, l0: -22, l1: 22, train: { pos: null, timer: 55, dir: 1, hit: false } });   // a steam locomotive crosses now and then (src/sim/session.js trainStep)
+  W.rails.push({ pose, s: r0, l0: opt.l0 ?? -22, l1: opt.l1 ?? 22, deadEnd: !!opt.deadEnd, train: { pos: null, timer: 55, dir: 1, hit: false } });   // a steam locomotive crosses now and then (src/sim/session.js trainStep)
   W.signs.push({ ...at(pose, 11.2, 2.9), th: pose.th + Math.PI, kind: "stop" });
   W.signs.push({ ...at(pose, 8.5, 2.9), th: pose.th + Math.PI, kind: "rail" });
   return task({

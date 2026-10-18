@@ -4,8 +4,8 @@ import { World } from "./world.js";
 import { Turtle, LANE } from "./path.js";
 import { DEG, toWorld } from "../sim/geom.js";
 import { Traffic } from "./traffic.js";
-import { addBoard } from "./board.js";
-import { PADS, px } from "./boardData.js";
+import { addBoard, padOpen } from "./board.js";
+import { PADS, PAD, px } from "./boardData.js";
 import { piyoda, estakada, burilish, ilon, boks, parkovka, temir, tezlashish, avariya, chorraha, padExercise, boksPad } from "./elements.js";
 
 const HL = LANE / 2;
@@ -97,7 +97,7 @@ export function buildFull(car) {
   // ---- 4: the 90-degree turns, the zigzag of the first pale pad (in at the west end, out at the top east end)
   const tB = padExercise(W, {
     id: "burilish", mapNo: 4, name: "90 gradus burchak ostida burilishlar", short: "90° burilish", timeLimit: 120,
-    pads: [{ poly: PADS[0], open: (x, y) => (Math.abs(x + 48.35) < 0.5 && y > -23.5 && y < -15.5) || (Math.abs(x + 35.15) < 0.3 && y < -35 && y > -43) }],
+    pads: [{ poly: PADS[PAD.zigA], open: padOpen(PADS[PAD.zigA]) }],
     stages: [{ text: "Koridorga g'arb tomondan kiring, ikki marta 90° ga buriling (chapga, keyin o'ngga) va nazorat chiziqlariga tegmasdan yuqori chetdan chiqing. 2 daqiqadan oshirmang.", enter: { x: -47, y: -19.5, r: 3 }, exit: { x: -33, y: -39, r: 4 } }]
   });
 
@@ -107,7 +107,7 @@ export function buildFull(car) {
   // ---- 6: the snake: the right strand from the bottom to the top, then the left one from the top to the bottom
   const tI = padExercise(W, {
     id: "ilon", mapNo: 6, name: "Ilon izi", short: "Ilon izi", timeLimit: 150,
-    pads: [{ poly: PADS[7], open: (x, y) => y > 27.7 || y < 9.8 }, { poly: PADS[8], open: (x, y) => y > 34.8 || y < 10.7 }],
+    pads: [{ poly: PADS[PAD.snakeR], open: padOpen(PADS[PAD.snakeR]) }, { poly: PADS[PAD.snakeL], open: padOpen(PADS[PAD.snakeL]) }],
     stages: [
       { text: "Ilon izining o'ng qismiga pastdan kiring va nazorat chiziqlariga tegmasdan yuqoriga chiqing.", enter: { x: -12.3, y: 29.5, r: 3.5 }, exit: { x: -27.6, y: 8.8, r: 4 } },
       { text: "Endi chap qismiga yuqoridan kiring va pastga tushing. 2 daqiqadan oshirmang.", enter: { x: -51.5, y: 10.3, r: 3.5 }, exit: { x: -28.5, y: 34.5, r: 4 } }
@@ -117,7 +117,7 @@ export function buildFull(car) {
   // ---- 8: the railway crossing on the west road (heading north)
   const [rx] = px(98, 900);
   const T2 = new Turtle(W, rx, 52.5, -90, bare);
-  const tR = temir(W, T2);
+  const tR = temir(W, T2, { l0: -34, l1: 2.6, deadEnd: true });       // the line comes in from outside the ground and ends at the island
 
   // ---- the junction from the west (straight), the emergency stop on the east road
   const c2 = chorraha(W, O, 0, "straight", A);
@@ -126,7 +126,7 @@ export function buildFull(car) {
   const tA = avariya(W, T3, 44);
 
   // ---- 7: the garage: the first T-shaped pad of the south-east, in at its south end, the box on the west side
-  const tX = boksPad(W, { x: 14.2, y: 38.6, th: -90, Lc: 19, cw: 2.1, bx0: 7.2, bx1: 12.9, bd: 4.8, side: -1, poly: PADS[11], open: (x, y) => y > 38.2 });
+  const tX = boksPad(W, { x: 14.2, y: 38.6, th: -90, Lc: 19, cw: 2.1, bx0: 7.2, bx1: 12.9, bd: 4.8, side: -1, poly: PADS[PAD.T1], open: padOpen(PADS[PAD.T1]) });
 
   // ---- 11: the parking bays on the east road (heading west, the bay on the right)
   const [bx] = px(1250, 0);

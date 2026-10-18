@@ -3,14 +3,14 @@
 //
 //   node tools/drive-test.mjs
 import { buildFull } from "../src/world/tracks.js";
-import { PADS, px } from "../src/world/boardData.js";
+import { PADS, PAD, px } from "../src/world/boardData.js";
 import { Session } from "../src/sim/session.js";
 import { SPEC } from "../src/sim/vehicle.js";
 
 const car = { length: 4.479, rOh: 0.9, width: 1.8, k: 1 };
 const W = buildFull(car), S = new Session(W, { mode: "training", transmission: "auto" });
 const C = S.car, DT = 1 / 60;
-const log = [];
+const log = [], assists = [];
 S.on(e => { if (e.type === "penalty") log.push(`${(S.clock).toFixed(0)}s ${e.code}`); });
 const chaikin = (p, n = 2) => { for (let k = 0; k < n; k++) { const q = [p[0]]; for (let i = 0; i < p.length - 1; i++) { const a = p[i], b = p[i + 1]; q.push([0.75 * a[0] + 0.25 * b[0], 0.75 * a[1] + 0.25 * b[1]], [0.25 * a[0] + 0.75 * b[0], 0.25 * a[1] + 0.75 * b[1]]); } q.push(p[p.length - 1]); p = q; } return p; };
 
@@ -41,13 +41,16 @@ function run(path, speed, { stopAt = null, tmax = 240 } = {}) {
     if (stopAt === 'alarm' && S.W.alarm && C.v < 0.05) return 'alarm';
     const end = path[path.length - 1], dEnd = Math.hypot(end[0] - C.x, end[1] - C.y);
     if (i0 >= path.length - 2 && dEnd < 2.5) return true;
-    const ld = 3.2 + C.v * 0.5; let j = i0; while (j < path.length - 1 && Math.hypot(path[j][0] - C.x, path[j][1] - C.y) < ld) j++;
+    const ld = (speed < 3.5 ? 2.2 : 3.2) + C.v * 0.45; let j = i0; while (j < path.length - 1 && Math.hypot(path[j][0] - C.x, path[j][1] - C.y) < ld) j++;
     const tx = path[j][0], ty = path[j][1], al = Math.atan2(ty - C.y, tx - C.x) - C.th, a = Math.atan2(Math.sin(al), Math.cos(al));
     const delta = Math.atan2(2 * SPEC.wb * Math.sin(a), Math.max(2, Math.hypot(tx - C.x, ty - C.y)));
     C.sw = Math.max(-SPEC.wheelLock, Math.min(SPEC.wheelLock, delta / SPEC.maxSteer * SPEC.wheelLock * 1.0));
     const vt = (S.W.alarm && stopAt === "alarm") ? 0 : speed * (Math.abs(delta) > 0.25 ? 0.6 : 1);
     if (C.v < vt - 0.1) { C.throttle = Math.min(1, (vt - C.v) * 0.7); C.brake = 0; } else { C.throttle = 0; C.brake = C.v > vt + 0.2 ? Math.min(1, (C.v - vt) * 0.6) : 0; }
     S.step(DT); t += DT;
+    // stuck against a kerb: note it and put the car back on the path a little further on
+    run.stuck = C.throttle > 0.2 && Math.abs(C.v) < 0.05 ? (run.stuck || 0) + DT : 0;
+    if (run.stuck > 2.5) { const k = Math.min(path.length - 2, i0 + 6), a = path[k], b = path[k + 1]; Object.assign(C, { x: a[0], y: a[1], th: Math.atan2(b[1] - a[1], b[0] - a[0]), v: 0 }); assists.push(`${S.clock.toFixed(0)}s at ${a.map(v => v.toFixed(1))}`); if (assists.length > 40) return false; run.stuck = 0; }
   }
   return false;
 }
@@ -65,16 +68,16 @@ const put = (x, y, th) => { Object.assign(C, { x, y, th, v: 0 }); C.brake = 1; }
 
 const Y0 = -53.25;                                   // the top lane
 go("top road, crossing, overpass", [[26.8, Y0], [-30, Y0], [-48, Y0], [-56, Y0], [-61, -51], [-63.2, -46], [-63.7, -40], [-63.7, -27], [-62, -22], [-57, -19.65], [-49.5, -19.65]], 5);
-go("through the zigzag", [[-49.5, -19.65], ...padPath(PADS[0], [-47, -19.65], [-33, -39]), [-29, -39], [-20, -39], [-8, -38.3], [-4.5, -36.5], [-2.2, -32.5], [-1.75, -29]], 3.2);
-go("junction from the north", [[-1.75, -29], [-1.75, -10], [-1.75, 10], [-1.9, 20], [-2.5, 25]], 4.5);
+go("through the zigzag", [[-49.5, -19.65], ...padPath(PADS[PAD.zigA], [-47, -19.65], [-33, -39]), [-29, -39], [-20, -39], [-8, -38.3], [-4.5, -36.5], [-2.2, -32.5], [-1.75, -29]], 3.2);
+go("junction from the north", [[-1.75, -29], [-1.75, -10], [-1.75, 10], [-1.9, 20], [-1.9, 42], [-4, 47.5], [-10, 49]], 4.5);
 // the snake: the right strand from the bottom to the top, then the left one from the top to the bottom
-go("to the snake", [[-2.5, 25], [-6, 31], [-10, 31], [-12.3, 29.7]], 3);
-go("snake right strand", padPath(PADS[7], [-12.5, 28.7], [-27.6, 8.8]), 2.6);
-go("along the band", [[-27.6, 8.8], [-30, 4.5], [-45, 3.8], [-51.5, 6.5], [-51.5, 10.3]], 3);
-go("snake left strand", padPath(PADS[8], [-51.5, 10.3], [-28.5, 34.5]), 2.6);
+go("to the snake", [[-10, 49], [-18, 48.5], [-20.5, 44], [-17.5, 38], [-13.5, 33.5], [-12.6, 30]], 3);
+go("snake right strand", padPath(PADS[PAD.snakeR], [-12.5, 28.7], [-27.6, 8.8]), 2.6);
+go("along the band", [[-27.6, 8.8], [-27.8, 4.5], [-30, 1.2], [-34, 0.5], [-45, 1], [-50, 2.8], [-51.6, 6.5], [-51.6, 10.3]], 2.6);
+go("snake left strand", padPath(PADS[PAD.snakeL], [-51.5, 10.3], [-28.5, 34.5]), 2.6);
 const Ln = -61.7;
 go("to the west road", [[-28.5, 34.5], [-27, 43], [-34, 49.5], [-50, 50.5], [-58.5, 49], [Ln, 44], [Ln, 30], [Ln, 18], [Ln, 8.5], [-56.5, 3.5], [-50, 1.9], [-30, 1.75]], 4.2);
-go("junction from the west", [[-30, 1.75], [0, 1.75], [30, 1.75], [40, -0.5], [52, -1], [64, -1]], 4.5, { stopAt: "alarm" });
+go("junction from the west", [[-30, 1.75], [0, 1.75], [30, 1.75], [40, -0.5], [52, -1], [58, -0.5], [62.5, 3]], 4.5, { stopAt: "alarm" });
 if (S.active && S.active.task.id === "avariya") { for (let k = 0; k < 60 * 6; k++) { C.brake = 1; C.throttle = 0; if (S.W.alarm) C.hazard = true; S.step(DT); } C.brake = 0; C.hazard = false; C.sig = 0; go("after the alarm", [[C.x, C.y], [58, -1], [64, 2]], 4); }
 progress("after the emergency stop");
 // the garage: the road south, the bottom road west, in at the south end of the T pad; then the car is put into the box and out again
@@ -96,3 +99,4 @@ go("junction from the north (left turn)", [[-1.75, -29], [-1.75, -14], [-1.2, -5
 progress("end");
 console.log("state", S.state, "total", S.total, "passed", S.state === "done");
 console.log("penalties:", log.join(", "));
+console.log("assists (stuck against a kerb):", assists.length ? assists.join("; ") : "none");
