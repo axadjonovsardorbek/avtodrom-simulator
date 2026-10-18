@@ -102,7 +102,7 @@ function goFullscreen() {
 }
 
 const TITLES = { exam: "To'liq avtodrom · Imtihon", training: "To'liq avtodrom · Trening", learn: "Qadamma-qadam o'quv" };
-let bumpT = 0, tutorial = null, replay = null, lastResult = null;
+let greeted = false, bumpT = 0, tutorial = null, replay = null, lastResult = null;
 const rec = new Recorder();
 
 function start(m, el) {
@@ -127,7 +127,9 @@ function start(m, el) {
   view.setZonesVisible(m !== "exam");            // the 1 m stop zones are a training aid only
   view.setWorld(W, settings.quality);
   view.setMode(settings.camera || "cockpit");
-  if (m !== "practice" && settings.boarding !== false) { view.drag = { yaw: 0, pitch: 0 }; view.startBoarding(); }
+  view.drag = { yaw: 0, pitch: 0 };
+  // the first time he sits down, the driver says hello (once per visit)
+  if (m !== "practice" && !greeted && settings.voice !== false && !settings.muted) { greeted = true; carVoice = audio.carClip("salom.mp3", 0, 0); }
   hud.reset(session, m === "practice" ? ELEMENTS.find(e => e.id === el).name : TITLES[m]);
   session.on(handleEvent);
   hud.hideMenu();
@@ -152,7 +154,8 @@ let garage = null, garageComposer = null, inGarage = false, garageDrag = null;
 function openGarage() {
   if (!garage) {
     garage = new Garage(CARS, view.renderer);
-    CARS.forEach((car, i) => prepareCar(car).then(cv => garage.setModel(i, cv)).catch(() => {}));
+    // one car at a time, with a pause between them, so the picture does not stall while they decode
+    CARS.reduce((p, car, i) => p.then(() => prepareCar(car).then(cv => garage.setModel(i, cv)).catch(() => {})).then(() => new Promise(r => setTimeout(r, 250))), Promise.resolve());
   }
   garage.index = Math.max(0, CARS.findIndex(c => c.id === carById(settings.car).id));
   garage.camX = garage.index * 7.5;
@@ -165,6 +168,7 @@ function openGarage() {
 function garageAction(a, v) {
   if (a === "prev" || a === "next") {
     garage.index = (garage.index + (a === "next" ? 1 : CARS.length - 1)) % CARS.length; garageDrag = null;
+    playCarVoice(CARS[garage.index].id);
     hud.showGarage(true, garageAction, CARS[garage.index], settings.color);
   } else if (a === "color") {
     settings.color = v; saveSettings();
@@ -254,8 +258,7 @@ function handleEvent(ev) {
         hud.showResult(...lastResult);
       };
       // the car with real doors: the doors open and the people get out first
-      if (view.canExit() && mode !== "practice") setTimeout(() => { if (ended) view.startExit(showResult); }, 900);
-      else setTimeout(showResult, 1200);
+      setTimeout(showResult, 1200);
       break;
   }
 }
@@ -372,19 +375,19 @@ let trafficLoading = null;
 function loadTrafficModels() {
   if (trafficLoading) return trafficLoading;
   const map = {};
-  trafficLoading = Promise.all(CARS.map(c => loadTrafficModel(c.model.replace(/\.glb$/, "-lite.glb")).then(m => { map[c.id] = m; view.setTrafficModels({ ...map }); }).catch(e => console.warn("traffic model", c.id, e.message))));
+  trafficLoading = CARS.reduce((p, c) => p.then(() => new Promise(r => setTimeout(r, 1500))).then(() => loadTrafficModel(c.model.replace(/\.glb$/, "-lite.glb")).then(m => { map[c.id] = m; view.setTrafficModels({ ...map }); }).catch(e => console.warn("traffic model", c.id, e.message))), Promise.resolve());
   return trafficLoading;
 }
 
 // the car's own voice clip, played when the player picks it (menu or garage); not at load
 let carVoice = null;
 function stopCarVoice(fade = 0.4) { if (carVoice) { carVoice.stop(fade); carVoice = null; } }
-function selectCar(id) {
-  useCar(id);
+function playCarVoice(id) {
   stopCarVoice();
   const v = carById(id).voice;
   if (v && settings.voice !== false && !settings.muted) carVoice = audio.carClip(v.url, v.from, v.dur, e => hud.toast("Mashina ovozi chalinmadi: " + ((e && (e.name || e.message)) || "xato"), "bad"));
 }
+function selectCar(id) { useCar(id); playCarVoice(id); }
 function useCar(id) {
   const car = carById(id);
   if (carModelId === car.id) return;

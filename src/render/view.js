@@ -34,13 +34,13 @@ const MIRRORS = [
 ];
 
 // per quality tier: highest render scale, mirror texture scale, shadow map size, MSAA samples, bloom
-const MAXRATIO = { low: 1.25, mid: 2, high: 2 };
+const MAXRATIO = { low: 1.25, mid: 1.75, high: 1.75 };
 const TIER = { low: { mirror: 0.5, shadow: 1024, aa: 0, bloom: false }, mid: { mirror: 0.65, shadow: 1024, aa: 4, bloom: false }, high: { mirror: 1, shadow: 2048, aa: 4, bloom: true } };
 
 export class View {
   constructor(canvas) {
     const r = this.renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: "high-performance" });
-    this.maxRatio = Math.min(window.devicePixelRatio || 1, 2);
+    this.maxRatio = Math.min(window.devicePixelRatio || 1, 1.75);
     this.ratio = this.maxRatio; r.setPixelRatio(this.ratio);
     this.frame = 0; this.ft = 16;          // smoothed frame time, ms
     r.shadowMap.enabled = true;
@@ -559,7 +559,7 @@ export class View {
     }
     c.addPass(new OutputPass());               // tone mapping + sRGB
     c.addPass(new ShaderPass(GradeShader));    // the grade works on the final (display) colours
-    c.addPass(new SMAAPass(1, 1));             // edge smoothing that works in every browser (multisampled targets are not honoured everywhere)
+    if (this.ratio < 1.5) c.addPass(new SMAAPass(1, 1));   // edge smoothing where the pixels are big (on dense screens they are small enough)
     c.setPixelRatio(this.ratio); if (this.w) c.setSize(this.w, this.h);
   }
 
@@ -570,9 +570,9 @@ export class View {
     r.shadowMap.autoUpdate = false;
     if (r.shadowMap.enabled && this.frame % 2 === 0) r.shadowMap.needsUpdate = true;
     const mirrors = this.mode === "cockpit" && !this.boarding && !this.exiting;
-    if (mirrors) {
-      // one mirror per frame, in turn: each still updates 20 times a second at 60 fps
-      const m = this.mirrors[this.frame % this.mirrors.length];
+    if (mirrors && this.frame % 2 === 0) {
+      // one mirror every other frame, in turn: each still updates 20 times a second at 60 fps
+      const m = this.mirrors[(this.frame >> 1) % this.mirrors.length];
       this.carView.setCockpit(false);
       r.setRenderTarget(m.rt); r.render(this.scene, m.cam);
       this.carView.setCockpit(true);
