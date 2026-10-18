@@ -88,6 +88,19 @@ export function addBoard(W) {
   // lane arrows (the way each lane runs, as on the plan)
   for (const [x, y, d] of [[850, 55, 180], [850, 100, 180], [1085, 48, 180], [1085, 95, 180], [770, 310, 0], [1060, 305, 0], [1055, 350, 0], [1040, 575, 180], [1160, 575, 180], [1310, 575, 180], [1030, 527, 180], [1150, 527, 180], [1310, 527, 180],
     [100, 340, 90], [78, 470, 90], [250, 1090, 0], [640, 1095, 0], [975, 1105, 0], [1350, 690, -90], [1318, 965, 90], [700, 740, -90], [680, 440, 90], [575, 212, 0], [580, 352, 0], [155, 92, 180], [155, 130, 180]]) arrow(W, x, y, d);
+  // road signs as on the video: a give-way sign over a blue arrow on the tip of every island, P signs at the corners of the
+  // pads, paired blue lane signs along the north fence, "no stopping" at the start
+  const sign = (x, y, th, kind, extra = {}) => W.signs.push({ x, y, th, kind, ...extra });
+  ISLANDS.forEach((isl, k) => {
+    const g = isl.grass, cx = g.reduce((a, p) => a + p[0], 0) / g.length, cy = g.reduce((a, p) => a + p[1], 0) / g.length;
+    if (g.length < 8) return;
+    let best = g[0], d = 0; for (const p of g) { const e = Math.hypot(p[0] - cx, p[1] - cy); if (e > d) { d = e; best = p; } }
+    const x = best[0] + (cx - best[0]) * 0.07, y = best[1] + (cy - best[1]) * 0.07, th = Math.atan2(best[1] - cy, best[0] - cx) + Math.PI;
+    sign(x, y, th, "yield", { big: true }); sign(x, y, th, ["right", "left", "ahead"][k % 3], { h: 1.45 });
+  });
+  for (const p of PADS) { const a = p[0], b = p[1]; sign((a[0] + b[0]) / 2, (a[1] + b[1]) / 2, Math.atan2(b[1] - a[1], b[0] - a[0]) + Math.PI / 2, "park"); }
+  for (const x of [-48, -22, 4, 30]) { const [X, Y] = [x, -52.5]; sign(X, Y, Math.PI / 2, "ahead", { big: true }); sign(X + 1.2, Y, Math.PI / 2, "aheadRight", { big: true }); }
+  { const [x, y] = P(930, 20); sign(x, y, Math.PI, "noStop", { big: true }); }
   W.texts.push({ ...(([x, y]) => ({ x, y }))(P(928, 75)), th: -Math.PI / 2, text: "START", size: 3.6 });
 }
 

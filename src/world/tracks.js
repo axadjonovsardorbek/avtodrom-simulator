@@ -2,7 +2,7 @@
 // small practice grounds for single elements.
 import { World } from "./world.js";
 import { Turtle, LANE } from "./path.js";
-import { DEG, toWorld } from "../sim/geom.js";
+import { DEG, toWorld, toLocal } from "../sim/geom.js";
 import { Traffic } from "./traffic.js";
 import { addBoard, padOpen } from "./board.js";
 import { PADS, PAD, px } from "./boardData.js";
@@ -108,7 +108,9 @@ export function buildFull(car) {
   const zebraS = Math.hypot(...px(716, 66).map((v, i) => v - px(915, 66)[i]));
   T.fwd(zebraS - 17.5);
   const tP = piyoda(W, T, 21, { zebra: false, pave: false, l0: -5.4, l1: 2.6 });
-  const tE = estakada(W, T, { s0: 1, s1: 9, s2: 14, s3: 22, h: 1.0, stopS: 6, len: 23 });
+  const tE = estakada(W, T, { s0: 1, s1: 13, s2: 24, s3: 36, h: 1.0, stopS: 9, len: 37 });
+  // the decorative lane signs of the board must not stand on the overpasses
+  W.signs = W.signs.filter(g => !W.ramps.some(r => { const [a, l] = toLocal(r.pose, g.x, g.y); return a > r.s0 - 2 && a < r.s3 + 2 && Math.abs(l) < r.halfW + 1.5; }));
 
   // ---- 4: the 90-degree turns on the second zigzag pad: in from the road on its west side, out at the top towards the east
   const tB = padExercise(W, {

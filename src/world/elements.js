@@ -109,6 +109,8 @@ export function estakada(W, T, opt = {}) {
   const pose = T.pose;
   T.fwd(len);
   W.ramps.push({ pose, s0, s1, s2, s3, h, halfW: HL + 0.4 });
+  // the second overpass beside it (the ground has two, side by side)
+  { const [x, y] = toWorld(pose, 0, -(2 * (HL + 0.4) + 0.5)); W.ramps.push({ pose: { x, y, th: pose.th }, s0, s1, s2, s3, h, halfW: HL + 0.4, extra: true }); }
   stopPaint(W, pose, stopS);
   W.texts.push({ ...at(pose, stopS - 1.6, 0), th: pose.th, text: "STOP", size: 1.0 });
   W.signs.push({ ...at(pose, Math.max(1, s0 - 3), 2.9), th: pose.th + Math.PI, kind: "hill" });

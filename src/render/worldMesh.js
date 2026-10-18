@@ -144,7 +144,7 @@ export function buildWorldMeshes(W, quality) {
     // a round, leafy shrub: a smooth ball with a lumpy outline, flat underneath
     const bushGeo = (() => { const g = new THREE.IcosahedronGeometry(0.6, quality === "low" ? 1 : 2), p = g.attributes.position, v = new THREE.Vector3(); for (let i = 0; i < p.count; i++) { v.fromBufferAttribute(p, i); const n = 1 + 0.09 * Math.sin(v.x * 9) * Math.sin(v.y * 8 + 1) * Math.sin(v.z * 10 + 2) + 0.05 * Math.sin(v.x * 23 + v.z * 19); p.setXYZ(i, v.x * n, Math.max(-0.05, v.y * n * 0.85), v.z * n); } const m = mergeVertices(g); m.computeVertexNormals(); return m; })();
     const rand = (() => { let s = 777; return () => ((s = (s * 1664525 + 1013904223) >>> 0) / 4294967296); })();
-    const spots = [], per = quality === "low" ? 9 : quality === "mid" ? 5 : 3.2;      // m² of island per bush: the islands are full of them
+    const spots = [], per = quality === "low" ? 16 : quality === "mid" ? 11 : 8;      // m² of island per bush: the islands are full of them
     for (const isl of bd.islands) {
       const xs = isl.grass.map(q => q[0]), ys = isl.grass.map(q => q[1]), x0 = Math.min(...xs), x1 = Math.max(...xs), y0 = Math.min(...ys), y1 = Math.max(...ys);
       const n = Math.round((x1 - x0) * (y1 - y0) / per);
@@ -152,7 +152,7 @@ export function buildWorldMeshes(W, quality) {
     }
     const bushes = new THREE.InstancedMesh(bushGeo, new THREE.MeshStandardMaterial({ map: bushTexture(), color: 0xffffff, roughness: 0.9 }), spots.length);
     const bm = new THREE.Matrix4(), bq = new THREE.Quaternion(), bs = new THREE.Vector3(), bv = new THREE.Vector3(), bc = new THREE.Color();
-    spots.forEach(([x, y], i) => { const s = 0.75 + rand() * 0.6; bm.compose(bv.set(x, 0.12 + 0.3 * s, y), bq.setFromAxisAngle(new THREE.Vector3(0, 1, 0), rand() * 6), bs.set(s, s * (0.8 + rand() * 0.4), s)); bushes.setMatrixAt(i, bm); bushes.setColorAt(i, bc.setHSL(0.26 + rand() * 0.05, 0.42 + rand() * 0.12, 0.30 + rand() * 0.08)); });
+    spots.forEach(([x, y], i) => { const s = 1.0 + rand() * 0.7; bm.compose(bv.set(x, 0.12 + 0.3 * s, y), bq.setFromAxisAngle(new THREE.Vector3(0, 1, 0), rand() * 6), bs.set(s, s * (0.8 + rand() * 0.4), s)); bushes.setMatrixAt(i, bm); bushes.setColorAt(i, bc.setHSL(0.26 + rand() * 0.05, 0.42 + rand() * 0.12, 0.30 + rand() * 0.08)); });
     bushes.castShadow = quality === "high"; bushes.receiveShadow = true; group.add(bushes);
 
     // a mesh fence round the ground, a little way out from its edge
@@ -243,6 +243,13 @@ export function buildWorldMeshes(W, quality) {
       const g = new THREE.BufferGeometry(); g.setAttribute("position", new THREE.Float32BufferAttribute(pos, 3)); g.computeVertexNormals();
       const wall = new THREE.Mesh(g, new THREE.MeshStandardMaterial({ map: conc, color: 0xc9c6bd, roughness: 0.9, side: THREE.DoubleSide }));
       wall.castShadow = true; wall.receiveShadow = true; group.add(wall);
+      // the tall concrete parapet along the deck (as on the video)
+      { const seg = [];
+        for (let s = r.s0; s <= r.s3 + 1e-6; s += 0.5) { const [x, y] = toWorld(r.pose, s, sg * (r.halfW + 0.12)); seg.push([x, y, W.heightAt(...toWorld(r.pose, s, 0))]); }
+        const pp = [], ii = []; const hgt = 0.45;
+        seg.forEach(([x, y, hh], i) => { pp.push(x, hh, y, x, hh + hgt, y); if (i) { const a = (i - 1) * 2; ii.push(a, a + 2, a + 1, a + 1, a + 2, a + 3); } });
+        const pg = new THREE.BufferGeometry(); pg.setAttribute("position", new THREE.Float32BufferAttribute(pp, 3)); pg.setIndex(ii); pg.computeVertexNormals();
+        const pm = new THREE.Mesh(pg, new THREE.MeshStandardMaterial({ color: 0xd2d0c8, roughness: 0.85, side: THREE.DoubleSide })); pm.castShadow = true; group.add(pm); }
       // railing posts
       for (let s = r.s0 + 2; s < r.s3 - 1; s += 2) {
         const [x, y] = toWorld(r.pose, s, sg * (r.halfW + 0.05));
@@ -293,8 +300,8 @@ export function buildWorldMeshes(W, quality) {
     const g = new THREE.Group();
     const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 2.3, 8), post); pole.position.y = 1.15; pole.castShadow = true; g.add(pole);
     const tex = signCache[s.kind] || (signCache[s.kind] = signTexture(s.kind));
-    const plate = new THREE.Mesh(new THREE.PlaneGeometry(0.7, 0.7), new THREE.MeshStandardMaterial({ map: tex, transparent: true, side: THREE.DoubleSide, roughness: 0.5 }));
-    plate.position.y = 2.05; plate.castShadow = true; g.add(plate);
+    const plate = new THREE.Mesh(new THREE.PlaneGeometry(s.big ? 0.9 : 0.7, s.big ? 0.9 : 0.7), new THREE.MeshStandardMaterial({ map: tex, transparent: true, side: THREE.DoubleSide, roughness: 0.5 }));
+    plate.position.y = s.h || 2.05; plate.castShadow = true; g.add(plate);
     g.position.set(s.x, 0, s.y); g.rotation.y = Math.atan2(Math.cos(s.th), Math.sin(s.th));
     group.add(g);
   }
