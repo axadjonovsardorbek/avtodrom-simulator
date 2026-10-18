@@ -539,3 +539,16 @@ tr:last-child td { border-bottom: 0; }
 .ach.on { opacity: 1; border-color: rgba(242, 182, 50, .6); }
 .ach span { grid-row: span 2; font-size: 22px; align-self: center; }
 .ach small { color: var(--muted); font-size: 12px; }
+
+/* daily task */
+.daily { display: flex; align-items: center; gap: 12px; margin-bottom: 10px; border: 1px solid rgba(242, 182, 50, .5); background: rgba(242, 182, 50, .07); border-radius: 12px; padding: 10px 14px; }
+.daily .di { width: 30px; height: 30px; flex: none; border-radius: 50%; display: grid; place-items: center; background: rgba(242, 182, 50, .2); color: var(--amber); font-weight: 700; }
+.daily > div { flex: 1; min-width: 0; }
+.daily small { display: block; color: var(--amber); font-size: 11px; text-transform: uppercase; letter-spacing: .08em; font-weight: 700; }
+.daily b { font-size: 15px; font-weight: 600; text-wrap: pretty; }
+.daily em { font-style: normal; font-family: var(--f-mono); color: var(--muted); }
+.dbar { height: 4px; border-radius: 2px; background: #333a43; margin-top: 6px; overflow: hidden; }
+.dbar i { display: block; height: 100%; background: var(--amber); }
+.daily.done { border-color: rgba(61, 220, 132, .6); background: rgba(61, 220, 132, .08); }
+.daily.done .di { background: rgba(61, 220, 132, .25); color: #3ddc84; }
+.daily.done small { color: #3ddc84; } .daily.done .dbar i { background: #3ddc84; }

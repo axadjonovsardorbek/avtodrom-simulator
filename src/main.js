@@ -23,6 +23,7 @@ import { Tutorial } from "./ui/tutorial.js";
 import { Recorder } from "./sim/replay.js";
 import { unlock } from "./sim/achievements.js";
 import { loadHistory } from "./sim/history.js";
+import { dailyTask } from "./sim/daily.js";
 import { buildDriver } from "./render/driverFigure.js";
 import { loadPeople, realInstructor, realDriver, realKid, realPedestrian } from "./render/people.js";
 
@@ -219,6 +220,7 @@ function handleEvent(ev) {
         if (rec.duration > 1) acts.splice(acts.length - 1, 0, ["Takroriy ko'rish", "replay"]);
         if (mode === "exam" && passed) acts.splice(acts.length - 1, 0, ["Sertifikat", "certificate"]);
         const hist = recordAttempt(s, { passed, key: keyFor(mode, elementId) });
+        { const all = loadHistory(), dt = dailyTask(new Date(), ELEMENTS); if (dt.progress(all) >= dt.goal && dt.progress(all.slice(0, -1)) < dt.goal) hist.daily = dt.text; }
         hist.fresh = unlock(loadHistory(), hist.rec, { elements: ELEMENTS.map(e => e.id) });
         lastResult = [s, ev, acts, hist];
         hud.showResult(...lastResult);

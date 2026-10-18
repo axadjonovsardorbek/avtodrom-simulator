@@ -4,6 +4,8 @@ import { PASS_LIMIT } from "../sim/penalties.js";
 import { analyse, clearHistory } from "../sim/history.js";
 import { drawProtocol } from "./protocol.js";
 import { drawCertificate } from "./certificate.js";
+import { dailyTask } from "../sim/daily.js";
+import { loadHistory } from "../sim/history.js";
 import { ACHIEVEMENTS, loadAchievements } from "../sim/achievements.js";
 import { ELEMENTS } from "../world/tracks.js";
 import { CARS } from "../cars/index.js";
@@ -136,6 +138,7 @@ export class Hud {
           <h1>Avtodrom <br>simulyatori</h1>
           <p class="lead">Amaliy imtihonni to'liq avtodromda yoki alohida mashqlarda takrorlang. Jarima ballari rasmiy jadval bo'yicha.</p>
           ${state && state.canResume ? `<button class="resume" id="resume"><span>▶</span> Davom ettirish</button>` : ""}
+          ${(() => { const d = dailyTask(new Date(), ELEMENTS), p = d.progress(loadHistory()), done = p >= d.goal; return `<div class="daily${done ? " done" : ""}"><span class="di">${done ? "✓" : "★"}</span><div><small>Kunlik vazifa</small><b>${d.text}</b><div class="dbar"><i style="width:${Math.round(p / d.goal * 100)}%"></i></div></div><em>${p}/${d.goal}</em></div>`; })()}
           <button class="learnbtn" data-mode="learn"><span class="ico">${icon('<path d="M4 6h16M4 12h10M4 18h6"/><path d="m16 15 2 2 4-4"/>')}</span><span><b>Qadamma-qadam o'quv</b><small>Kamar, dvigatel, uzatma, qo'l tormozi va yurib ketish: har bir qadam ko'rsatiladi</small></span></button>
           <div class="modes">
             <button class="mode exam" data-mode="exam">
@@ -519,6 +522,7 @@ export class Hud {
         <span class="eyebrow">${s.mode === "practice" ? "Mashq natijasi" : s.mode === "exam" ? "Imtihon protokoli" : "Trening natijasi"}</span>
         <h1 class="${passed ? "ok" : "bad"}">${title}</h1>
         ${hist ? this.histBlock(hist) : ""}
+        ${hist && hist.daily ? `<div class="newach"><div><span>✓</span><b>Kunlik vazifa bajarildi!</b><small>${hist.daily}</small></div></div>` : ""}
         ${hist && hist.fresh && hist.fresh.length ? `<div class="newach">${hist.fresh.map(a => `<div><span>🏆</span><b>Yangi yutuq: ${a.name}</b><small>${a.text}</small></div>`).join("")}</div>` : ""}
         <div class="sum"><div><small>Jarima</small><b>${s.total}</b><em>/ ${PASS_LIMIT}</em></div><div><small>Vaqt</small><b>${fmt(s.t)}</b></div><div><small>Bajarilgan mashqlar</small><b>${s.done.filter(d => d.ok).length}/${s.W.tasks.length}</b></div></div>
         ${s.full ? this.taskReport(s) : ""}

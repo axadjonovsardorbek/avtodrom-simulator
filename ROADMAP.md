@@ -18,7 +18,7 @@ Bajarilganini `[x]` bilan belgilang.
 - [x] **Yutuqlar:** "Birinchi imtihon", "Xatosiz parkovka", "Hammasi 0 ball bilan" va boshqalar.
 - [x] **Sertifikat:** o'tgan imtihon uchun yuklab olinadigan rasm.
 - [ ] **Mashinaga o'tirish animatsiyasi:** eshik ochiladi, kamar taqiladi, kalit buraladi.
-- [ ] **Kunlik vazifa:** masalan, "Bugun 3 marta parallel parkovka qiling".
+- [x] **Kunlik vazifa:** masalan, "Bugun 3 marta parallel parkovka qiling".
 
 ## 3. Poligon va dunyo
 
