@@ -178,7 +178,7 @@ export function addBoard(W) {
   Y(797, 975); place(752, 992, ["left"]); PK(872, 985); Y(1062, 990); PK(1142, 990);
   // the paired lane signs along the north fence, as on the video
   for (const x of [-48, -22]) { sign(x, -57.6, Math.PI / 2, "ahead", { plates: ["truck"] }); sign(x + 0.9, -57.6, Math.PI / 2, "aheadRight", { plates: ["car"] }); }
-  W.texts.push({ ...(([x, y]) => ({ x, y }))(P(900 + D, 80)), th: -Math.PI / 2, text: "START", size: 2.2 });
+  W.texts.push({ ...(([x, y]) => ({ x, y }))(P(900 + D, 80)), th: Math.PI, text: "START", size: 2.0 });
 }
 
 // which edges of a pad are open to the asphalt (no grass beside them): the exercise outline leaves them out

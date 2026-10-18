@@ -6,6 +6,7 @@ import { buildFull } from "../src/world/tracks.js";
 import { PADS, PAD, px } from "../src/world/boardData.js";
 import { Session } from "../src/sim/session.js";
 import { SPEC } from "../src/sim/vehicle.js";
+import { LANE } from "../src/world/path.js";
 
 const car = { length: 4.479, rOh: 0.9, width: 1.8, k: 1 };
 const W = buildFull(car), S = new Session(W, { mode: "training", transmission: "auto" });
@@ -85,13 +86,15 @@ go("to the junction from the east", Q([1178, 700], [1176, 630], [1150, 590], [11
 go("8 railway crossing", Q([78, 715], [78, 900], [78, 1000], [90, 1060], [140, 1080], [189, 1081]), 4);
 go("9 speed lane", Q([189, 1081], [400, 1081], [560, 1081]), 6);
 for (let k = 0; k < 60 * 4; k++) { C.brake = 1; C.throttle = 0; S.step(DT); } C.brake = 0;
-go("to the junction from the south", Q([560, 1081], [640, 1078], [690, 1040], [711, 980], [712, 800]), 4);
-go("junction straight, NE road", Q([712, 800], [712, 600], [712, 450], [718, 360], [740, 320], [800, 312], [860, 312]), 4.5);
-go("11 parking", Q([860, 312], [1000, 312]), 3);
-{ const p = px(965, 342), q = px(1065, 342); put(p[0], p[1], Math.atan2(q[1] - p[1], q[0] - p[0])); }
+// the parking of the video: east along the bottom road, up the east side, west along the east road past the pocket
+const d3 = PADS[PAD.D3], dBot = Math.max(...d3.map(q => q[1])), dX1 = Math.max(...d3.map(q => q[0])), laneY = dBot + LANE / 2 + 0.05;
+go("to the east road", [...Q([560, 1081], [900, 1095], [1200, 1100], [1300, 1080], [1345, 1000], [1350, 800], [1350, 640], [1330, 560])], 4.5);
+go("11 parking", [[dX1 + 14, laneY], [dX1 + 6, laneY], [dX1 - 10, laneY]], 3);
+put(dX1 - 0.9 - 0.65, laneY - (LANE / 2 + 1.6), Math.PI);
 for (let k = 0; k < 60 * 3; k++) S.step(DT); progress("in the parking box");
-C.brake = 0; C.sig = 1;
-go("12 to the finish", Q([1000, 330], [1120, 314], [1240, 312]), 3.5);
+C.brake = 0; C.sig = -1;
+go("junction from the east, right", [[dX1 - 4, laneY - 0.3], ...Q([1000, 540], [900, 568], [800, 572], [745, 565], [718, 530], [712, 470], [714, 380], [740, 320], [800, 312], [860, 312])], 4);
+go("12 to the finish", Q([860, 312], [1000, 312], [1120, 312], [1240, 312]), 3.5);
 progress("end");
 console.log("state", S.state, "total", S.total);
 console.log("penalties:", log.join(", "));

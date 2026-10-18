@@ -282,7 +282,7 @@ export function parkovka(W, T, opt = {}) {
     W.addLine(W2(pose, [[0, -HL], [2, -HL - wide], [28, -HL - wide], [30, -HL]]), "edge");
     W.addPad(rect(pose, b0, b1, HL - 0.1, HL + bw));
   }
-  W.addLine(W2(pose, [[b0, HL], [b0, HL + bw], [b1, HL + bw], [b1, HL]]), "ctrl");
+  W.addLine(W2(pose, [[b0, HL], [b0, HL + bw], [b1, HL + bw], [b1, HL]]), "ctrl", { hidden: !!opt.hideBox });   // on the ground the pocket's own kerb line is the box
   W.addPaint(rect(pose, reg - 0.06, reg + 0.06, HL + 0.15, HL + bw - 0.15), "yellow");
   { // rear axle: reverse from beside the box in an S-curve onto the yellow line
     const lf = HL + bw / 2, l0 = 0.6, span = 2 * Math.sqrt(Math.max(1, 2 * 5 * (lf - l0) / 2 - ((lf - l0) / 2) ** 2));

@@ -102,7 +102,7 @@ export function buildWorldMeshes(W, quality) {
   const padMat = asphaltMat.clone(); padMat.polygonOffsetFactor = -2; padMat.polygonOffsetUnits = -2;
   const concMat = new THREE.MeshStandardMaterial({ map: conc, roughness: 0.95 });
   // the exercise lanes are asphalt like the roads (a shade lighter, newer); their white edge lines are painted over them
-  const padLightMat = new THREE.MeshStandardMaterial({ map: asph, color: 0xd8dce0, roughness: 0.9, polygonOffset: true, polygonOffsetFactor: -3, polygonOffsetUnits: -3 });
+  const padLightMat = new THREE.MeshStandardMaterial({ map: asph, color: 0xffffff, roughness: 0.92, polygonOffset: true, polygonOffsetFactor: -3, polygonOffsetUnits: -3 });
   const paintMat = c => new THREE.MeshStandardMaterial({ color: c, roughness: 0.7, polygonOffset: true, polygonOffsetFactor: -4, polygonOffsetUnits: -4 });
   const white = paintMat(0xeeece4), yellow = paintMat(0xf2b632);
 
@@ -118,7 +118,7 @@ export function buildWorldMeshes(W, quality) {
   // the plan of the exam ground (src/world/board.js): asphalt everywhere, the islands with kerbs, the pale pads
   if (W.board) {
     const bd = W.board, grassTex = grassTexture(), islandMat = new THREE.MeshStandardMaterial({ map: grassTex, roughness: 1, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 });
-    const kerbMat = new THREE.MeshStandardMaterial({ color: 0xdcdad3, roughness: 0.85 });
+    const kerbMat = new THREE.MeshStandardMaterial({ color: 0xe8e6e0, roughness: 0.8 });
     const frame = new THREE.Mesh(flatPoly(bd.frame, h, Y_ROAD, 7), asphaltMat); frame.receiveShadow = true; group.add(frame);
     // asphalt; the islands raised 10 cm inside a 12 cm kerb; the pads (cut out of the islands) at road level, painted pale
     const flatShape = (shape, y) => { const g = new THREE.ShapeGeometry(shape); const p = g.attributes.position, uv = [];
@@ -128,9 +128,9 @@ export function buildWorldMeshes(W, quality) {
     for (const isl of bd.islands) {
       const shape = new THREE.Shape(isl.kerb.map(([x, y]) => new THREE.Vector2(x, -y)));
       shape.holes.push(new THREE.Path(isl.grass.map(([x, y]) => new THREE.Vector2(x, -y))));
-      const kg = new THREE.ExtrudeGeometry(shape, { depth: 0.17, bevelEnabled: false }); kg.rotateX(-Math.PI / 2);   // a raised kerb round the raised island
+      const kg = new THREE.ExtrudeGeometry(shape, { depth: 0.22, bevelEnabled: false }); kg.rotateX(-Math.PI / 2);   // a raised kerb round the raised island
       kerbGeos.push(kg.index ? kg.toNonIndexed() : kg);
-      grassGeos.push(flatPoly(isl.grass, h, 0.14, 7));
+      grassGeos.push(flatPoly(isl.grass, h, 0.18, 7));
     }
     addMerged(group, grassGeos, islandMat);
     for (const g of kerbGeos) g.deleteAttribute("uv");
@@ -142,7 +142,11 @@ export function buildWorldMeshes(W, quality) {
     const inside = (poly, x, y) => { let c = false; for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) if ((poly[i][1] > y) !== (poly[j][1] > y) && x < (poly[j][0] - poly[i][0]) * (y - poly[i][1]) / (poly[j][1] - poly[i][1]) + poly[i][0]) c = !c; return c; };
     const edgeD = (poly, x, y) => { let d = 1e9; for (let i = 0; i < poly.length; i++) { const a = poly[i], b2 = poly[(i + 1) % poly.length], dx = b2[0] - a[0], dy = b2[1] - a[1], L = dx * dx + dy * dy || 1, t = Math.max(0, Math.min(1, ((x - a[0]) * dx + (y - a[1]) * dy) / L)); d = Math.min(d, Math.hypot(a[0] + dx * t - x, a[1] + dy * t - y)); } return d; };
     // a round, leafy shrub: a smooth ball with a lumpy outline, flat underneath
-    const bushGeo = (() => { const g = new THREE.IcosahedronGeometry(0.6, quality === "low" ? 1 : 2), p = g.attributes.position, v = new THREE.Vector3(); for (let i = 0; i < p.count; i++) { v.fromBufferAttribute(p, i); const n = 1 + 0.09 * Math.sin(v.x * 9) * Math.sin(v.y * 8 + 1) * Math.sin(v.z * 10 + 2) + 0.05 * Math.sin(v.x * 23 + v.z * 19); p.setXYZ(i, v.x * n, Math.max(-0.05, v.y * n * 0.85), v.z * n); } const m = mergeVertices(g); m.computeVertexNormals(); return m; })();
+    // a shrub of the video: three or four leafy balls grown together, flat underneath
+    const bushGeo = (() => { const parts = [[0, 0, 0, 0.62], [0.32, -0.08, 0.18, 0.46], [-0.3, -0.1, 0.12, 0.44], [0.05, -0.06, -0.33, 0.45]].map(([x, y, z, r]) => { const g = new THREE.IcosahedronGeometry(r, quality === "low" ? 1 : 2); g.translate(x, y, z); return g; });
+      const g = mergeGeometries(parts.map(q => q.toNonIndexed())), p = g.attributes.position, v = new THREE.Vector3();
+      for (let i = 0; i < p.count; i++) { v.fromBufferAttribute(p, i); const n = 1 + 0.06 * Math.sin(v.x * 13) * Math.sin(v.y * 11 + 1) * Math.sin(v.z * 12 + 2); p.setXYZ(i, v.x * n, Math.max(-0.05, v.y * n * 0.9), v.z * n); }
+      const m = mergeVertices(g); m.computeVertexNormals(); return m; })();
     const rand = (() => { let s = 777; return () => ((s = (s * 1664525 + 1013904223) >>> 0) / 4294967296); })();
     // round shrubs standing apart on the grass (at least `gap` metres between centres), as on the video
     const spots = [], gap = quality === "low" ? 3.2 : quality === "mid" ? 2.6 : 2.2, cell = new Map(), key = (x, y) => Math.floor(x / gap) + "," + Math.floor(y / gap);
@@ -158,7 +162,7 @@ export function buildWorldMeshes(W, quality) {
     }
     const bushes = new THREE.InstancedMesh(bushGeo, new THREE.MeshStandardMaterial({ map: bushTexture(), color: 0xffffff, roughness: 0.9 }), spots.length);
     const bm = new THREE.Matrix4(), bq = new THREE.Quaternion(), bs = new THREE.Vector3(), bv = new THREE.Vector3(), bc = new THREE.Color();
-    spots.forEach(([x, y], i) => { const s = 1.15 + rand() * 0.5; bm.compose(bv.set(x, 0.12 + 0.32 * s, y), bq.setFromAxisAngle(new THREE.Vector3(0, 1, 0), rand() * 6), bs.set(s, s * (0.85 + rand() * 0.25), s)); bushes.setMatrixAt(i, bm); bushes.setColorAt(i, bc.setHSL(0.26 + rand() * 0.05, 0.42 + rand() * 0.12, 0.30 + rand() * 0.08)); });
+    spots.forEach(([x, y], i) => { const s = 1.15 + rand() * 0.5; bm.compose(bv.set(x, 0.12 + 0.32 * s, y), bq.setFromAxisAngle(new THREE.Vector3(0, 1, 0), rand() * 6), bs.set(s, s * (0.85 + rand() * 0.25), s)); bushes.setMatrixAt(i, bm); bushes.setColorAt(i, bc.setHSL(0.23 + rand() * 0.05, 0.42 + rand() * 0.12, 0.42 + rand() * 0.10)); });
     bushes.castShadow = quality === "high"; bushes.receiveShadow = true; group.add(bushes);
 
     // a low concrete wall along the edge of the asphalt (the kerb posts of src/world/board.js stand in it)

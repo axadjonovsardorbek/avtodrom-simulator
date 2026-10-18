@@ -145,21 +145,25 @@ export function buildFull(car) {
   const T3 = at(189, 1081, heading([189, 1081], [700, 1081]));
   const tZ = tezlashish(W, T3, 46, [34, 40]);
 
-  // ---- the junction from the south, straight on (north)
-  const c3 = chorraha(W, O, -90, "straight", A);
+  // ---- 11: the parallel parking of the video (4:16-4:39): up the east side, then west along the east road and back
+  // into the middle pocket cut into the island north of it (pad D3)
+  const d3 = PADS[PAD.D3], dBot = Math.max(...d3.map(q => q[1])), dX1 = Math.max(...d3.map(q => q[0]));
+  const T5 = new Turtle(W, dX1 + 6.3, dBot + LANE / 2 + 0.05, 180, bare);
+  const tK = parkovka(W, T5, { b0: 6.3, len: 30, board: true, bw: 3.2, hideBox: true });
 
-  // ---- 11: the parallel parking on the north-east road (heading east, the box in the right lane), 12: the finish at its end
-  const T5 = at(860, 312, heading([860, 312], [1230, 312]));
-  const tK = parkovka(W, T5, { b0: 9, len: 30, board: true });
-  const fs0 = px(860, 312), fp = { x: fs0[0], y: fs0[1], th: T5.pose.th };
+  // ---- the junction from the east, turning right (north) towards the finish road (4:40-4:53)
+  const c3 = chorraha(W, O, 180, "right", A);
+
+  // ---- 12: the finish at the end of the north-east road (heading east)
+  const fs0 = px(860, 312), fp = { x: fs0[0], y: fs0[1], th: 0 };
   const fS = Math.hypot(...px(1218, 312).map((v, i) => v - fs0[i]));
   W.finishLine = { pose: fp, s: fS, halfW: 5 };
   // the finish of the video (5:00-5:11): a white box across both lanes with FINISH written in it
   { const a = fS - 6, b = fS, hw = 3.6;
     W.addLine([toWorld(fp, a, -hw), toWorld(fp, b, -hw), toWorld(fp, b, hw), toWorld(fp, a, hw), toWorld(fp, a, -hw)], "paint", { width: 0.25 });
-    const [x, y] = toWorld(fp, (a + b) / 2, 0); W.texts.push({ x, y, th: fp.th - Math.PI / 2, text: "FINISH", size: 2.0 }); }
+    const [x, y] = toWorld(fp, (a + b) / 2, 0); W.texts.push({ x, y, th: fp.th, text: "FINISH", size: 1.6 }); }
 
-  W.tasks.push(tP, tE, tB, c1, tI, tA, tX, c2, tR, tZ, c3, tK);
+  W.tasks.push(tP, tE, tB, c1, tI, tA, tX, c2, tR, tZ, tK, c3);
   return W.build();
 }
 const xy = ([x, y]) => ({ x, y });
