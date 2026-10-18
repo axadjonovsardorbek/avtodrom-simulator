@@ -39,7 +39,7 @@ const saveSettings = () => { try { localStorage.setItem("avtodrom.settings", JSO
 
 let session = null, mode = null, elementId = null, paused = true, ended = false;
 const app = document.getElementById("app");
-const hud = new Hud(app, { settings, protocolBack: () => lastResult && hud.showResult(...lastResult), start, resume, action: onAction, resultAction, useCar, showroom: openShowroom, save: () => saveSettings(), garage: () => openGarage(),
+const hud = new Hud(app, { settings, protocolBack: () => lastResult && hud.showResult(...lastResult), start, resume, action: onAction, resultAction, useCar: selectCar, showroom: openShowroom, save: () => saveSettings(), garage: () => openGarage(),
   setPlate: t => { settings.plate = t; if (view.carView.setPlate) view.carView.setPlate(t); saveSettings(); },
   setColor: id => { settings.color = id; if (view.carView.setPaint) view.carView.setPaint(id); saveSettings(); } });
 const view = new View(hud.canvas);
@@ -91,6 +91,7 @@ function start(m, el) {
   if (inShowroom) { inShowroom = false; hud.showShowroom(false); }
   audio.start(); audio.setMuted(settings.muted); audio.voiceOn = settings.voice;
   saveSettings();
+  stopCarVoice(0.3);
   mode = m; elementId = el || null; ended = false;
   if (touchUi) goFullscreen();
   app.classList.toggle("auto", settings.transmission === "auto");
@@ -147,7 +148,7 @@ function garageAction(a, v) {
     if (view.carView.setPaint) view.carView.setPaint(v);
     hud.showGarage(true, garageAction, CARS[garage.index], v);
   } else if (a === "pick" || a === "back") {
-    if (a === "pick") { settings.car = CARS[garage.index].id; saveSettings(); useCar(settings.car); hud.toast(`${CARS[garage.index].name} tanlandi`, "good"); }
+    if (a === "pick") { settings.car = CARS[garage.index].id; saveSettings(); selectCar(settings.car); hud.toast(`${CARS[garage.index].name} tanlandi`, "good"); }
     inGarage = false; app.classList.remove("garage-open");
     hud.showGarage(false); hud.showMenu({ canResume: false });
   }
@@ -338,6 +339,15 @@ function prepareCar(car, onProgress) {
   });
 }
 
+// the car's own voice clip, played when the player picks it (menu or garage); not at load
+let carVoice = null;
+function stopCarVoice(fade = 0.4) { if (carVoice) { carVoice.stop(fade); carVoice = null; } }
+function selectCar(id) {
+  useCar(id);
+  stopCarVoice();
+  const v = carById(id).voice;
+  if (v && settings.voice !== false && !settings.muted) { audio.start(); carVoice = audio.song(v.url, v.from); }
+}
 function useCar(id) {
   const car = carById(id);
   if (carModelId === car.id) return;
