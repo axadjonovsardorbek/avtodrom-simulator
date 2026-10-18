@@ -7,7 +7,7 @@ Bajarilganini `[x]` bilan belgilang.
 
 - [x] **Xatolar tahlili.** Har urinish natijasi saqlanadi (brauzerda). Menyuda "Natijalar va xatolar tahlili": eng ko'p ball olib qo'yadigan xatolar, mashqlar bo'yicha urinishlar va so'nggi natijalar grafigi.
 - [x] **Ideal yo'l ko'rsatmasi (arvoh-chiziq).** Trening rejimida parkovka, boks va 90° burilishda to'g'ri traektoriya yo'lda chiziq bo'lib ko'rinadi.
-- [ ] **Takroriy ko'rish (replay).** Mashqdan keyin o'z haydashni tepadan qayta ko'rish, xato joylari qizil nuqta bilan.
+- [x] **Takroriy ko'rish (replay).** Mashqdan keyin o'z haydashni tepadan qayta ko'rish, xato joylari qizil nuqta bilan.
 - [x] **Ko'zgularni sozlash.** Chap, o'ng va salon ko'zgusini burish (imtihonda bu ham tekshiriladi).
 - [x] **Qadamma-qadam o'quv rejimi.** Kamar, kalit, uzatma, qo'l tormozi, start: har bir qadam ko'rsatiladi va bajarilguncha keyingisiga o'tilmaydi.
 - [ ] **Imtihon bayonnomasi.** Rasmiy shakldagi varaqa: sana, ism, jarima bandlari, natija.

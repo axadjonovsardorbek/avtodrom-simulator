@@ -268,6 +268,21 @@ export class View {
     try { localStorage.setItem("avtodrom.mirrors", JSON.stringify(Object.fromEntries(this.mirrors.map(m => [m.key, m.adj])))); } catch (_) {}
   }
 
+  // red pins where penalties happened (replay)
+  setReplayMarkers(marks = []) {
+    if (this.replayGroup) { this.scene.remove(this.replayGroup); this.replayGroup.traverse(o => { if (o.geometry) o.geometry.dispose(); }); this.replayGroup = null; }
+    if (!marks.length) return;
+    const g = this.replayGroup = new THREE.Group(), red = new THREE.MeshBasicMaterial({ color: 0xff3b30 });
+    for (const m of marks) {
+      const pin = new THREE.Group(); pin.position.set(m.x, m.h, m.y);
+      const cone = new THREE.Mesh(new THREE.ConeGeometry(0.35, 1.1, 10), red); cone.rotation.x = Math.PI; cone.position.y = 1.1;
+      const ball = new THREE.Mesh(new THREE.SphereGeometry(0.4, 12, 8), red); ball.position.y = 1.9;
+      const ring = new THREE.Mesh(new THREE.RingGeometry(0.9, 1.15, 28), new THREE.MeshBasicMaterial({ color: 0xff3b30, transparent: true, opacity: 0.55, side: THREE.DoubleSide })); ring.rotation.x = -Math.PI / 2; ring.position.y = 0.06;
+      pin.add(cone, ball, ring); g.add(pin);
+    }
+    this.scene.add(g);
+  }
+
   setMode(mode) {
     this.mode = mode;
     this.carView.setCockpit(mode === "cockpit" || mode === "interiorRear");

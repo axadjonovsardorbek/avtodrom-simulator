@@ -51,6 +51,7 @@ export class Hud {
       <canvas class="minimap" id="minimap" width="260" height="260"></canvas>
       <div class="startlight" id="startlight" hidden><span></span><b>START</b></div>
       <div class="toasts" id="toasts" aria-live="polite"></div>
+      <section class="replay" id="replay" hidden></section>
       <aside class="log" id="logPanel" hidden><h3>Xatolar protokoli</h3><ol id="log"></ol></aside>
       <section class="cluster">
         ${gauge("tach", 7, 1, "×1000", "ayl/daq", 6)}
@@ -375,6 +376,34 @@ export class Hud {
     g.restore();
   }
   toggleMinimap() { if (this.root.classList.contains("touch")) { this.mm.hidden = false; this.root.classList.toggle("showmap"); } else this.mm.hidden = !this.mm.hidden; }
+
+  /* ---------- replay bar ---------- */
+  // rec: Recorder; ctl: { toggle, seek(t), speed(), exit() }
+  showReplay(rec, ctl) {
+    const el = $("#replay", this.root), dur = Math.max(0.1, rec.duration);
+    this.root.classList.add("replaying");
+    const ticks = rec.marks.map((m, i) => `<button class="tick" data-i="${i}" style="left:${(m.t / dur * 100).toFixed(2)}%" title="${m.text}">+${m.pts}</button>`).join("");
+    el.hidden = false;
+    el.innerHTML = `<div class="rp-note" id="rpNote"></div>
+      <div class="rp-row"><button class="btn" id="rpPlay">⏸</button><div class="rp-track"><input type="range" id="rpSeek" min="0" max="${dur.toFixed(2)}" step="0.05" value="0">${ticks}</div><span id="rpTime">0:00</span><button class="btn" id="rpSpeed">1×</button><button class="btn primary" id="rpExit">Yopish</button></div>`;
+    const seek = $("#rpSeek", el);
+    $("#rpPlay", el).onclick = () => ctl.toggle();
+    $("#rpSpeed", el).onclick = e => { e.target.textContent = ctl.speed() + "×"; };
+    $("#rpExit", el).onclick = () => ctl.exit();
+    seek.oninput = () => ctl.seek(+seek.value);
+    el.querySelectorAll(".tick").forEach(b => b.onclick = () => ctl.seek(Math.max(0, rec.marks[+b.dataset.i].t - 2)));
+  }
+  updateReplay(t, playing, rec) {
+    const el = $("#replay", this.root); if (el.hidden) return;
+    const seek = $("#rpSeek", el), pb = $("#rpPlay", el);
+    if (document.activeElement !== seek) seek.value = t;
+    pb.textContent = playing ? "⏸" : "▶";
+    $("#rpTime", el).textContent = fmt(t);
+    const m = rec.marks.find(m => t >= m.t - 0.2 && t < m.t + 3);
+    $("#rpNote", el).textContent = m ? `+${m.pts} · ${m.n}. ${m.text}` : "";
+    $("#rpNote", el).classList.toggle("on", !!m);
+  }
+  hideReplay() { $("#replay", this.root).hidden = true; this.root.classList.remove("replaying"); }
 
   /* ---------- step-by-step drill ---------- */
   showTutor(st) {

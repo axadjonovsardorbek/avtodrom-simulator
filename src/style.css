@@ -507,3 +507,15 @@ tr:last-child td { border-bottom: 0; }
 #app.touch .tutor .why { display: none; }
 .hl { animation: hlpulse 1s ease-in-out infinite; box-shadow: 0 0 0 3px rgba(61, 220, 132, .9) !important; }
 @keyframes hlpulse { 50% { box-shadow: 0 0 0 7px rgba(61, 220, 132, .25) !important; } }
+
+/* replay */
+.replay { position: absolute; z-index: 6; left: 50%; bottom: calc(14px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); width: min(780px, calc(100% - 24px)); background: var(--panel); border: 1px solid var(--rule); border-radius: 12px; padding: 10px 12px; backdrop-filter: blur(6px); }
+.rp-row { display: flex; align-items: center; gap: 10px; }
+.rp-row .btn { margin-top: 0; padding: 7px 12px; }
+.rp-track { position: relative; flex: 1; padding-top: 18px; }
+.rp-track input { width: 100%; accent-color: var(--amber); }
+.rp-track .tick { position: absolute; top: 0; transform: translateX(-50%); border: 0; background: #ff3b30; color: #fff; font: 600 10px var(--f-mono); border-radius: 4px; padding: 1px 4px; cursor: pointer; }
+#rpTime { font-family: var(--f-mono); min-width: 40px; text-align: right; }
+.rp-note { min-height: 20px; margin-bottom: 6px; font-weight: 600; color: var(--muted); font-size: 13px; }
+.rp-note.on { color: #ff6a5e; }
+#app.replaying .cluster, #app.replaying .touchpad, #app.replaying .task, #app.replaying .tutor, #app.replaying .startlight { display: none !important; }

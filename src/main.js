@@ -20,6 +20,7 @@ import { Garage } from "./render/garage.js";
 import { CARS } from "./cars/index.js";
 import { recordAttempt, keyFor } from "./sim/history.js";
 import { Tutorial } from "./ui/tutorial.js";
+import { Recorder } from "./sim/replay.js";
 import { buildDriver } from "./render/driverFigure.js";
 import { loadPeople, realInstructor, realDriver, realKid, realPedestrian } from "./render/people.js";
 
@@ -79,7 +80,8 @@ function goFullscreen() {
 }
 
 const TITLES = { exam: "To'liq avtodrom · Imtihon", training: "To'liq avtodrom · Trening", learn: "Qadamma-qadam o'quv" };
-let tutorial = null;
+let tutorial = null, replay = null, lastResult = null;
+const rec = new Recorder();
 
 function start(m, el) {
   if (inShowroom) { inShowroom = false; hud.showShowroom(false); }
@@ -89,6 +91,7 @@ function start(m, el) {
   if (touchUi) goFullscreen();
   app.classList.toggle("auto", settings.transmission === "auto");
   const W = m === "practice" ? buildPractice(el, carDims()) : buildFull(carDims(m === "exam"));
+  rec.reset(); replay = null; hud.hideReplay(); view.setReplayMarkers([]);
   tutorial = m === "learn" ? new Tutorial(settings.transmission) : null;
   if (!tutorial) hud.showTutor(null);
   session = new Session(W, { mode: m === "learn" ? "training" : m, transmission: settings.transmission, spec: carById(settings.car).spec });
@@ -181,7 +184,7 @@ function clipsBeforeElements() {
 function handleEvent(ev) {
   instructor.onEvent(ev);
   switch (ev.type) {
-    case "penalty": hud.toast(`+${ev.pts} · ${ev.text}`, "bad"); hud.addLog(ev); audio.penalty();
+    case "penalty": rec.mark(session, ev); hud.toast(`+${ev.pts} · ${ev.text}`, "bad"); hud.addLog(ev); audio.penalty();
       if (ev.code === "stopFar" && fayzullaFor === session.currentTask) { /* already played when the car stopped */ }
       else if (CLIP_FOR[ev.code]) audio.prompt(CLIP_FOR[ev.code], null, true);
       else if (!instructor.on) audio.prompt("pen_" + ev.code, `Xato. ${ev.pts} ball`);
@@ -209,7 +212,10 @@ function handleEvent(ev) {
         const acts = mode === "practice"
           ? [["Qaytadan", "retry", !passed], ...(nextElement() ? [["Keyingi mashq", "next", passed]] : []), ["Menyu", "menu"]]
           : [["Qayta topshirish", "retry", true], ["Menyu", "menu"]];
-        hud.showResult(s, ev, acts, recordAttempt(s, { passed, key: keyFor(mode, elementId) }));
+        rec.next = 0; rec.sample(s);
+        if (rec.duration > 1) acts.splice(acts.length - 1, 0, ["Takroriy ko'rish", "replay"]);
+        lastResult = [s, ev, acts, recordAttempt(s, { passed, key: keyFor(mode, elementId) })];
+        hud.showResult(...lastResult);
       }, 1200);
       break;
   }
@@ -231,7 +237,20 @@ function nextElement() {
   return i >= 0 && i < ELEMENTS.length - 1 ? ELEMENTS[i + 1].id : null;
 }
 
+function startReplay() {
+  document.getElementById("result").hidden = true;
+  replay = { t: 0, playing: true, speed: 1, prevMode: view.mode };
+  view.setMode("top"); view.setReplayMarkers(rec.marks);
+  hud.showReplay(rec, {
+    toggle: () => { replay.playing = !replay.playing; if (replay.playing && replay.t >= rec.duration - 0.05) replay.t = 0; },
+    seek: t => { replay.t = t; },
+    speed: () => (replay.speed = replay.speed === 1 ? 2 : replay.speed === 2 ? 4 : 1),
+    exit: () => { hud.hideReplay(); view.setReplayMarkers([]); view.setMode(replay.prevMode === "top" ? (settings.camera || "cockpit") : replay.prevMode); replay = null; hud.showResult(...lastResult); }
+  });
+}
+
 function resultAction(id) {
+  if (id === "replay") return startReplay();
   if (id === "retry") start(mode, elementId);
   else if (id === "next") start("practice", nextElement());
   else { document.getElementById("result").hidden = true; hud.showMenu({ canResume: false }); }
@@ -416,11 +435,17 @@ function frame(now) {
     requestAnimationFrame(frame); return;
   }
   if (session) {
+    if (replay) {
+      if (replay.playing) { replay.t += dt * replay.speed; if (replay.t >= rec.duration) { replay.t = rec.duration; replay.playing = false; } }
+      const p = rec.at(replay.t); if (p) { Object.assign(session.car, p); session.car.engineOn = false; }
+      hud.updateReplay(replay.t, replay.playing, rec);
+    }
     if (!paused && session.state === "running") {
       controls.apply(session.car, dt);
       acc += dt;
       let n = 0;
       while (acc >= H && n < 60) { session.step(H); acc -= H; n++; }
+      rec.sample(session);
     } else acc = 0;
     view.look = controls.look;
     app.classList.toggle("cockpit", view.mode === "cockpit");
