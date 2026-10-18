@@ -34,6 +34,12 @@ function hatch(W, poly, step = 14) {
     for (let i = 0; i + 1 < hits.length; i += 2) W.addLine([P(...hits[i]), P(...hits[i + 1])], "paint", { width: 0.22 });
   }
 }
+// lines fanning out from `apex` to points spread between `a` and `b` (the gore where a road branches off), outlined
+function fan(W, apex, a, b, n) {
+  W.addLine(polyline([apex, a]), "paint", { width: 0.16 }); W.addLine(polyline([apex, b]), "paint", { width: 0.16 });
+  for (let i = 1; i < n; i++) { const t = i / n, mid = [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t]; W.addLine(polyline([[apex[0] + (mid[0] - apex[0]) * 0.15, apex[1] + (mid[1] - apex[1]) * 0.15], mid]), "paint", { width: 0.16 }); }
+  W.addLine(polyline([a, b]), "paint", { width: 0.16 });
+}
 // a lane arrow lying on the asphalt (the 1.18 markings of the video): centre (x, y) of the plan, pointing along `deg`
 // (0 east, 90 south). kind: "S" straight, "R"/"L" a turn (the shaft bends round to the right/left), "SR"/"SL" straight
 // with a turn branching off it, "LR" both turns. In arrow units: u forward, v to the driver's right; 56 units long.
@@ -123,7 +129,7 @@ export function addBoard(W) {
   // hatching (no entry)
   hatch(W, [[68, 498], [130, 522], [166, 548], [160, 578], [68, 580]]);
   hatch(W, [[1337, 365], [1385, 365], [1385, 495], [1337, 495]]);
-  hatch(W, [[662, 1085], [714, 1030], [714, 1085]], 12);
+  fan(W, [714, 1085], [662, 1085], [714, 1030], 9);                // the gore where the south arm leaves the bottom road: a fan of lines (3:49)
   // lane arrows (the way each lane runs, as on the plan)
   // the arrows of the plan, lane by lane (deg: the way the lane runs; 0 east, 90 south)
   for (const [x, y, d, kind] of [

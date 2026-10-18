@@ -474,7 +474,7 @@ export function buildWorldMeshes(W, quality) {
       spots.push([x, y, Math.atan2(-ny * side, -nx * side)]); acc = 0;
     }
     if (W.board) {                                    // along the edge of the plan, just outside it, the arms reaching over the asphalt
-      const [a, b, c, d] = W.board.frame, edge = (p0, p1, nx, ny, rot) => { const L = Math.hypot(p1[0] - p0[0], p1[1] - p0[1]), n = Math.floor(L / 26); for (let i = 0; i < n; i++) { const t = (i + 0.5) / n; spots.push([p0[0] + (p1[0] - p0[0]) * t + nx * 2.4, p0[1] + (p1[1] - p0[1]) * t + ny * 2.4, rot]); } };
+      const [a, b, c, d] = W.board.frame, edge = (p0, p1, nx, ny, rot) => { const L = Math.hypot(p1[0] - p0[0], p1[1] - p0[1]), n = Math.floor(L / 14); for (let i = 0; i < n; i++) { const t = (i + 0.5) / n; spots.push([p0[0] + (p1[0] - p0[0]) * t + nx * 2.4, p0[1] + (p1[1] - p0[1]) * t + ny * 2.4, rot]); } };
       edge(a, b, 0, -1, Math.PI / 2); edge(b, c, 1, 0, Math.PI); edge(d, c, 0, 1, -Math.PI / 2); edge(a, d, -1, 0, 0);
     }
     for (const sp of spots) solid(sp[0], sp[1], 0.16);
