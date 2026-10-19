@@ -208,14 +208,14 @@ export function addBoard(W) {
   }
   // top road: the lane line, and the west road's dashed middle
   W.addLine(polyline([[690, 96], [150, 96], ...arc(150, 158, 62, -Math.PI / 2, -Math.PI, 10).slice(1)]), "paint", { width: 0.16 });   // the lane line bends round the corner into the west road
-  W.addLine(polyline([[88, 158], [88, 520]]), "paint", { width: 0.14, dash: [1.0, 1.4] });
-  W.addLine(polyline([[88, 662], [88, 700]]), "paint", { width: 0.14, dash: [1.0, 1.4] });
+  W.addLine(polyline([[88, 158], [88, 480]]), "paint", { width: 0.14, dash: [1.0, 1.4] });
+  W.addLine(polyline([[88, 600], [88, 700]]), "paint", { width: 0.14, dash: [1.0, 1.4] });
   // the middle line of the bottom road (solid where the south arm joins it)
   W.addLine(polyline([[160, 1068], [640, 1068]]), "paint", { width: 0.14, dash: [1.0, 1.4] });
   W.addLine(polyline([[750, 1068], [1290, 1068]]), "paint", { width: 0.14, dash: [1.0, 1.4] });
   W.addLine(polyline([[445, 45], [445, 135]]), "paint", { width: 0.3 });
   // hatching (no entry)
-  gore(W, [62, 532], [182, 594], [62, 648], [96, 586], [122, 621], 45, 9);       // where the junction road meets the west road (as on the board)
+  gore(W, [62, 486], [176, 557], [62, 557], [92, 548], [120, 557], 45, 9);     // north of the westbound lane: the left turn south to the railway stays free       // where the junction road meets the west road (as on the board)
   hatch(W, [[1337, 365], [1385, 365], [1385, 495], [1337, 495]]);
   gore(W, [640, 1068], [695, 1035], [750, 1068], [688, 1063], [702, 1063], 0, 6);   // where the south arm joins the bottom road
   // lane arrows (the way each lane runs, as on the plan)
