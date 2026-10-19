@@ -32,7 +32,8 @@ import { loadPeople, realInstructor, realDriver, realKid, realPedestrian, realWa
 
 const coarse = matchMedia("(pointer: coarse)").matches;
 const settings = { transmission: "manual", quality: coarse ? "mid" : "high", traffic: "real", mouseSteer: false, muted: false, voice: true, car: "cobalt", instructor: "angry", color: "white", plate: DEFAULT_PLATE, size: "real" };
-try { Object.assign(settings, JSON.parse(localStorage.getItem("avtodrom.settings") || "{}")); } catch (_) {}
+let qualityChosen = false;          // the player (or an earlier visit) has a quality setting; else it is picked for the device below
+try { const saved = JSON.parse(localStorage.getItem("avtodrom.settings") || "{}"); qualityChosen = !!saved.quality; Object.assign(settings, saved); } catch (_) {}
 if (!settings.v2) { settings.v2 = true; if (settings.traffic === "simple") settings.traffic = "real"; }     // phones were given the box cars before
 // the old "Ovoz" button muted on first press; start everyone unmuted once
 // phones used to start on "light"; the new balanced tier keeps shadows and the colour grade at a moderate cost
@@ -49,6 +50,7 @@ const hud = new Hud(app, { settings, account: u => onAccount(u), protocolBack: (
   setPlate: t => { settings.plate = t; if (view.carView.setPlate) view.carView.setPlate(t); saveSettings(); },
   setColor: id => { settings.color = id; if (view.carView.setPaint) view.carView.setPaint(id); saveSettings(); } });
 const view = new View(hud.canvas);
+if (!qualityChosen) { settings.quality = pickQuality(view.renderer); saveSettings(); }
 const audio = new CarAudio();
 const instructor = new Instructor(audio);
 instructor.mood = settings.instructor;
@@ -554,7 +556,11 @@ const truePose = {};
 // frame rate: "max" draws every screen refresh; on a 120/144 Hz screen "60" draws every other one (a phone
 // stays cool), "30" every second or fourth. The refresh interval is measured from the frames themselves
 let lastRaw = performance.now(), vsync = 1000 / 60, lastDraw = 0;
-const frameCap = () => { const fps = settings.fps || (coarse ? "60" : "max"); return fps === "30" ? 1000 / 30 : fps === "60" ? 1000 / 60 : 0; };
+// behind the menu only the car turns slowly: 30 frames a second are enough there
+const frameCap = () => {
+  const fps = settings.fps || (coarse ? "60" : "max"), cap = fps === "30" ? 1000 / 30 : fps === "60" ? 1000 / 60 : 0;
+  return hud.menuOpen && !inGarage ? Math.max(cap, 1000 / 30) : cap;
+};
 function frameGap() { const want = frameCap(); return want && want > vsync * 1.5 ? want - vsync / 2 : 0; }
 function frame(now) {
   const raw = now - lastRaw; lastRaw = now;
@@ -650,3 +656,16 @@ if (import.meta.env.DEV) {
 }
 }
 requestAnimationFrame(frame);
+
+// First visit: a quality setting for the device (the player can change it in the settings). Weak phones (older
+// Mali, Adreno 5xx and below, PowerVR, little memory) start on "Yengil", other phones and laptops with
+// integrated Intel graphics on "O'rta", the rest on "Yuqori".
+function pickQuality(renderer) {
+  let gpu = "";
+  try { const gl = renderer.getContext(), ext = gl.getExtension("WEBGL_debug_renderer_info"); gpu = ext ? gl.getParameter(ext.UNMASKED_RENDERER_WEBGL) : gl.getParameter(gl.RENDERER); } catch (_) {}
+  const mem = navigator.deviceMemory || 8, cores = navigator.hardwareConcurrency || 8;
+  const weak = /Mali-(4|T\d|G(31|51|52|57|68)\b)|Adreno\D*[2-5]\d\d\b|PowerVR|SwiftShader|llvmpipe|Intel.*HD Graphics [2-5]\d\d\b/i.test(gpu);
+  if (weak || mem <= 3 || cores <= 4 && coarse) return "low";
+  if (coarse || /Intel/i.test(gpu) && !/Arc/i.test(gpu)) return "mid";
+  return "high";
+}
