@@ -158,3 +158,39 @@ export function splitPinches(poly) {
   }
   return [poly];
 }
+
+// corner cutting (Chaikin) on a closed outline: `n` rounds round every corner into a smooth curve
+export function smoothClosed(poly, n = 2) {
+  let p = poly;
+  for (let k = 0; k < n; k++) { const q = []; for (let i = 0; i < p.length; i++) { const a = p[i], b = p[(i + 1) % p.length]; q.push([0.75 * a[0] + 0.25 * b[0], 0.75 * a[1] + 0.25 * b[1]], [0.25 * a[0] + 0.75 * b[0], 0.25 * a[1] + 0.75 * b[1]]); } p = q; }
+  poly.length = 0; poly.push(...p.map(([x, y]) => [+x.toFixed(3), +y.toFixed(3)])); return poly;
+}
+
+// the stretches of an island's outline that run along an exercise pad (within `tol`) are replaced by the pad's own
+// edge, which was traced more carefully (the snakes: the kerb follows the pale lane exactly)
+export function snapToPads(kerb, pads, tol = 1.6) {
+  const near = (q, P) => { let best = { d: 1e9 }; for (let i = 0; i < P.length; i++) { const a = P[i], b = P[(i + 1) % P.length], dx = b[0] - a[0], dy = b[1] - a[1], L = dx * dx + dy * dy || 1, t = Math.max(0, Math.min(1, ((q[0] - a[0]) * dx + (q[1] - a[1]) * dy) / L)), d = Math.hypot(a[0] + dx * t - q[0], a[1] + dy * t - q[1]); if (d < best.d) best = { d, i, t }; } return best; };
+  for (const P of pads) {
+    const n = kerb.length, m = P.length, hit = kerb.map(q => near(q, P));
+    if (!hit.some(h => h.d < tol)) continue;
+    let start = hit.findIndex(h => h.d >= tol); if (start < 0) continue;
+    const out = [];
+    for (let k = 0; k < n;) {
+      const i = (start + k) % n;
+      if (hit[i].d >= tol) { out.push(kerb[i]); k++; continue; }
+      let e = k; while (e + 1 < n && hit[(start + e + 1) % n].d < tol) e++;
+      const h0 = hit[i], h1 = hit[(start + e) % n];
+      if (e - k < 3) { for (let j = k; j <= e; j++) out.push(kerb[(start + j) % n]); k = e + 1; continue; }
+      const pt = h => { const a = P[h.i], b = P[(h.i + 1) % m]; return [a[0] + (b[0] - a[0]) * h.t, a[1] + (b[1] - a[1]) * h.t]; };
+      // the pad's edge from h0 to h1, the way round that is as long as the kerb run
+      let runL = 0; for (let j = k; j < e; j++) { const a = kerb[(start + j) % n], b = kerb[(start + j + 1) % n]; runL += Math.hypot(b[0] - a[0], b[1] - a[1]); }
+      const walk = dir => { const pts = [pt(h0)]; let j = dir > 0 ? (h0.i + 1) % m : h0.i, L = 0, guard = 0;
+        while (guard++ < m && j !== (dir > 0 ? (h1.i + 1) % m : h1.i)) { pts.push(P[j]); j = (j + dir + m) % m; }
+        pts.push(pt(h1)); for (let q = 1; q < pts.length; q++) L += Math.hypot(pts[q][0] - pts[q - 1][0], pts[q][1] - pts[q - 1][1]); return { pts, L }; };
+      const f = walk(1), r = walk(-1), w = Math.abs(f.L - runL) < Math.abs(r.L - runL) ? f : r;
+      out.push(...w.pts); k = e + 1;
+    }
+    kerb.length = 0; kerb.push(...out);
+  }
+  return kerb;
+}

@@ -3,7 +3,7 @@
 // plan by tools/trace-board.mjs), with the plan's markings on top: zebras, start box, parking diamonds, hatching,
 // lane lines.
 import { FRAME, ISLANDS, PADS, PAD, px } from "./boardData.js";
-import { straighten, insetPoly, PAD_INSET, squareCorners, removeSteps, simplifyClosed, axisShare, squareEdges, removeSlivers, splitPinches } from "./straighten.js";
+import { straighten, insetPoly, PAD_INSET, squareCorners, removeSteps, simplifyClosed, axisShare, squareEdges, removeSlivers, splitPinches, smoothClosed, snapToPads } from "./straighten.js";
 
 // the kerbs of the plan are traced by hand: their long straight runs are made exactly straight, and the little steps of
 // the tracing (jogs under 1.3 m between two parallel runs) are taken out, so the lanes have clean walls as on the
@@ -13,8 +13,9 @@ for (const isl of ISLANDS.slice()) {
   if (axisShare(isl.kerb) > 0.6) {                      // a block of straight walls (not a snake): smooth out the tracing
     simplifyClosed(isl.kerb, 0.5); straighten(isl.kerb, { strictOnly: true, tol: 1.3, ang: 0.12, minLen: 0.8 }); squareEdges(isl.kerb); squareEdges(isl.kerb);
   }
-  else simplifyClosed(isl.kerb, 0.3);                  // the snakes: straight diagonals, no stair steps of the tracing
-  squareCorners(isl.kerb); removeSteps(isl.kerb); removeSlivers(isl.kerb);
+  else { simplifyClosed(isl.kerb, 0.25); smoothClosed(isl.kerb, 2); isl.smooth = true; }   // the snakes: one smooth curve, as on the plan
+  if (!isl.smooth) { squareCorners(isl.kerb); removeSteps(isl.kerb); removeSlivers(isl.kerb); }
+  snapToPads(isl.kerb, [PADS[PAD.snakeR], PADS[PAD.snakeL]]);            // the walls of the snakes follow their pale lanes
   // drop repeated points and the spikes the straightening can leave (an edge that turns straight back on the one before)
   const k = isl.kerb;
   for (let again = true; again;) {
@@ -169,7 +170,7 @@ export function addBoard(W) {
   // the east road (two ways): its outline and the dashed middle
   W.addLine(polyline([[810, 545], [1335, 545]]), "paint", { width: 0.14, dash: [2.2, 2.2] });
   // the middle lines of the four arms of the junction (as on the video): solid for the last 15 m before the zebra, dashed further out
-  for (const [a, b, c] of [[[612, 594], [462, 594], [160, 594]], [[780, 590], [930, 590], [1290, 590]], [[695, 498], [420, 420], [695, 340]], [[695, 690], [695, 840], [695, 1020]]]) {
+  for (const [a, b, c] of [[[612, 594], [462, 594], [160, 594]], [[780, 590], [930, 590], [1290, 590]], [[695, 498], [420, 420], [695, 340]], [[695, 690], [695, 1030], [695, 1031]]]) {
     const B = b[1] === 420 ? [695, 420] : b;
     W.addLine(polyline([a, B]), "paint", { width: 0.15 });
     W.addLine(polyline([B, c]), "paint", { width: 0.14, dash: [1.0, 1.4] });
@@ -191,7 +192,7 @@ export function addBoard(W) {
     [565, 212, 0, "R"], [570, 355, 0, "R"], [672, 440, 90], [150, 582, 180, "L"],               // north-west quarter
     [770, 312, 0, "SR"], [1050, 305, 0], [1050, 345, 0], [717, 400, -90, "R"],                     // north-east road
     [995, 520, 180, "SR"], [1165, 520, 180, "SR"], [1315, 520, 180, "SR"], [980, 572, 180], [1165, 572, 180], [1315, 572, 180], [820, 567, 180, "L"],
-    [570, 615, 0], [210, 665, -90, "R"], [452, 640, -90, "R"], [90, 1040, 90, "L"], [255, 1090, 0], [475, 1055, 180, "L"], [625, 1052, 180, "SR"], [675, 970, 90, "SL"], [645, 1095, 0],
+    [570, 615, 0], [210, 665, -90, "R"], [452, 640, -90, "R"], [90, 1040, 90, "L"], [255, 1090, 0], [475, 1055, 180, "L"], [625, 1052, 180, "SR"], [675, 960, 90, "R"], [645, 1095, 0],
     [835, 605, 0, "SR"], [1135, 602, 0, "SR"], [1255, 635, 0, "R"], [1355, 670, -90, "L"], [1315, 935, 90, "R"], [710, 725, -90, "L"],
     [770, 1042, 180, "L"], [935, 1072, 180, "SR"], [1160, 1077, 180, "SR"], [975, 1107, 0], [1250, 1115, 0, "L"]
   ]) arrow(W, x, y, d, len || 56, kind);
