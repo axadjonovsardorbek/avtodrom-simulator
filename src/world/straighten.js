@@ -236,3 +236,87 @@ export function morphSmooth(poly, rClose = 1.3, rOpen = 1.0, cell = 0.1) {
   simplifyClosed(poly, 0.15); smoothClosed(poly, 2);
   return poly;
 }
+
+// ---- the snakes: a lane of one width along a smooth centre line, cut cleanly into the islands round it
+
+const resample = (pts, n) => {
+  const cum = [0]; for (let i = 1; i < pts.length; i++) cum.push(cum[i - 1] + Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]));
+  const L = cum[cum.length - 1], out = [];
+  for (let k = 0; k < n; k++) { const s = L * k / (n - 1); let i = 1; while (i < cum.length - 1 && cum[i] < s) i++; const t = (s - cum[i - 1]) / ((cum[i] - cum[i - 1]) || 1); out.push([pts[i - 1][0] + (pts[i][0] - pts[i - 1][0]) * t, pts[i - 1][1] + (pts[i][1] - pts[i - 1][1]) * t]); }
+  return out;
+};
+const chaikinOpen = (p, n) => { for (let k = 0; k < n; k++) { const q = [p[0]]; for (let i = 0; i + 1 < p.length; i++) { const a = p[i], b = p[i + 1]; q.push([0.75 * a[0] + 0.25 * b[0], 0.75 * a[1] + 0.25 * b[1]], [0.25 * a[0] + 0.75 * b[0], 0.25 * a[1] + 0.75 * b[1]]); } q.push(p[p.length - 1]); p = q; } return p; };
+const offsetOpen = (c, d) => c.map((p, i) => { const a = c[Math.max(0, i - 1)], b = c[Math.min(c.length - 1, i + 1)], dx = b[0] - a[0], dy = b[1] - a[1], L = Math.hypot(dx, dy) || 1; return [p[0] - dy / L * d, p[1] + dx / L * d]; });
+
+// a strip-shaped pad (two long sides joined by two open ends): its centre line (smoothed) and its usual width
+export function stripCentre(pad, isOpen) {
+  const n = pad.length, open = pad.map((a, i) => { const b = pad[(i + 1) % n]; return isOpen((a[0] + b[0]) / 2, (a[1] + b[1]) / 2); });
+  const runs = []; for (let i = 0; i < n; i++) if (open[i] && !open[(i + n - 1) % n]) { let j = i; while (open[(j + 1) % n]) j = (j + 1) % n; runs.push([i, j]); }
+  if (runs.length !== 2) return null;
+  const side = (from, to) => { const out = []; for (let i = from; ; i = (i + 1) % n) { out.push(pad[i]); if (i === to) break; } return out; };
+  const s1 = resample(side((runs[0][1] + 1) % n, runs[1][0]), 120), s2 = resample(side((runs[1][1] + 1) % n, runs[0][0]), 120).reverse();
+  let c = s1.map((p, i) => [(p[0] + s2[i][0]) / 2, (p[1] + s2[i][1]) / 2]);
+  const ws = s1.map((p, i) => Math.hypot(p[0] - s2[i][0], p[1] - s2[i][1])).sort((a, b) => a - b), w = ws[Math.floor(ws.length / 2)];
+  c = resample(chaikinOpen(resample(c, 24), 3), 140);
+  return { c, w };
+}
+// the pad of the lane: the two walls joined at the ends
+export function stripPoly(c, w) { return [...offsetOpen(c, w / 2), ...offsetOpen(c, -w / 2).reverse()]; }
+
+// the island `poly` with the lanes (centre lines `cs`, widths) cut out of it: the walls are laid along the lanes, the
+// little gaps the tracing left beside them are filled, the rest rounded; returns the outline of its biggest piece
+export function carveLanes(poly, lanes, cell = 0.1) {
+  const xs = poly.map(p => p[0]), ys = poly.map(p => p[1]), pad = 3;
+  const x0 = Math.min(...xs) - pad, y0 = Math.min(...ys) - pad, nx = Math.ceil((Math.max(...xs) + pad - x0) / cell), ny = Math.ceil((Math.max(...ys) + pad - y0) / cell);
+  const g = new Uint8Array(nx * ny);
+  for (let j = 0; j < ny; j++) {
+    const y = y0 + (j + 0.5) * cell, cut = [];
+    for (let i = 0, k = poly.length - 1; i < poly.length; k = i++) { const a = poly[i], b = poly[k]; if ((a[1] > y) !== (b[1] > y)) cut.push(a[0] + (y - a[1]) / (b[1] - a[1]) * (b[0] - a[0])); }
+    cut.sort((a, b) => a - b);
+    for (let c = 0; c + 1 < cut.length; c += 2) for (let i = Math.max(0, Math.ceil((cut[c] - x0) / cell - 0.5)); i < nx && x0 + (i + 0.5) * cell < cut[c + 1]; i++) g[j * nx + i] = 1;
+  }
+  // the distance of every cell from the lanes' centre lines, in metres, less the lane's half width (< 0: in a lane)
+  const dl = new Float32Array(nx * ny).fill(1e9), side = new Uint8Array(nx * ny);     // side: 1 when the nearest point is along the lane itself (not past its ends)
+  for (const { c, w } of lanes) {
+    const e0 = c[0], e1 = c[c.length - 1], u0 = [c[0][0] - c[4][0], c[0][1] - c[4][1]], u1 = [e1[0] - c[c.length - 5][0], e1[1] - c[c.length - 5][1]], l0 = Math.hypot(...u0), l1 = Math.hypot(...u1);
+    const ext = [[e0[0] + u0[0] / l0 * 6, e0[1] + u0[1] / l0 * 6], ...c, [e1[0] + u1[0] / l1 * 6, e1[1] + u1[1] / l1 * 6]];
+    for (let s = 0; s + 1 < ext.length; s++) {
+      const a = ext[s], b = ext[s + 1], dx = b[0] - a[0], dy = b[1] - a[1], L2 = dx * dx + dy * dy || 1, R = w / 2 + 2;
+      const i0 = Math.max(0, Math.floor((Math.min(a[0], b[0]) - R - x0) / cell)), i1 = Math.min(nx - 1, Math.ceil((Math.max(a[0], b[0]) + R - x0) / cell));
+      const j0 = Math.max(0, Math.floor((Math.min(a[1], b[1]) - R - y0) / cell)), j1 = Math.min(ny - 1, Math.ceil((Math.max(a[1], b[1]) + R - y0) / cell));
+      for (let j = j0; j <= j1; j++) for (let i = i0; i <= i1; i++) { const x = x0 + (i + 0.5) * cell, y = y0 + (j + 0.5) * cell, t = Math.max(0, Math.min(1, ((x - a[0]) * dx + (y - a[1]) * dy) / L2)), d = Math.hypot(a[0] + dx * t - x, a[1] + dy * t - y) - w / 2; const k = j * nx + i; if (d < dl[k]) { dl[k] = d; side[k] = s > 0 && s < ext.length - 2 && t > 0 && t < 1 || (s > 1 && s < ext.length - 3) ? 1 : 0; } }
+    }
+  }
+  // fill the strip beside each lane where this island reaches it, then cut the lanes
+  const near = new Uint8Array(nx * ny);
+  for (let j = 0; j < ny; j++) for (let i = 0; i < nx; i++) if (g[j * nx + i]) for (let dj = -15; dj <= 15; dj += 3) for (let di = -15; di <= 15; di += 3) { const ii = i + di, jj = j + dj; if (ii >= 0 && jj >= 0 && ii < nx && jj < ny) near[jj * nx + ii] = 1; }
+  for (let k = 0; k < g.length; k++) { if (dl[k] < 0) g[k] = 0; else if (dl[k] < 1.2 && near[k] && side[k]) g[k] = 1; }
+  // round the tips at the lanes' mouths (an opening with a 1 m disc)
+  { const dist0 = () => { const d = new Float32Array(nx * ny); for (let k = 0; k < d.length; k++) d[k] = g[k] ? 1e9 : 0;
+      const pass = (j0, j1, dj, i0, i1, di) => { for (let j = j0; j !== j1; j += dj) for (let i = i0; i !== i1; i += di) { const k = j * nx + i; let m = d[k]; if (i - di >= 0 && i - di < nx) m = Math.min(m, d[k - di] + 1); if (j - dj >= 0 && j - dj < ny) { m = Math.min(m, d[k - dj * nx] + 1); if (i - di >= 0 && i - di < nx) m = Math.min(m, d[k - dj * nx - di] + 1.4142); if (i + di >= 0 && i + di < nx) m = Math.min(m, d[k - dj * nx + di] + 1.4142); } d[k] = m; } };
+      pass(0, ny, 1, 0, nx, 1); pass(ny - 1, -1, -1, nx - 1, -1, -1); return d; };
+    const r = 1.0 / cell; let d = dist0(); for (let k = 0; k < g.length; k++) g[k] = d[k] > r ? 1 : 0;
+    const inv = g.map(v => 1 - v); const save = g.slice(); g.set(inv); d = dist0(); g.set(save); for (let k = 0; k < g.length; k++) g[k] = d[k] <= r ? 1 : 0; for (let k = 0; k < g.length; k++) if (dl[k] < 0) g[k] = 0; }
+  // the biggest piece only
+  const lab = new Int32Array(nx * ny).fill(-1); let best = -1, bestN = 0;
+  for (let k = 0; k < g.length; k++) if (g[k] && lab[k] < 0) { const q = [k]; lab[k] = k; let m = 0; while (q.length) { const v = q.pop(); m++; const i = v % nx, j = (v / nx) | 0; for (const [a, b] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const ii = i + a, jj = j + b; if (ii < 0 || jj < 0 || ii >= nx || jj >= ny) continue; const u = jj * nx + ii; if (g[u] && lab[u] < 0) { lab[u] = k; q.push(u); } } } if (m > bestN) { bestN = m; best = k; } }
+  for (let k = 0; k < g.length; k++) if (lab[k] !== best) g[k] = 0;
+  const out = traceGrid(g, nx, ny, x0, y0, cell);
+  if (!out) return poly;
+  poly.length = 0; poly.push(...out); simplifyClosed(poly, 0.08); smoothClosed(poly, 2);
+  return poly;
+}
+function traceGrid(g, nx, ny, x0, y0, cell) {
+  const at = (i, j) => i >= 0 && j >= 0 && i < nx && j < ny && g[j * nx + i] === 1;
+  let si = -1, sj = -1;
+  for (let k = 0; k < g.length && si < 0; k++) if (g[k] && !at(k % nx, ((k / nx) | 0) - 1)) { si = k % nx; sj = (k / nx) | 0; }
+  if (si < 0) return null;
+  const out = []; let i = si, j = sj, dir = 0; const DX = [1, 0, -1, 0], DY = [0, 1, 0, -1];
+  for (let guard = 0; guard < 4 * nx * ny; guard++) {
+    out.push([x0 + i * cell, y0 + j * cell]); i += DX[dir]; j += DY[dir];
+    if (i === si && j === sj) break;
+    const ahead = d => { const L = [[i, j - 1], [i, j], [i - 1, j], [i - 1, j - 1]][d], R = [[i, j], [i - 1, j], [i - 1, j - 1], [i, j - 1]][d]; return [at(...L), at(...R)]; };
+    for (const turn of [1, 0, 3]) { const d = (dir + turn) % 4, [l, r] = ahead(d); if (r && !l) { dir = d; break; } }
+  }
+  return out;
+}
