@@ -73,12 +73,13 @@ export function buildIntersection(W, A, caps = false, bare = false, flow = {}) {
 export function buildFull(car) {
   const W = new World("full"); W.car = car; W.k = (car && car.k) || 1;
   const A = 21, O = { x: 0, y: 0 };       // the stop lines 11 m from the centre, just before the zebras
-  // the other cars keep to the lanes of the plan (right-hand traffic): east along the bottom side of the cross road, west
+  // the other cars keep to the lanes of the plan (right-hand traffic): east along the bottom side of the cross road (and on
+  // round the east and bottom roads, out of the way of the garage and the parking), west
   // along its top side and the two-lane east road, south down the north road and on down the road between the south quarters
   const Q = pts => pts.map(p => px(...p));
   buildIntersection(W, A, false, true, {
     lanes: [
-      { pts: Q([[150, 614], [560, 612], [612, 603], [780, 603], [830, 612], [1290, 616]]), stop: px(582, 603), axis: "EW", blockBy: [180] },
+      { pts: Q([[150, 614], [560, 612], [612, 603], [780, 603], [830, 612], [1270, 616], [1305, 628], [1322, 660], [1325, 1000], [1310, 1045], [1270, 1062], [700, 1058]]), stop: px(582, 603), axis: "EW", blockBy: [180] },
       { pts: Q([[1320, 568], [800, 568], [780, 572], [612, 572], [560, 576], [150, 577]]), stop: px(802, 572), axis: "EW", blockBy: [0, -90] },
       { pts: Q([[674, 410], [674, 640], [690, 700], [690, 1040]]), stop: px(674, 485), axis: "NS", blockBy: [-90, 90] }
     ],
@@ -125,11 +126,7 @@ export function buildFull(car) {
       enter: { ...xy(px(428, 662)), r: 4 }, exit: { ...xy(px(568, 888)), r: 4.5 } }]
   });
 
-  // ---- 10: the emergency stop on the east loop road (heading north)
-  const T4 = at(1362, 1050, heading([1362, 1050], [1362, 640]));
-  const tA = avariya(W, T4, 38);
-
-  // ---- 7: the garage on the east pad of the south-east quarter: in from the road above, the box on the east side
+  // ---- 7: the garage, straight on from the snake: the east pad of the south-east quarter, in from the road above, the box on the east side
   const g0 = px(1178, 733), g1 = px(1178, 1012), gth = Math.atan2(g1[1] - g0[1], g1[0] - g0[0]) / DEG, gd = (a, b) => Math.hypot(...px(...a).map((v, i) => v - px(...b)[i]));
   const tX = boksPad(W, { x: g0[0], y: g0[1], th: gth, Lc: gd([1178, 733], [1178, 1012]), cw: gd([1157, 800], [1200, 800]) / 2,
     bx0: gd([1178, 733], [1178, 890]), bx1: gd([1178, 733], [1178, 950]), bd: gd([1200, 920], [1257, 920]), side: -1, poly: PADS[PAD.T4], open: padOpen(PADS[PAD.T4]) });
@@ -144,6 +141,11 @@ export function buildFull(car) {
   // ---- 9: the speed lane on the bottom road (heading east)
   const T3 = at(189, 1081, heading([189, 1081], [700, 1081]));
   const tZ = tezlashish(W, T3, 46, [34, 40]);
+
+  // ---- 10: the emergency stop on the east road (heading north), after the left turn at the end of the speed lane and
+  // before the turn to the parking
+  const T4 = at(1362, 1050, heading([1362, 1050], [1362, 640]));
+  const tA = avariya(W, T4, 38);
 
   // ---- 11: the parallel parking of the video (4:16-4:39): up the east side, then west along the east road and back
   // into the middle pocket cut into the island north of it (pad D3)
@@ -164,7 +166,7 @@ export function buildFull(car) {
     W.addLine([toWorld(fp, fEnd - 0.1, -hw), toWorld(fp, a, -hw), toWorld(fp, a, hw), toWorld(fp, fEnd - 0.1, hw)], "paint", { width: 0.25 });
     const [x, y] = toWorld(fp, a + 3.2, 0); W.texts.push({ x, y, th: fp.th, text: "FINISH", size: 1.6 }); }
 
-  W.tasks.push(tP, tE, tB, c1, tI, tA, tX, c2, tR, tZ, tK, c3);
+  W.tasks.push(tP, tE, tB, c1, tI, tX, c2, tR, tZ, tA, tK, c3);   // the order of the exam (as the instructor drives it)
   return W.build();
 }
 const xy = ([x, y]) => ({ x, y });

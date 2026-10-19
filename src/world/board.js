@@ -64,6 +64,18 @@ for (const isl of ISLANDS.slice()) {
   isl.grass = isl.kerb;                                // the kerb is drawn as a 0.4 m band just inside this outline
 }
 for (const p of PADS) straighten(p);
+// the garages (as on the plan and the board): the middle island's top runs on over the narrow strip between its T pad
+// and the east island's pocket and joins the east island there, one kerb, no way through between them; the pocket is
+// reached from the top road beside it
+{ const near = (q, x, y) => Math.hypot(q[0] - x, q[1] - y) < 0.3;
+  const mid = ISLANDS.find(i => i.kerb.some(q => near(q, 43.84, 5.14))), east = ISLANDS.find(i => i !== mid && i.kerb.some(q => near(q, 43.3, 13.16)));
+  if (mid && east) {
+    const m = mid.kerb, a = m.findIndex(q => near(q, 43.84, 5.14)), e = east.kerb, b = e.findIndex(q => near(q, 43.3, 13.16));
+    const loop = [...e.slice(b + 1), ...e.slice(0, b + 1)];
+    m.splice(a, 2, ...arcPx(1146, 650, 12, 270, 360, 5).map(([x, y]) => px(x, y)), ...loop);
+    mid.grass = m; ISLANDS.splice(ISLANDS.indexOf(east), 1);
+  }
+}
 // the finish road (the north-east road) as on the video: a narrow kerb along its north side, from its west end (rounded)
 // to its east end, where a kerb across closes it (the plan's double lines there)
 { const strip = [...arcPx(746, 285, 5, 90, 270), [1234, 276], [1234, 357.5], [1224, 357.5], [1224, 290]].map(([x, y]) => px(x, y));
