@@ -165,6 +165,12 @@ export function addBoard(W) {
   W.addLine(polyline([[790, 330], [1215, 330]]), "paint", { width: 0.14, dash: [2.2, 2.2] });
   // the east road (two ways): its outline and the dashed middle
   W.addLine(polyline([[810, 545], [1335, 545]]), "paint", { width: 0.14, dash: [2.2, 2.2] });
+  // the middle lines of the four arms of the junction (as on the video): solid for the last 15 m before the zebra, dashed further out
+  for (const [a, b, c] of [[[612, 594], [462, 594], [160, 594]], [[780, 590], [930, 590], [1290, 590]], [[695, 498], [420, 420], [695, 340]], [[695, 690], [695, 840], [695, 1020]]]) {
+    const B = b[1] === 420 ? [695, 420] : b;
+    W.addLine(polyline([a, B]), "paint", { width: 0.15 });
+    W.addLine(polyline([B, c]), "paint", { width: 0.14, dash: [1.0, 1.4] });
+  }
   // top road: the lane line, and the west road's dashed middle
   W.addLine(polyline([[690, 96], [150, 96], ...arc(150, 158, 62, -Math.PI / 2, -Math.PI, 10).slice(1)]), "paint", { width: 0.16 });   // the lane line bends round the corner into the west road
   W.addLine(polyline([[88, 158], [88, 500]]), "paint", { width: 0.14, dash: [1.0, 1.4] });
