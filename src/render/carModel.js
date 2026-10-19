@@ -415,6 +415,8 @@ export function rigCar(root) {
   let lastCluster = 0;
   return {
     root, interior, setCockpit, clusterTex: cluster.tex, setDoor, hasDoors: Object.keys(doors).length > 0,
+    // the wheels as a whole (front pivots, rear wheels): the body rocks on its springs, they stay on the road
+    wheels: [...pivots, ...spins.filter(w => !pivots.some(p => { let x = w.parent; while (x && x !== p) x = x.parent; return !!x; }))],
     update(car, now) {
       for (const p of pivots) p.rotation.y = -car.steer;
       for (const w of spins) w.rotation.z = -car.wheelSpin;

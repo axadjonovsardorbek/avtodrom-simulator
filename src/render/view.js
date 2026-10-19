@@ -7,25 +7,30 @@ import { EffectComposer } from "three/examples/jsm/postprocessing/EffectComposer
 import { SMAAPass } from "three/examples/jsm/postprocessing/SMAAPass.js";
 import { RenderPass } from "three/examples/jsm/postprocessing/RenderPass.js";
 import { UnrealBloomPass } from "three/examples/jsm/postprocessing/UnrealBloomPass.js";
-import { ShaderPass } from "three/examples/jsm/postprocessing/ShaderPass.js";
 import { OutputPass } from "three/examples/jsm/postprocessing/OutputPass.js";
 
 // sun direction: late-morning sun from the south-east, ~38 degrees up
 const SUN_DIR = new THREE.Vector3().setFromSphericalCoords(1, THREE.MathUtils.degToRad(52), THREE.MathUtils.degToRad(135));
 
 // final look: slight warm grade, contrast, saturation and a soft vignette
-const GradeShader = {
-  uniforms: { tDiffuse: { value: null }, vignette: { value: 0.32 }, saturation: { value: 1.12 }, contrast: { value: 1.06 }, warm: { value: 0.025 } },
-  vertexShader: "varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }",
-  fragmentShader: `uniform sampler2D tDiffuse; uniform float vignette, saturation, contrast, warm; varying vec2 vUv;
-    void main(){ vec4 c = texture2D(tDiffuse, vUv);
+const GRADE = { vignette: 0.32, saturation: 1.12, contrast: 1.06, warm: 0.025 };
+// tone mapping, sRGB and the grade in one full-screen pass (they were two), with a faint fixed dither
+// against banding in the sky's gradient
+function gradedOutput() {
+  const p = new OutputPass(), f = p.material.fragmentShader, end = f.lastIndexOf("}");
+  for (const [k, v] of Object.entries(GRADE)) p.uniforms[k] = { value: v };
+  p.material.fragmentShader = f.slice(0, end).replace("precision highp float;", "precision highp float;\n\t\tuniform float vignette, saturation, contrast, warm;") + `
+      vec4 c = gl_FragColor;
       float l = dot(c.rgb, vec3(0.2126, 0.7152, 0.0722));
       c.rgb = mix(vec3(l), c.rgb, saturation);
       c.rgb = (c.rgb - 0.5) * contrast + 0.5;
       c.rgb += vec3(warm, warm * 0.4, -warm);
       vec2 d = vUv - 0.5; c.rgb *= 1.0 - vignette * smoothstep(0.35, 0.85, length(d * vec2(1.25, 1.0)));
-      gl_FragColor = c; }`
-};
+      c.rgb += (fract(sin(dot(gl_FragCoord.xy, vec2(12.9898, 78.233))) * 43758.5453) - 0.5) / 255.0;
+      gl_FragColor = c;
+    }`;
+  return p;
+}
 import { buildCar } from "./carModel.js";
 const MIRRORS = [
   { key: "center", pos: [1.62, 1.33, 0], yaw: 0, fov: 34, w: 640, h: 180 },
@@ -71,6 +76,7 @@ export class View {
     sun.shadow.mapSize.set(2048, 2048);
     Object.assign(sun.shadow.camera, { left: -40, right: 40, top: 40, bottom: -40, near: 1, far: 260 });
     sun.shadow.bias = -0.0004; sun.shadow.normalBias = 0.03;
+    sun.shadow.camera.layers.enable(1);        // the shadow-only stand-ins (worldMesh.js) live on layer 1
     s.add(sun, sun.target);
 
     this.cam = new THREE.PerspectiveCamera(60, 1, 0.05, 900);
@@ -250,7 +256,7 @@ export class View {
     for (const m of this.mirrors) m.rt.setSize(Math.round(m.w * T.mirror), Math.round(m.h * T.mirror));
     this.sun.shadow.mapSize.set(T.shadow, T.shadow);
     if (this.sun.shadow.map) { this.sun.shadow.map.dispose(); this.sun.shadow.map = null; }
-    this.ratio = this.maxRatio = Math.min(window.devicePixelRatio || 1, MAXRATIO[quality] || 1.75);
+    this.ratio = this.maxRatio = Math.min(window.devicePixelRatio || 1, MAXRATIO[quality] || 1.75); this.tooSlow = 0;
     this.renderer.setPixelRatio(this.ratio); if (this.w) this.renderer.setSize(this.w, this.h, false);
     if (this.postQ !== quality) { if (this.composer) this.composer.dispose(); this.composer = null; this.postQ = quality; }
     this.setupPost(quality);
@@ -370,9 +376,18 @@ export class View {
 
   update(session, dt, now) {
     const car = session.car, root = this.carView.root;
+    // the car stands on the ground (pitch and roll of the road), and the body rocks on its springs about a
+    // point between the axles at about hip height, not about the rear axle (the nose and the tail both move)
     root.position.set(car.x, car.h, car.y);
-    root.rotation.y = -car.th; root.rotation.z = car.pitch + (car.bodyPitch || 0); root.rotation.x = (car.groundRoll || 0) + (car.bodyRoll || 0);
+    root.rotation.y = -car.th; root.rotation.z = car.pitch; root.rotation.x = car.groundRoll || 0;
     root.updateMatrixWorld(true);
+    const piv = (this._piv = this._piv || new THREE.Vector3()).set((car.spec ? car.spec.wb : 2.7) / 2, 0.5, 0), pw = root.localToWorld(piv.clone());
+    const ground = (this._mg = this._mg || new THREE.Matrix4()).copy(root.matrixWorld);
+    root.rotation.z += car.bodyPitch || 0; root.rotation.x += car.bodyRoll || 0;
+    root.updateMatrixWorld(true);
+    root.position.add(pw.sub(root.localToWorld(piv)));
+    root.updateMatrixWorld(true);
+    this.keepWheelsDown(ground);
     this.carView.update(car, now);
     if (this.driver) this.driver.update(dt, this.driver.wheel, car);
     this.cabinLight.visible = this.mode === "cockpit" || this.mode === "interiorRear";
@@ -541,22 +556,57 @@ export class View {
     if (cam.near !== near) { cam.near = near; cam.far = 700; cam.updateProjectionMatrix(); }
     // shift the picture sideways (menu: car between the panels) without changing the view
     if (this.viewShift) cam.setViewOffset(this.w, this.h, -this.viewShift, 0, this.w, this.h); else if (cam.view) cam.clearViewOffset();
-    this.sun.position.set(car.x + SUN_DIR.x * 110, SUN_DIR.y * 110, car.y + SUN_DIR.z * 110);
+    // the sun's shadow box follows the car in whole shadow-map texels: moved by fractions of a texel, every
+    // shadow edge in the ground would crawl and shimmer as the car drives
+    const sb = this._sunBasis || (this._sunBasis = (() => {
+      const z = SUN_DIR.clone().normalize(), x = new THREE.Vector3(0, 1, 0).cross(z).normalize();
+      return { x, y: z.clone().cross(x), z };
+    })());
+    const texel = (this.sun.shadow.camera.right - this.sun.shadow.camera.left) / this.sun.shadow.mapSize.x;
+    const snap = v => Math.round(v / texel) * texel;
+    const a = snap(cp.dot(sb.x)), b = snap(cp.dot(sb.y)), c = cp.dot(sb.z);
+    const tp = this.sun.target.position.copy(sb.x).multiplyScalar(a).addScaledVector(sb.y, b).addScaledVector(sb.z, c);
+    this.sun.position.copy(tp).addScaledVector(SUN_DIR, 110);
     this.sky.position.copy(cam.position);
-    this.sun.target.position.copy(cp);
+  }
+
+  // the wheels go back to where the body's rocking moved them from (only their place: the tilt is a degree or two)
+  keepWheelsDown(ground) {
+    const cv = this.carView, root = cv.root;
+    if (!cv.wheels || !cv.wheels.length) return;
+    if (!cv.wheelRest) {
+      // each wheel's place and its parent's frame in the car's own frame (fixed: they are parts of the car)
+      const inv = root.matrixWorld.clone().invert();
+      cv.wheelRest = cv.wheels.map(w => {
+        const inParent = inv.clone().multiply(w.parent.matrixWorld);
+        return { w, pos: w.position.clone(), inParent, toParent: inParent.clone().invert() };
+      });
+    }
+    const d = (this._md = this._md || new THREE.Matrix4()).copy(root.matrixWorld).invert().multiply(ground), q = this._wq || (this._wq = new THREE.Vector3());
+    for (const r of cv.wheelRest) {
+      r.w.position.copy(q.copy(r.pos).applyMatrix4(r.inParent).applyMatrix4(d).applyMatrix4(r.toParent));
+      r.w.updateMatrixWorld(true);
+    }
   }
 
   // Keeps the frame rate up on any device: the render resolution follows the measured frame time
   // (down quickly when frames are slow, back up slowly when there is headroom).
-  adapt(dtMs) {
+  // Each change reallocates the render targets and shows as a blink, so it changes rarely: down after
+  // 1.4 s of slow frames, up only after 4 s of fast ones (no pumping between two sizes).
+  // `capMs`: the frame time the frame-rate setting holds the game to (30 FPS is not a slow device).
+  adapt(dtMs, capMs = 0) {
     this.ft += (Math.min(dtMs, 100) - this.ft) * 0.05;
     this.adaptT = (this.adaptT || 0) + dtMs;
     if (this.adaptT < 700) return;
     this.adaptT = 0;
     const lo = this.quality === "low" ? 0.55 : this.quality === "mid" ? 0.6 : 0.9, hi = this.quality === "low" ? Math.min(1, this.maxRatio) : this.maxRatio;
     let r = this.ratio;
-    if (this.ft > (this.quality === "high" ? 26 : 21)) r = Math.max(lo, r - 0.15);   // under ~48 fps (~38 on high: sharpness first)
-    else if (this.ft < 14.5) r = Math.min(hi, r + 0.05);   // over ~68 fps
+    const base = Math.max(1000 / 60, capMs);
+    const slow = this.ft > base + (this.quality === "high" ? 9.3 : 4.3), fast = this.ft < base - 2.2 && this.ratio < hi;   // under ~48 fps (~38 on high: sharpness first) / over ~68 fps
+    this.slowN = slow ? (this.slowN || 0) + 1 : 0; this.fastN = fast ? (this.fastN || 0) + 1 : 0;
+    // a size found too slow is not tried again (until the quality setting changes)
+    if (this.slowN >= 2) { this.tooSlow = r; r = Math.max(lo, r - 0.15); this.slowN = 0; }
+    else if (this.fastN >= 6 && r + 0.05 < (this.tooSlow || Infinity) - 1e-3) { r = Math.min(hi, r + 0.05); this.fastN = 0; }
     if (Math.abs(r - this.ratio) > 1e-3) { this.ratio = r; this.renderer.setPixelRatio(r); this.renderer.setSize(this.w, this.h, false); if (this.composer) { this.composer.setPixelRatio(r); this.composer.setSize(this.w, this.h); } }
   }
 
@@ -567,7 +617,7 @@ export class View {
     const c = new EffectComposer(this.renderer, new THREE.WebGLRenderTarget(size.x || 2, size.y || 2, { type: THREE.HalfFloatType, samples: T.aa }));
     c.addPass(new RenderPass(scene, cam));
     if (T.bloom) c.addPass(new UnrealBloomPass(new THREE.Vector2(256, 256), 0.3, 0.5, 1.8));
-    c.addPass(new OutputPass()); c.addPass(new ShaderPass(GradeShader)); c.addPass(new SMAAPass(1, 1));
+    c.addPass(gradedOutput()); if (!T.aa) c.addPass(new SMAAPass(1, 1));
     c.setPixelRatio(this.ratio); c.setSize(this.w, this.h);
     return c;
   }
@@ -586,9 +636,8 @@ export class View {
       this.bloom = new UnrealBloomPass(new THREE.Vector2(256, 256), 0.22, 0.5, 1.5);   // only really bright things glow
       c.addPass(this.bloom);
     }
-    c.addPass(new OutputPass());               // tone mapping + sRGB
-    c.addPass(new ShaderPass(GradeShader));    // the grade works on the final (display) colours
-    if (this.ratio < 1.5) c.addPass(new SMAAPass(1, 1));   // edge smoothing where the pixels are big (on dense screens they are small enough)
+    c.addPass(gradedOutput());                 // tone mapping + sRGB, then the grade on the final (display) colours
+    if (!T.aa) c.addPass(new SMAAPass(1, 1));   // edge smoothing only without MSAA (both together cost three more passes for nothing)
     c.setPixelRatio(this.ratio); if (this.w) c.setSize(this.w, this.h);
   }
 
@@ -611,19 +660,23 @@ export class View {
   render() {
     const r = this.renderer;
     this.frame++;
-    // the sun's shadow map is redrawn every other frame (the car moves little in 1/30 s)
+    // the sun's shadow map is redrawn once every frame (drawn every other frame, the car's own shadow jumped
+    // behind the moving car and the shadows flickered); not on its own, which would redraw it for the mirror too
     r.shadowMap.autoUpdate = false;
-    if (r.shadowMap.enabled && this.frame % 2 === 0) r.shadowMap.needsUpdate = true;
+    if (r.shadowMap.enabled) r.shadowMap.needsUpdate = true;
     const mirrors = this.mode === "cockpit" && !this.boarding && !this.exiting;
-    if (mirrors && this.frame % 2 === 0) {
-      // one mirror every other frame, in turn: each still updates 20 times a second at 60 fps
-      const m = this.mirrors[(this.frame >> 1) % this.mirrors.length];
-      this.carView.setCockpit(false);
-      const hid = (m.housing || []).filter(o => o.visible); hid.forEach(o => { o.visible = false; });
-      r.setRenderTarget(m.rt); r.render(this.scene, m.cam);
-      hid.forEach(o => { o.visible = true; });
-      this.carView.setCockpit(true);
-      r.setRenderTarget(null);
+    if (mirrors) {
+      // which mirrors are redrawn this frame: on high the inside one every frame and the wing mirrors in turn,
+      // on mid one of the three in turn, on low one every other frame
+      const f = this.frame, M = this.mirrors;
+      const now = this.quality === "high" ? [M[0], M[1 + f % 2]] : this.quality === "mid" ? [M[f % 3]] : f % 2 ? [] : [M[(f >> 1) % 3]];
+      if (now.length) this.carView.setCockpit(false);
+      for (const m of now) {
+        const hid = (m.housing || []).filter(o => o.visible); hid.forEach(o => { o.visible = false; });
+        r.setRenderTarget(m.rt); r.render(this.scene, m.cam);
+        hid.forEach(o => { o.visible = true; });
+      }
+      if (now.length) { this.carView.setCockpit(true); r.setRenderTarget(null); }
     }
     if (this.composer) this.composer.render(); else r.render(this.scene, this.cam);
     if (mirrors) {

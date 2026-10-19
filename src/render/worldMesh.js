@@ -74,6 +74,15 @@ function dashed(pts, on, off) {
 const groundRot = (th) => Math.atan2(-Math.cos(th), -Math.sin(th));
 
 // merge plain BufferGeometries (position/normal/uv, all indexed or all not)
+// a stand-in that only casts the shadow of an instanced mesh: the same instances with a lighter shape,
+// seen by the sun's shadow camera alone (layer 1), so the detailed one is drawn once, for the eye
+const SHADOW_ONLY = new THREE.MeshBasicMaterial({ colorWrite: false, depthWrite: false });
+function shadowTwin(im, geo) {
+  const t = new THREE.InstancedMesh(geo, SHADOW_ONLY, im.count);
+  t.instanceMatrix = im.instanceMatrix; t.count = im.count; t.castShadow = true; t.layers.set(1);
+  im.castShadow = false;
+  return t;
+}
 function mergeGeos(geos) {
   const parts = geos.map(g => g.index ? g.toNonIndexed() : g);
   const out = new THREE.BufferGeometry();
@@ -157,10 +166,11 @@ export function buildWorldMeshes(W, quality) {
     const edgeD = (poly, x, y) => { let d = 1e9; for (let i = 0; i < poly.length; i++) { const a = poly[i], b2 = poly[(i + 1) % poly.length], dx = b2[0] - a[0], dy = b2[1] - a[1], L = dx * dx + dy * dy || 1, t = Math.max(0, Math.min(1, ((x - a[0]) * dx + (y - a[1]) * dy) / L)); d = Math.min(d, Math.hypot(a[0] + dx * t - x, a[1] + dy * t - y)); } return d; };
     // a round, leafy shrub: a smooth ball with a lumpy outline, flat underneath
     // a shrub of the video: three or four leafy balls grown together, flat underneath
-    const bushGeo = (() => { const parts = [[0, 0, 0, 0.62], [0.32, -0.08, 0.18, 0.46], [-0.3, -0.1, 0.12, 0.44], [0.05, -0.06, -0.33, 0.45]].map(([x, y, z, r]) => { const g = new THREE.IcosahedronGeometry(r, quality === "low" ? 1 : 2); g.translate(x, y, z); return g; });
+    const bushShape = detail => { const parts = [[0, 0, 0, 0.62], [0.32, -0.08, 0.18, 0.46], [-0.3, -0.1, 0.12, 0.44], [0.05, -0.06, -0.33, 0.45]].map(([x, y, z, r]) => { const g = new THREE.IcosahedronGeometry(r, detail); g.translate(x, y, z); return g; });
       const g = mergeGeometries(parts.map(q => q.toNonIndexed())), p = g.attributes.position, v = new THREE.Vector3();
       for (let i = 0; i < p.count; i++) { v.fromBufferAttribute(p, i); const n = 1 + 0.06 * Math.sin(v.x * 13) * Math.sin(v.y * 11 + 1) * Math.sin(v.z * 12 + 2); p.setXYZ(i, v.x * n, Math.max(-0.05, v.y * n * 0.9), v.z * n); }
-      const m = mergeVertices(g); m.computeVertexNormals(); return m; })();
+      const m = mergeVertices(g); m.computeVertexNormals(); return m; };
+    const bushGeo = bushShape(quality === "low" ? 1 : 2);
     const rand = (() => { let s = 777; return () => ((s = (s * 1664525 + 1013904223) >>> 0) / 4294967296); })();
     // round shrubs standing apart on the grass (at least `gap` metres between centres), as on the video
     const spots = [], gap = quality === "low" ? 2.8 : quality === "mid" ? 2.3 : 1.9, cell = new Map(), key = (x, y) => Math.floor(x / gap) + "," + Math.floor(y / gap);
@@ -177,7 +187,8 @@ export function buildWorldMeshes(W, quality) {
     const bushes = new THREE.InstancedMesh(bushGeo, new THREE.MeshStandardMaterial({ map: bushTexture(), color: 0xffffff, roughness: 0.9 }), spots.length);
     const bm = new THREE.Matrix4(), bq = new THREE.Quaternion(), bs = new THREE.Vector3(), bv = new THREE.Vector3(), bc = new THREE.Color();
     spots.forEach(([x, y], i) => { const s = 0.7 + rand() * 0.35; bm.compose(bv.set(x, 0.15 + 0.32 * s, y), bq.setFromAxisAngle(new THREE.Vector3(0, 1, 0), rand() * 6), bs.set(s, s * (0.85 + rand() * 0.25), s)); bushes.setMatrixAt(i, bm); bushes.setColorAt(i, bc.setHSL(0.23 + rand() * 0.05, 0.42 + rand() * 0.12, 0.42 + rand() * 0.10)); });
-    bushes.castShadow = quality === "high"; bushes.receiveShadow = true; group.add(bushes);
+    bushes.receiveShadow = true; group.add(bushes);
+    if (quality === "high") group.add(shadowTwin(bushes, bushShape(1)));
 
     // a low concrete wall along the edge of the asphalt (the kerb posts of src/world/board.js stand in it)
     { const f = bd.frame.map(([x, y]) => [x + Math.sign(x) * 0.75, y + Math.sign(y) * 0.75]), geos = [];
@@ -262,11 +273,12 @@ export function buildWorldMeshes(W, quality) {
   }
 
   // the long planter on the far side of the overpasses (0:14-0:16 of the video): a concrete trough with shrubs
+  const planterBush = new THREE.SphereGeometry(0.45, 10, 8), planterMat = new THREE.MeshStandardMaterial({ map: bushTexture(), color: 0x8fbf6a, roughness: 0.9 });
   for (const r of W.ramps.filter(r => r.extra)) {
     const L = r.s3 - r.s0, [x, y] = toWorld(r.pose, (r.s0 + r.s3) / 2, -(r.halfW + 1.1)), rot = -r.pose.th;
     const box = new THREE.Mesh(new THREE.BoxGeometry(L, 0.7, 1.4), new THREE.MeshStandardMaterial({ color: 0xd2d0c8, roughness: 0.85 })); box.position.set(x, 0.35, y); box.rotation.y = rot; group.add(box);
     const soil = new THREE.Mesh(new THREE.BoxGeometry(L - 0.3, 0.05, 1.1), new THREE.MeshStandardMaterial({ map: grassTexture(), roughness: 1 })); soil.position.set(x, 0.71, y); soil.rotation.y = rot; group.add(soil);
-    for (let s = r.s0 + 0.8; s < r.s3 - 0.5; s += 1.1) { const [bx, by] = toWorld(r.pose, s, -(r.halfW + 1.1)), b = new THREE.Mesh(new THREE.SphereGeometry(0.45, 10, 8), new THREE.MeshStandardMaterial({ map: bushTexture(), color: 0x8fbf6a, roughness: 0.9 })); b.scale.y = 0.8; b.position.set(bx, 1.0, by); group.add(b); }
+    for (let s = r.s0 + 0.8; s < r.s3 - 0.5; s += 1.1) { const [bx, by] = toWorld(r.pose, s, -(r.halfW + 1.1)), b = new THREE.Mesh(planterBush, planterMat); b.scale.y = 0.8; b.position.set(bx, 1.0, by); group.add(b); }
     wall(...toWorld(r.pose, r.s0, -(r.halfW + 1.1)), ...toWorld(r.pose, r.s3, -(r.halfW + 1.1)), 0.7, 0.7);
   }
   // estakada side walls and railings
@@ -348,7 +360,10 @@ export function buildWorldMeshes(W, quality) {
   const post = new THREE.MeshStandardMaterial({ color: 0x8a9096, roughness: 0.5, metalness: 0.6 });
   const signCache = {};
   const baseMat = new THREE.MeshStandardMaterial({ color: 0xd9d6cf, roughness: 0.9 }), baseGeo = new THREE.BoxGeometry(0.34, 0.22, 0.34);
-  const plateMat = kind => new THREE.MeshStandardMaterial({ map: signCache[kind] || (signCache[kind] = signTexture(kind)), transparent: true, side: THREE.DoubleSide, roughness: 0.5 });
+  // cut out by alpha, not blended: no sorting between the plates (they flickered in front of each other)
+  // and the shadow takes the plate's shape; one material per kind, so the plates merge (mergeStatic)
+  const plateMats = {};
+  const plateMat = kind => plateMats[kind] || (plateMats[kind] = new THREE.MeshStandardMaterial({ map: signCache[kind] || (signCache[kind] = signTexture(kind)), alphaTest: 0.5, side: THREE.DoubleSide, roughness: 0.5 }));
   for (const s of W.signs) {
     const g = new THREE.Group(), y0 = s.h || 2.3, sz = s.big ? 1.0 : 0.8;
     const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.035, y0 + 0.35, 8), post); pole.position.set(0, (y0 + 0.35) / 2, -0.04); pole.castShadow = true; g.add(pole);
@@ -373,7 +388,7 @@ export function buildWorldMeshes(W, quality) {
     });
     // under the head: the pedestrian-crossing sign and the "СТОП" plate, as on the video
     for (const [kind, y, sz] of [["zebra", 2.25, 0.62], ["stopPlate", 1.78, 0.62]]) {
-      const pl = new THREE.Mesh(new THREE.PlaneGeometry(sz, sz), new THREE.MeshStandardMaterial({ map: signCache[kind] || (signCache[kind] = signTexture(kind)), transparent: true, side: THREE.DoubleSide, roughness: 0.5 }));
+      const pl = new THREE.Mesh(new THREE.PlaneGeometry(sz, sz), plateMat(kind));
       pl.position.set(0, y, 0.08); g.add(pl);
     }
     g.position.set(L.x, 0, L.y); g.rotation.y = Math.atan2(Math.cos(L.th), Math.sin(L.th));
@@ -445,8 +460,8 @@ export function buildWorldMeshes(W, quality) {
   // differently; grass tufts scattered over the fields; lamp posts along the outer road
   const nTrees = quality === "low" ? 70 : quality === "mid" ? 150 : 220;
   const trunkGeo = new THREE.CylinderGeometry(0.1, 0.2, 2.4, 7);
-  const lump = (r, x, y, z, seed) => {
-    const g = new THREE.IcosahedronGeometry(r, 2), p = g.attributes.position, v = new THREE.Vector3();
+  const lump = (r, x, y, z, seed, detail = 2) => {
+    const g = new THREE.IcosahedronGeometry(r, detail), p = g.attributes.position, v = new THREE.Vector3();
     for (let i = 0; i < p.count; i++) {
       v.fromBufferAttribute(p, i);
       const n = 1 + 0.16 * Math.sin(v.x * 3.1 + seed) * Math.sin(v.y * 2.7 + seed * 2) * Math.sin(v.z * 3.3 + seed * 3);
@@ -454,7 +469,8 @@ export function buildWorldMeshes(W, quality) {
     }
     return g;
   };
-  const crownGeo = mergeGeos([lump(1.5, 0, 0, 0, 1), lump(1.1, 0.9, -0.35, 0.4, 2), lump(1.05, -0.75, -0.25, -0.55, 3), lump(0.9, 0.1, 0.75, -0.2, 4)]);
+  const crownOf = detail => mergeGeos([lump(1.5, 0, 0, 0, 1, detail), lump(1.1, 0.9, -0.35, 0.4, 2, detail), lump(1.05, -0.75, -0.25, -0.55, 3, detail), lump(0.9, 0.1, 0.75, -0.2, 4, detail)]);
+  const crownGeo = crownOf(2);
   // shared vertices so the canopy shades smoothly instead of in facets
   const crownSmooth = mergeVertices(crownGeo, 1e-3); crownSmooth.computeVertexNormals();
   const trunks = new THREE.InstancedMesh(trunkGeo, new THREE.MeshStandardMaterial({ color: 0x5a4430, roughness: 1 }), nTrees);
@@ -472,8 +488,8 @@ export function buildWorldMeshes(W, quality) {
     placed++;
   }
   trunks.count = crowns.count = placed;
-  trunks.castShadow = crowns.castShadow = true; crowns.receiveShadow = true;
-  group.add(trunks, crowns);
+  trunks.castShadow = true; crowns.receiveShadow = true;
+  group.add(trunks, crowns, shadowTwin(crowns, crownOf(1)));
 
   // street lamps along the route, set back from the edge, with a lit head
   {
@@ -505,7 +521,7 @@ export function buildWorldMeshes(W, quality) {
 
   if (quality !== "low") {
     // grass tufts: a few thin blades per tuft, thousands of them, no shadows
-    const blade = new THREE.ConeGeometry(0.025, 0.32, 3); blade.translate(0, 0.16, 0);
+    const blade = new THREE.ConeGeometry(0.025, 0.32, 3, 1, true); blade.translate(0, 0.16, 0);     // no base: it is never seen
     const tuftParts = [];
     for (let k = 0; k < 5; k++) { const g = blade.clone(); g.rotateZ((k - 2) * 0.22); g.rotateY(k * 1.3); g.translate((k - 2) * 0.03, 0, (k % 2) * 0.03); tuftParts.push(g); }
     const tuftGeo = mergeGeos(tuftParts);
@@ -625,7 +641,45 @@ export function buildWorldMeshes(W, quality) {
     group.add(f);
   }
 
+  mergeStatic(group, dyn);
   return { group, dyn };
+}
+
+// Every mesh that never moves, blinks or hides becomes part of one mesh per material: the ground's few
+// hundred posts, signs, kerbs and walls cost a draw call each (in the view, in the mirrors and in the
+// sun's shadow), which was most of the time spent on drawing them. What `dyn` refers to stays apart.
+function mergeStatic(group, dyn) {
+  const keep = new Set();
+  const visit = (x, depth) => {
+    if (!x || typeof x !== "object" || depth > 4) return;
+    if (x.isObject3D) { if (x !== group) x.traverse(o => keep.add(o)); return; }
+    if (Array.isArray(x)) for (const y of x) visit(y, depth + 1);
+    else if (!(x instanceof Map)) for (const k in x) visit(x[k], depth + 1);
+  };
+  visit(dyn, 0);
+  group.updateMatrixWorld(true);
+  const inv = group.matrixWorld.clone().invert(), m = new THREE.Matrix4(), bins = new Map();
+  const shown = o => { for (let x = o; x && x !== group; x = x.parent) if (!x.visible) return false; return true; };
+  group.traverse(o => {
+    if (!o.isMesh || o.isInstancedMesh || o.isSkinnedMesh || keep.has(o) || Array.isArray(o.material) || o.material.transparent || o.renderOrder || !shown(o)) return;
+    const g = o.geometry;
+    if (Object.keys(g.morphAttributes).length || o.matrixWorld.determinant() <= 0) return;
+    const attrs = Object.entries(g.attributes).map(([k, a]) => k + a.itemSize + a.array.constructor.name + a.normalized).sort().join();
+    const key = [o.material.uuid, o.castShadow, o.receiveShadow, !!g.index, attrs].join("|");
+    (bins.get(key) || bins.set(key, []).get(key)).push(o);
+  });
+  for (const list of bins.values()) {
+    if (list.length < 2) continue;
+    const geo = mergeGeometries(list.map(o => o.geometry.clone().applyMatrix4(m.multiplyMatrices(inv, o.matrixWorld))), false);
+    if (!geo) continue;
+    const one = new THREE.Mesh(geo, list[0].material);
+    one.castShadow = list[0].castShadow; one.receiveShadow = list[0].receiveShadow;
+    for (const o of list) o.removeFromParent();
+    group.add(one);
+  }
+  // the groups that held only merged meshes
+  const empty = []; group.traverse(o => { if (o !== group && !o.isMesh && !keep.has(o) && o.type === "Group" && !o.children.length) empty.push(o); });
+  for (const o of empty) o.removeFromParent();
 }
 
 const flashMat = new THREE.MeshBasicMaterial({ color: 0xff3b1f });

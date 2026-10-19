@@ -47,7 +47,7 @@ export class Vehicle {
     this.transmission = transmission;
     this.spec = { ...SPEC, ...spec };
     this.x = x; this.y = y; this.th = th;
-    this.v = 0; this.sw = 0; this.steer = 0; this.bodyPitch = 0; this.bodyRoll = 0;
+    this.v = 0; this.sw = 0; this.steer = 0; this.bodyPitch = 0; this.bodyRoll = 0; this.pitchV = 0; this.rollV = 0;
     this.h = 0; this.pitch = 0; this.grade = 0;
     this.engineOn = false; this.rpm = 0;
     this.gear = transmission === "manual" ? "N" : "P";
@@ -147,12 +147,15 @@ export class Vehicle {
     this.odo += Math.abs(this.v) * dt;
 
     // body motion on the springs (visual): nose dives under braking, squats under
-    // power, and the body leans out of a turn. Damped spring towards the target.
+    // power, and the body leans out of a turn. A real spring with its damper: the body
+    // overshoots a little and settles (the rock forward and back when the car stops)
     const ax = (this.v - v0) / dt, ay = this.v * this.v / s.wb * Math.tan(this.steer);
     const tPitch = clamp(ax * 0.0035, -0.026, 0.02), tRoll = clamp(-ay * 0.006, -0.035, 0.035);   // +pitch = nose up, +roll = roof to the right
-    const k = Math.min(1, dt * 7);
-    this.bodyPitch += (tPitch - this.bodyPitch) * k;
-    this.bodyRoll += (tRoll - this.bodyRoll) * k;
+    const W2 = 62, C = 6.3;                         // about 1.25 Hz, damping ratio 0.4
+    this.pitchV += (W2 * (tPitch - this.bodyPitch) - C * this.pitchV) * dt;
+    this.rollV += (W2 * (tRoll - this.bodyRoll) - C * this.rollV) * dt;
+    this.bodyPitch = clamp(this.bodyPitch + this.pitchV * dt, -0.035, 0.03);
+    this.bodyRoll = clamp(this.bodyRoll + this.rollV * dt, -0.045, 0.045);
   }
 
   manualStep(dt, Fload) {

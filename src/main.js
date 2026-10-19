@@ -371,9 +371,9 @@ function carDims(exam) { const d = carById(settings.car).dims; return { length: 
 // car model: generated Cobalt right away, then the .glb file once it has loaded
 let carModelId = null;
 // load a car model and dress it (paint, plates, Cobalt facelift parts)
-// the full model everywhere except the "Yengil" setting, which gets
-// the -mid copy (tools/make-lite.mjs mid): about a third of the triangles, the same textures at 1024 px
-const modelVariant = () => settings.quality === "low" ? "-mid" : "";
+// the full model on "Yuqori"; "O'rta" (where phones start) and "Yengil" get the -mid copy
+// (tools/make-lite.mjs mid): about a third fewer triangles, the textures at 1024 px, which fit a phone's memory
+const modelVariant = () => settings.quality === "high" ? "" : "-mid";
 function prepareCar(car, onProgress) {
   return loadCarModel(car.model.replace(/\.glb$/, modelVariant() + ".glb"), onProgress).then(cv => {
     if (car.id === "cobalt") dressCobalt(cv); else addPaint(cv);
@@ -519,7 +519,21 @@ const ui = (e, cv) => { const r = cv.getBoundingClientRect(); return rotated() ?
 
 let last = performance.now(), acc = 0, lastHud = 0;
 const H = 1 / 240;
+// the car is drawn between its last two physics steps (the steps do not fall on the frames: 3, 4 or 5 of
+// them per frame would make it judder); the true state is put back before the HUD and the rules read it
+const POSE = ["x", "y", "th", "h", "pitch", "groundRoll", "bodyPitch", "bodyRoll", "steer", "wheelSpin"];
+let prevPose = null, prevCar = null;
+const truePose = {};
+// frame rate: "max" draws every screen refresh; on a 120/144 Hz screen "60" draws every other one (a phone
+// stays cool), "30" every second or fourth. The refresh interval is measured from the frames themselves
+let lastRaw = performance.now(), vsync = 1000 / 60, lastDraw = 0;
+const frameCap = () => { const fps = settings.fps || (coarse ? "60" : "max"); return fps === "30" ? 1000 / 30 : fps === "60" ? 1000 / 60 : 0; };
+function frameGap() { const want = frameCap(); return want && want > vsync * 1.5 ? want - vsync / 2 : 0; }
 function frame(now) {
+  const raw = now - lastRaw; lastRaw = now;
+  if (raw > 2 && raw < 50) vsync += (raw - vsync) * 0.05;
+  if (now - lastDraw < frameGap()) { requestAnimationFrame(frame); return; }
+  lastDraw = now;
   const dt = Math.max(0, Math.min(0.1, (now - last) / 1000)); last = now;   // the first frame can be stamped before `last`
   if (inGarage) {
     garage.update(dt, garageDrag);
@@ -536,9 +550,11 @@ function frame(now) {
       controls.apply(session.car, dt);
       acc += dt;
       let n = 0;
-      while (acc >= H && n < 60) { session.step(H); acc -= H; n++; }
+      const c = session.car;
+      if (prevCar !== c) { prevCar = c; prevPose = {}; for (const k of POSE) prevPose[k] = c[k] || 0; }
+      while (acc >= H && n < 60) { for (const k of POSE) prevPose[k] = c[k] || 0; session.step(H); acc -= H; n++; }
       rec.sample(session);
-    } else acc = 0;
+    } else { acc = 0; prevCar = null; }
     // after the end (past the finish line) the car does not freeze: it rolls on, engine off, and comes to rest
     if (ended && !replay && !paused && session.car.v) {
       const c = session.car, v = Math.sign(c.v) * Math.max(0, Math.abs(c.v) - 3 * dt);
@@ -566,9 +582,20 @@ function frame(now) {
       else view.viewShift = 0;
     } else view.viewShift = 0;
     crank(now);
+    const lerp = prevCar === session.car && !replay;
+    if (lerp) {
+      const c = session.car, a = Math.min(1, acc / H);
+      for (const k of POSE) {
+        truePose[k] = c[k] || 0;
+        let d = truePose[k] - prevPose[k];
+        if (k === "th") d = Math.atan2(Math.sin(d), Math.cos(d));
+        c[k] = truePose[k] - d * (1 - a);
+      }
+    }
     view.update(session, dt, now);
-    view.adapt(dt * 1000);
+    view.adapt(dt * 1000, frameCap());
     view.render();
+    if (lerp) Object.assign(session.car, truePose);
     if (now - lastHud > 60) { hud.update(session, view, now); lastHud = now; if (tutorial) hud.showTutor(tutorial.tick(session.car, now)); }
     audio.update(session.car, { alarm: session.W.alarm && !paused }, now);
     if (!paused && session.state === "running") {
