@@ -183,10 +183,16 @@ export class View {
   // swap the simple pedestrian figures for realistic ones (when the people files have loaded)
   setPedestrianMaker(make) { this.makePed = make; this.dressPedestrians(); }
   dressPedestrians() {
-    if (!this.makePed || !this.dyn) return;
+    if (!this.dyn) return;
+    // the people round the ground: how many are shown depends on the quality (each is a skinned figure)
+    let n = 0; const most = this.quality === "high" ? 8 : this.quality === "mid" ? 4 : 0;
+    for (const d of this.dyn.peds) if (d.p.ambient) d.p.visible = n++ < most;
+    if (!this.makePed) return;
+    let i = 0;
     for (const d of this.dyn.peds) {
-      if (d.fig) continue;
-      d.fig = this.makePed();
+      i++;
+      if (d.fig || !d.p.visible) continue;
+      d.fig = this.makePed(i, d.p);
       d.g.children.forEach(c => { c.visible = false; });
       d.g.add(d.fig.root);
     }
@@ -249,7 +255,7 @@ export class View {
     }
     const { group, dyn } = buildWorldMeshes(W, quality);
     this.W = W; this.dyn = dyn; this.worldGroup = group; this.applyTrafficMode(); if (this.trainTpl) fillTrains(dyn, this.trainTpl);
-    this.dressPedestrians();
+    this.quality = quality; this.dressPedestrians();
     this.buildStopZones(W);
     this.buildGuides(W);
     this.scene.add(group);
@@ -462,7 +468,7 @@ export class View {
       const moving = d.lastL !== undefined && Math.abs(d.p.l - d.lastL) > 1e-4; d.lastL = d.p.l;
       d.fig.update(dt, moving && d.p.visible);
       // the pavements are raised 0.14 m
-      d.fig.root.position.y = this.W.pads.some(q => q.surface === "concrete" && inPoly(q.poly, [d.p.x, d.p.y])) ? 0.14 : 0;
+      d.fig.root.position.y = this.W.pads.some(q => q.surface === "concrete" && inPoly(q.poly, [d.p.x, d.p.y])) ? 0.14 : d.p.ground || 0;
     }
 
     const f = new THREE.Vector3(Math.cos(car.th), 0, Math.sin(car.th));

@@ -114,7 +114,30 @@ export class Traffic {
       while (ln.cars.length && ln.cars[0].s > ln.stopS + 25 && !this.seen(this.worldPose(ln.cars[0]).x, this.worldPose(ln.cars[0]).y, 60)) this.drop(ln.cars[0]);
     }
     for (const w of this.walkers) this.walk(w, dt, clock);
+    for (const w of this.strollers || []) this.stroll(w, dt);
     this.t = clock;
+  }
+
+  // People round the ground who never come onto it: the ones waiting by the start and at the exam centre stand,
+  // others walk to and fro along a path. list: [{ pts: [[x, y], ...] (one point: stands there), th }]
+  addStrollers(list, ground = 0) {
+    this.strollers = (this.strollers || []).concat(list.map((s, i) => {
+      const p = { x: s.pts[0][0], y: s.pts[0][1], th: s.th ?? 0, visible: true, l: 0, walking: false, phase: 0, ambient: true, ground };
+      this.W.peds.push(p);
+      const cum = [0]; for (let k = 1; k < s.pts.length; k++) cum.push(cum[k - 1] + Math.hypot(s.pts[k][0] - s.pts[k - 1][0], s.pts[k][1] - s.pts[k - 1][1]));
+      return { pts: s.pts, cum, p, at: 0, dir: 1, wait: 1 + i * 1.9, speed: 1.05 + (i % 3) * 0.12 };
+    }));
+  }
+  stroll(w, dt) {
+    const p = w.p, L = w.cum[w.cum.length - 1];
+    if (!L) return;
+    if (!p.walking) { w.wait -= dt; if (w.wait <= 0) p.walking = true; else return; }
+    w.at += w.dir * w.speed * dt; p.l += w.speed * dt; p.phase += dt;
+    if (w.at >= L || w.at <= 0) { w.at = Math.max(0, Math.min(L, w.at)); w.dir = -w.dir; p.walking = false; w.wait = 2 + this.rand() * 6; }
+    let k = 1; while (k < w.cum.length - 1 && w.cum[k] < w.at) k++;
+    const a = w.pts[k - 1], b = w.pts[k], t = (w.at - w.cum[k - 1]) / ((w.cum[k] - w.cum[k - 1]) || 1);
+    p.x = a[0] + (b[0] - a[0]) * t; p.y = a[1] + (b[1] - a[1]) * t;
+    if (p.walking) p.th = Math.atan2(b[1] - a[1], b[0] - a[0]) + (w.dir < 0 ? Math.PI : 0);
   }
 
   // a person at a zebra: crosses only with at least 7 s of red left for the road, stops for a car in the way

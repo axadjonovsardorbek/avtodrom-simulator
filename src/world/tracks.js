@@ -99,6 +99,19 @@ export function buildFull(car) {
   const T = at(START_X - 80, 66, heading([915, 66], [100, 66]));
   W.startLine = { pose: T.pose, s: 0 };
   { const [x, y] = px(START_X - 33, 66); W.start = { x, y, th: T.pose.th }; }
+  // people round the ground (src/world/traffic.js addStrollers): candidates waiting under the shelter by the start
+  // and at the exam centre's door, and passers-by along the fence and the centre's front; all outside the plan, on
+  // the grass (0.15 m below the asphalt)
+  {
+    const fy = W.board.frame[0][1], sx = W.start.x - 6, sy = fy - 6, BX = 95, BY = -78, S = Math.PI / 2;
+    W.traffic.addStrollers([
+      { pts: [[sx - 3.2, sy + 0.6]], th: S }, { pts: [[sx - 2.4, sy - 0.4]], th: S - 0.5 }, { pts: [[sx + 2.8, sy + 0.3]], th: S + 0.3 },
+      { pts: [[sx - 40, fy - 4.4], [sx + 30, fy - 4.4]] },
+      { pts: [[BX - 2.6, BY + 10.8]], th: S }, { pts: [[BX + 2.2, BY + 11.2]], th: S + 2.6 },
+      { pts: [[BX - 14, BY + 12.5], [BX + 14, BY + 12.5]] },
+      { pts: [[sx + 30, fy - 5.2], [sx - 30, fy - 5.2]] }
+    ], -0.15);
+  }
   const zebraS = Math.hypot(...px(716 + D, 66).map((v, i) => v - px(START_X - 80, 66)[i]));  // distance start line to the crossing
   T.fwd(zebraS - 17.5);
   // the stop line across both lanes of the top road (from its south to its north kerb, as the zebra)

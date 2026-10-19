@@ -320,10 +320,13 @@ export function realDriverWalker(driverGltf, kidGltf) {
 }
 
 // Pedestrian at the crossing: the same Mixamo walker at adult size in a dark jacket and jeans.
-export function realPedestrian(gltf) {
+// clothes for the passers-by, so that no two near each other look alike
+const OUTFITS = [[0x2d3a52, 0x3a4a66, 0xe8e8e6], [0x7a2f2f, 0x2b2b30, 0x1c1c1e], [0x3f6b4a, 0x4d4436, 0xd8d2c4], [0xc8c2b4, 0x23324f, 0xe8e8e6], [0x5a4a7a, 0x303033, 0x8a6a4a], [0xb8862d, 0x2c3a2c, 0x2a2a2a]];
+export function realPedestrian(gltf, variant = 0) {
   const clip = gltf.animations[0];
   const P = rigPerson(gltf, { torso: 0.6, seated: false });
-  dress(P.scene, { Hoody: { tint: 0x2d3a52 }, Pants: { tint: 0x3a4a66 }, Sneakers: { tint: 0xe8e8e6 }, Hair: { tint: 0x1d1612 }, Body: { tint: 0xd9a77f, gain: 6.5 } });
+  const [hoody, pants, shoes] = OUTFITS[variant % OUTFITS.length];
+  dress(P.scene, { Hoody: { tint: hoody }, Pants: { tint: pants }, Sneakers: { tint: shoes }, Hair: { tint: 0x1d1612 }, Body: { tint: 0xd9a77f, gain: 6.5 } });
   const walk = P.actions[clip.name];
   const pin = pinHips(P);
   const standT = standingFrame(P, walk, clip);

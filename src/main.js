@@ -75,7 +75,8 @@ loadPeople().then(P => {
   const oldD = view.driver && view.driver.root; if (oldD && oldD.parent) oldD.parent.remove(oldD);
   view.setDriver(realDriver(P.driver));
   kidShow.setKid(realKid(P.kid));
-  view.setPedestrianMaker(() => realPedestrian(P.kid));
+  // the people round the ground: grown-ups (the instructor's and the learner's figures, in other clothes) and the young one
+  view.setPedestrianMaker((i, p) => p && p.ambient && i % 3 === 1 ? realWalker(P.instructor, P.kid) : p && p.ambient && i % 3 === 2 ? realDriverWalker(P.driver, P.kid) : realPedestrian(P.kid, i));
   view.setWalker(realWalker(P.instructor, P.kid));
   view.setDriverWalker(realDriverWalker(P.driver, P.kid));
   if (import.meta.env.DEV) window.__sim.fig = instructorFig;
