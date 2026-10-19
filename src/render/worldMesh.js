@@ -117,7 +117,7 @@ export function buildWorldMeshes(W, quality) {
 
   // the plan of the exam ground (src/world/board.js): asphalt everywhere, the islands with kerbs, the pale pads
   if (W.board) {
-    const bd = W.board, grassTex = grassTexture(), islandMat = new THREE.MeshStandardMaterial({ map: grassTex, roughness: 1, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 });
+    const bd = W.board, grassTex = grassTexture(), islandMat = new THREE.MeshStandardMaterial({ map: grassTex, roughness: 1 });
     const kerbMat = new THREE.MeshStandardMaterial({ color: 0xe8e6e0, roughness: 0.8 });
     const frame = new THREE.Mesh(flatPoly(bd.frame, h, Y_ROAD, 7), asphaltMat); frame.receiveShadow = true; group.add(frame);
     // asphalt; the islands raised 10 cm inside a 12 cm kerb; the pads (cut out of the islands) at road level, painted pale
@@ -136,7 +136,7 @@ export function buildWorldMeshes(W, quality) {
         kerbGeos.push(g.toNonIndexed());
         const cy = new THREE.CylinderGeometry(0.2, 0.2, 0.22, 10); cy.translate(c[0] + ix, 0.11, c[1] + iy); kerbGeos.push(cy.toNonIndexed());   // fills the joint
       }
-      grassGeos.push(flatPoly(isl.grass, h, 0.18, 7));
+      grassGeos.push(flatPoly(isl.grass, h, 0.15, 7));                           // under the top of the kerb (0.22)
     }
     addMerged(group, grassGeos, islandMat);
     for (const g of kerbGeos) g.deleteAttribute("uv");
