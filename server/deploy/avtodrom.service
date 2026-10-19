@@ -1,0 +1,22 @@
+# /etc/systemd/system/avtodrom.service
+[Unit]
+Description=Avtodrom simulator server
+After=network-online.target postgresql.service
+Wants=network-online.target
+
+[Service]
+User=avtodrom
+Group=avtodrom
+WorkingDirectory=/opt/avtodrom
+EnvironmentFile=/opt/avtodrom/.env
+ExecStart=/opt/avtodrom/avtodrom-server
+Restart=always
+RestartSec=3
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/avtodrom
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

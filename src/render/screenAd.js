@@ -1,4 +1,4 @@
-// Advertising on the centre-stack screen. public/ads/ads.json lists the pictures and videos
+// Advertising on the centre-stack screen. The admin panel's list (server), or public/ads/ads.json, lists the pictures and videos
 // shown in turn, e.g. { "items": [ { "src": "reklama.jpg", "sec": 8 }, { "src": "reklama.mp4" } ] }
 // (a picture stays "sec" seconds, 8 by default; a video plays to its end, muted). With no list,
 // or an empty one, every screen keeps its own picture. One player feeds every car's screen, so
@@ -13,9 +13,12 @@ let ready = null, picAspect = 16 / 9;
 const isVideo = src => /\.(mp4|webm|mov|m4v)(\?|$)/i.test(src);
 const urlOf = src => /^(https?:)?\/\/|^\//.test(src) ? src : "ads/" + src;
 
+// where the list comes from: the server's (the admin panel's), when there is one; else ads/ads.json
+let source = null;
+export function setAdSource(p) { source = p; }
 function start() {
-  if (!ready) ready = fetch("ads/ads.json", { cache: "no-cache" }).then(r => r.ok ? r.json() : null).then(cfg => {
-    const items = ((cfg && cfg.items) || []).filter(it => it && it.src);
+  if (!ready) ready = Promise.resolve(source).catch(() => null).then(list => list || fetch("ads/ads.json", { cache: "no-cache" }).then(r => r.ok ? r.json() : null).then(cfg => cfg && cfg.items)).then(list => {
+    const items = (list || []).filter(it => it && it.src);
     if (!items.length) return false;
     play(items, 0, 0);
     return true;

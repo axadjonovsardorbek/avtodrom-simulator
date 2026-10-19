@@ -11,15 +11,16 @@ import { Hud } from "./ui/hud.js";
 import { carById } from "./cars/index.js";
 import { loadCarModel, loadTrafficModel } from "./render/carLoader.js";
 import { dressCobalt, addPaint } from "./render/carDress.js";
-import { addScreenAd } from "./render/screenAd.js";
+import { addScreenAd, setAdSource } from "./render/screenAd.js";
+import { apiOn, config, refreshMe, telegramMiniAppLogin, sendAttempt, flushAttempts, myAttempts } from "./net/api.js";
 import { addPlates, DEFAULT_PLATE } from "./render/plates.js";
 import PHRASES from "./audio/phrases.json";
 import { Instructor, lineIds } from "./instructor/instructor.js";
 import { buildInstructor } from "./render/instructorFigure.js";
 import { KidShow } from "./render/singerKid.js";
 import { Garage } from "./render/garage.js";
-import { CARS } from "./cars/index.js";
-import { recordAttempt, keyFor } from "./sim/history.js";
+import { CARS, setDisabledCars } from "./cars/index.js";
+import { recordAttempt, keyFor, mergeHistory } from "./sim/history.js";
 import { Tutorial } from "./ui/tutorial.js";
 import { Recorder } from "./sim/replay.js";
 import { setTrafficFleet } from "./world/traffic.js";
@@ -42,7 +43,9 @@ const saveSettings = () => { try { localStorage.setItem("avtodrom.settings", JSO
 
 let session = null, mode = null, elementId = null, paused = true, ended = false;
 const app = document.getElementById("app");
-const hud = new Hud(app, { settings, protocolBack: () => lastResult && hud.showResult(...lastResult), start, resume, action: onAction, resultAction, useCar: selectCar, showroom: openShowroom, save: () => saveSettings(), garage: () => openGarage(),
+// the server's settings (when the build has one): the admin's advertising list, before any car's screen asks for it
+setAdSource(apiOn ? config().then(c => (c && c.ads) || null) : null);
+const hud = new Hud(app, { settings, account: u => onAccount(u), protocolBack: () => lastResult && hud.showResult(...lastResult), start, resume, action: onAction, resultAction, useCar: selectCar, showroom: openShowroom, save: () => saveSettings(), garage: () => openGarage(),
   setPlate: t => { settings.plate = t; if (view.carView.setPlate) view.carView.setPlate(t); saveSettings(); },
   setColor: id => { settings.color = id; if (view.carView.setPaint) view.carView.setPaint(id); saveSettings(); } });
 const view = new View(hud.canvas);
@@ -259,6 +262,7 @@ function handleEvent(ev) {
         if (mode !== "practice") acts.splice(acts.length - 1, 0, ["Bayonnoma", "protocol"]);
         if (mode === "exam" && passed) acts.splice(acts.length - 1, 0, ["Sertifikat", "certificate"]);
         const hist = recordAttempt(s, { passed, key: keyFor(mode, elementId) });
+        sendAttempt({ ...hist.rec, car: settings.car });
         { const all = loadHistory(), dt = dailyTask(new Date(), ELEMENTS); if (dt.progress(all) >= dt.goal && dt.progress(all.slice(0, -1)) < dt.goal) hist.daily = dt.text; }
         hist.fresh = unlock(loadHistory(), hist.rec, { elements: ELEMENTS.map(e => e.id) });
         if (rec.duration > 1) acts.splice(acts.length - 1, 0, ["Takroriy ko'rish", "replay"]);
@@ -435,6 +439,29 @@ view.setWorld(session.W, settings.quality);
 view.setMode("orbit"); view.orbit = { az: 2.3, el: 0.12, dist: 9 };
 hud.reset(session, "Simulyator");
 hud.showMenu({ canResume: false });
+
+// the server (when the build has one): the cars the admin switched off leave the lists (the picked one
+// gives way to the first left); the saved login is checked, or a Telegram mini app logs in by itself
+if (apiOn) {
+  config().then(c => {
+    if (!c) return;
+    setDisabledCars(c.disabledCars);
+    const picked = settings.car === "malibu" ? "malibu-premier" : settings.car;
+    if (!CARS.some(x => x.id === picked)) { settings.car = CARS[0].id; saveSettings(); useCar(settings.car); }
+    hud.refreshMenu();
+  });
+  refreshMe().then(u => { if (u) syncHistory(); hud.refreshMenu(); });
+  telegramMiniAppLogin().then(u => { if (u) onAccount(u); });
+}
+// logged in or out: the menu shows it; a login sends this browser's attempts and brings the others' back
+function onAccount(u) {
+  hud.refreshMenu();
+  if (u) { hud.toast(`Xush kelibsiz, ${u.name || u.username || ""}`, "good"); syncHistory(); }
+}
+function syncHistory() {
+  flushAttempts(loadHistory())
+    .then(() => myAttempts()).then(items => { if (mergeHistory(items)) hud.refreshMenu(); }).catch(() => {});
+}
 
 function resize() {
   view.resize(app.clientWidth, app.clientHeight);

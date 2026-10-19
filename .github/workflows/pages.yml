@@ -21,6 +21,13 @@ jobs:
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
+    services:
+      postgres:                   # for the server's API test
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: pg
+        ports: ["5432:5432"]
+        options: --health-cmd pg_isready --health-interval 5s --health-timeout 5s --health-retries 10
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -29,9 +36,18 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm test             # no deploy when a rule or physics check fails
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: server/go.mod
+          cache-dependency-path: server/go.sum
+      - run: go test ./...        # the server: logins, attempts, admin API against a real database
+        working-directory: server
+        env:
+          TEST_DATABASE_URL: postgres://postgres:pg@localhost:5432/postgres?sslmode=disable
       - run: npx vite build
         env:
           HASHED: "1"
+          VITE_API_URL: ${{ vars.API_URL }}   # the server's address (repository variable); empty: no accounts
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:

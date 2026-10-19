@@ -58,4 +58,17 @@ export function analyse(history = loadHistory()) {
   return { total: history.length, passes: history.filter(r => r.passed).length, mistakes, keys: Object.values(byKey), limit: PASS_LIMIT };
 }
 
+// attempts kept on the server (made on another device) join the browser's own, in time order
+export function mergeHistory(items) {
+  const h = loadHistory(), have = new Set(h.map(r => r.at + "|" + r.key));
+  let added = 0;
+  for (const r of items || []) {
+    if (!r || typeof r.at !== "number" || have.has(r.at + "|" + r.key)) continue;
+    h.push({ at: r.at, key: r.key, passed: !!r.passed, total: r.total | 0, t: r.t | 0, mistakes: r.mistakes || {} });
+    have.add(r.at + "|" + r.key); added++;
+  }
+  if (added) { h.sort((a, b) => a.at - b.at); saveHistory(h); }
+  return added;
+}
+
 export function clearHistory() { try { localStorage.removeItem(KEY); } catch (_) {} }

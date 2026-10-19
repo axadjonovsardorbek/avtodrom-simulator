@@ -3,3 +3,6 @@ dist/
 .DS_Store
 .venv/
 public/_tmp/
+server/uploads/
+server/avtodrom-server
+server/.env

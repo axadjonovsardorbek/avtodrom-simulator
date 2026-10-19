@@ -1,0 +1,240 @@
+package main
+
+import (
+	"bytes"
+	"context"
+	"crypto/hmac"
+	"crypto/sha256"
+	"encoding/json"
+	"net/http"
+	"net/http/httptest"
+	"net/url"
+	"os"
+	"sort"
+	"strconv"
+	"strings"
+	"testing"
+	"time"
+)
+
+const bot = "123456:TEST-token"
+
+func signWidget(data map[string]string) {
+	keys := []string{}
+	for k := range data {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	lines := []string{}
+	for _, k := range keys {
+		lines = append(lines, k+"="+data[k])
+	}
+	s := sha256.Sum256([]byte(bot))
+	data["hash"] = hmacHex(s[:], []byte(strings.Join(lines, "\n")))
+}
+
+func TestTelegramWidget(t *testing.T) {
+	now := time.Now()
+	d := map[string]string{"id": "42", "first_name": "Ali", "username": "ali", "auth_date": strconv.FormatInt(now.Unix(), 10)}
+	signWidget(d)
+	if id := checkTelegramWidget(d, bot, now); id == nil || id.PID != "42" || id.Name != "Ali" {
+		t.Fatalf("a good login was refused: %+v", id)
+	}
+	d["first_name"] = "Vali"
+	if checkTelegramWidget(d, bot, now) != nil {
+		t.Fatal("changed data was accepted")
+	}
+	d["first_name"] = "Ali"
+	if checkTelegramWidget(d, "999:other", now) != nil {
+		t.Fatal("another bot's login was accepted")
+	}
+	if checkTelegramWidget(d, bot, now.Add(25*time.Hour)) != nil {
+		t.Fatal("a day-old login was accepted")
+	}
+}
+
+func TestTelegramWebApp(t *testing.T) {
+	now := time.Now()
+	p := url.Values{"user": {`{"id":7,"first_name":"Gul","username":"gul"}`}, "auth_date": {strconv.FormatInt(now.Unix(), 10)}, "query_id": {"AAA"}}
+	lines := []string{}
+	for k := range p {
+		lines = append(lines, k+"="+p.Get(k))
+	}
+	sort.Strings(lines)
+	m := hmac.New(sha256.New, []byte("WebAppData"))
+	m.Write([]byte(bot))
+	p.Set("hash", hmacHex(m.Sum(nil), []byte(strings.Join(lines, "\n"))))
+	if id := checkTelegramWebApp(p.Encode(), bot, now); id == nil || id.PID != "7" {
+		t.Fatalf("a good mini app login was refused: %+v", id)
+	}
+	p.Set("auth_date", strconv.FormatInt(now.Unix()-5, 10))
+	if checkTelegramWebApp(p.Encode(), bot, now) != nil {
+		t.Fatal("changed data was accepted")
+	}
+}
+
+func TestLimiter(t *testing.T) {
+	l, now := newLimiter(3, time.Minute), time.Now()
+	for i := 0; i < 3; i++ {
+		if !l.allow("a", now) {
+			t.Fatal("refused too early")
+		}
+	}
+	if l.allow("a", now) || !l.allow("b", now) || !l.allow("a", now.Add(61*time.Second)) {
+		t.Fatal("wrong limits")
+	}
+}
+
+// The API against a real database: TEST_DATABASE_URL=postgres://... go test ./...
+func TestAPI(t *testing.T) {
+	dbURL := os.Getenv("TEST_DATABASE_URL")
+	if dbURL == "" {
+		t.Skip("TEST_DATABASE_URL is not set")
+	}
+	ctx := context.Background()
+	db, err := openDB(ctx, dbURL)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	db.Exec(ctx, "TRUNCATE users, sessions, attempts, settings RESTART IDENTITY CASCADE")
+	cfg := Config{DevLogin: true, UploadDir: t.TempDir(), Admins: map[string]bool{"dev:boss": true}, Origins: []string{"https://site.example"}, TelegramToken: bot}
+	os.MkdirAll(cfg.UploadDir+"/ads", 0o755)
+	srv := httptest.NewServer(newApp(cfg, db).routes())
+	defer srv.Close()
+
+	call := func(method, path, token string, body any, want int) map[string]any {
+		t.Helper()
+		var rd *bytes.Reader
+		if b, ok := body.([]byte); ok {
+			rd = bytes.NewReader(b)
+		} else {
+			raw, _ := json.Marshal(body)
+			rd = bytes.NewReader(raw)
+		}
+		req, _ := http.NewRequest(method, srv.URL+path, rd)
+		if token != "" {
+			req.Header.Set("Authorization", "Bearer "+token)
+		}
+		if b, ok := body.([]byte); ok && b != nil {
+			req.Header.Set("X-File-Name", "reklama.jpg")
+		}
+		res, err := http.DefaultClient.Do(req)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer res.Body.Close()
+		out := map[string]any{}
+		json.NewDecoder(res.Body).Decode(&out)
+		if res.StatusCode != want {
+			t.Fatalf("%s %s: status %d, want %d (%v)", method, path, res.StatusCode, want, out)
+		}
+		return out
+	}
+	login := func(name string) (string, map[string]any) {
+		out := call("POST", "/api/auth/dev", "", map[string]string{"name": name}, 200)
+		return out["token"].(string), out["user"].(map[string]any)
+	}
+
+	boss, bu := login("Boss")
+	ali, au := login("Ali")
+	if bu["admin"] != true || au["admin"] != false {
+		t.Fatalf("admin flags: %v %v", bu["admin"], au["admin"])
+	}
+	call("GET", "/api/me", "", nil, 401)
+	call("GET", "/api/admin/stats", ali, nil, 403)
+
+	// a Telegram login creates a user too
+	d := map[string]string{"id": "555", "first_name": "Tg", "auth_date": strconv.FormatInt(time.Now().Unix(), 10)}
+	signWidget(d)
+	call("POST", "/api/auth/telegram", "", d, 200)
+	d["first_name"] = "Fake"
+	call("POST", "/api/auth/telegram", "", d, 401)
+
+	// attempts: one, a batch (the same one again is not doubled), a bad one is skipped
+	now := time.Now().UnixMilli()
+	call("POST", "/api/attempts", ali, map[string]any{"at": now - 5000, "key": "exam", "passed": true, "total": 15, "t": 600, "car": "cobalt", "mistakes": map[string]any{"5": map[string]any{"n": "5", "text": "Signal", "pts": 5, "count": 3}}}, 200)
+	out := call("POST", "/api/attempts", ali, map[string]any{"items": []map[string]any{
+		{"at": now - 5000, "key": "exam", "passed": true, "total": 15, "t": 600},
+		{"at": now - 3000, "key": "exam", "passed": true, "total": 5, "t": 700},
+		{"at": now - 1000, "key": "drop table", "passed": true, "total": 0, "t": 1},
+	}}, 200)
+	if out["saved"].(float64) != 1 {
+		t.Fatalf("saved %v, want 1", out["saved"])
+	}
+	call("POST", "/api/attempts", boss, map[string]any{"at": now, "key": "exam", "passed": true, "total": 0, "t": 900}, 200)
+	mine := call("GET", "/api/me/attempts", ali, nil, 200)
+	if len(mine["items"].([]any)) != 2 {
+		t.Fatalf("my attempts: %v", mine)
+	}
+
+	// leaderboard: Boss (0 points) first, Ali with his best (5)
+	lb := call("GET", "/api/leaderboard?key=exam", ali, nil, 200)["items"].([]any)
+	if len(lb) != 2 || lb[0].(map[string]any)["name"] != "Boss" || lb[1].(map[string]any)["total"].(float64) != 5 || lb[1].(map[string]any)["me"] != true {
+		t.Fatalf("leaderboard: %v", lb)
+	}
+
+	// admin: stats, users, blocking
+	st := call("GET", "/api/admin/stats", boss, nil, 200)
+	if st["users"].(map[string]any)["total"].(float64) != 3 || st["attempts"].(map[string]any)["total"].(float64) != 3 {
+		t.Fatalf("stats: %v", st)
+	}
+	if ms := st["mistakes"].([]any); len(ms) != 1 || ms[0].(map[string]any)["pts"].(float64) != 5 {
+		t.Fatalf("mistakes: %v", st["mistakes"])
+	}
+	us := call("GET", "/api/admin/users?q=ali", boss, nil, 200)
+	if us["total"].(float64) != 1 {
+		t.Fatalf("user search: %v", us)
+	}
+	aliID := strconv.Itoa(int(au["id"].(float64)))
+	call("PATCH", "/api/admin/users/"+aliID, boss, map[string]bool{"blocked": true}, 200)
+	call("GET", "/api/me", ali, nil, 401) // logged out
+	call("POST", "/api/auth/dev", "", map[string]string{"name": "Ali"}, 403)
+	if lb := call("GET", "/api/leaderboard", "", nil, 200)["items"].([]any); len(lb) != 1 {
+		t.Fatalf("a blocked user stays on the leaderboard: %v", lb)
+	}
+	call("PATCH", "/api/admin/users/"+strconv.Itoa(int(bu["id"].(float64))), boss, map[string]bool{"admin": false}, 400)
+	call("DELETE", "/api/admin/users/"+aliID, boss, nil, 200)
+	call("GET", "/api/admin/users/"+aliID, boss, nil, 404)
+
+	// advertising: before any upload the site's own list is used; then the uploaded one
+	if _, has := call("GET", "/api/config", "", nil, 200)["ads"]; has {
+		t.Fatal("ads before any were set")
+	}
+	call("POST", "/api/admin/ads", boss, []byte{}, 400) // empty
+	ads := call("POST", "/api/admin/ads", boss, []byte("\xff\xd8\xff picture"), 200)["items"].([]any)
+	id := ads[0].(map[string]any)["id"].(string)
+	cfgOut := call("GET", "/api/config", "", nil, 200)
+	if items := cfgOut["ads"].([]any); len(items) != 1 || !strings.Contains(items[0].(map[string]any)["src"].(string), "/uploads/ads/") {
+		t.Fatalf("config ads: %v", cfgOut["ads"])
+	}
+	res, _ := http.Get(ads[0].(map[string]any)["url"].(string))
+	if res.StatusCode != 200 {
+		t.Fatalf("uploaded file: %d", res.StatusCode)
+	}
+	res.Body.Close()
+	call("PUT", "/api/admin/ads", boss, map[string]any{"items": []map[string]any{{"id": id, "sec": 12, "on": false}}}, 200)
+	if items := call("GET", "/api/config", "", nil, 200)["ads"].([]any); len(items) != 0 {
+		t.Fatalf("a switched-off ad is shown: %v", items)
+	}
+	call("DELETE", "/api/admin/ads/"+id, boss, nil, 200)
+
+	// cars
+	call("PUT", "/api/admin/cars", boss, map[string]any{"disabled": []string{"damas", "bad id!"}}, 200)
+	if dc := call("GET", "/api/config", "", nil, 200)["disabledCars"].([]any); len(dc) != 1 || dc[0] != "damas" {
+		t.Fatalf("disabled cars: %v", dc)
+	}
+
+	// CORS: the site's origin is answered, another is not
+	req, _ := http.NewRequest("OPTIONS", srv.URL+"/api/me", nil)
+	req.Header.Set("Origin", "https://site.example")
+	res, _ = http.DefaultClient.Do(req)
+	if res.Header.Get("Access-Control-Allow-Origin") != "https://site.example" {
+		t.Fatal("CORS for the site")
+	}
+	req.Header.Set("Origin", "https://evil.example")
+	res, _ = http.DefaultClient.Do(req)
+	if res.Header.Get("Access-Control-Allow-Origin") != "" {
+		t.Fatal("CORS for another site")
+	}
+}

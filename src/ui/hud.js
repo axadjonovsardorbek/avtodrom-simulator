@@ -9,6 +9,8 @@ import { loadHistory } from "../sim/history.js";
 import { ACHIEVEMENTS, loadAchievements } from "../sim/achievements.js";
 import { ELEMENTS } from "../world/tracks.js";
 import { CARS } from "../cars/index.js";
+import { apiOn } from "../net/api.js";
+import { renderAccount, showLeaderboard } from "./account.js";
 
 const $ = (sel, root = document) => root.querySelector(sel);
 const el = (tag, cls, html) => { const e = document.createElement(tag); if (cls) e.className = cls; if (html != null) e.innerHTML = html; return e; };
@@ -110,7 +112,11 @@ export class Hud {
   }
 
   /* ---------- menu ---------- */
+  // the menu again as it is now (after a login, or the admin's car list arriving)
+  refreshMenu() { if (this.menuOpen) this.showMenu(this.menuState); }
+
   showMenu(state) {
+    this.menuState = state;
     const m = $("#menu", this.root), S = this.h.settings;
     const icon = d => `<svg viewBox="0 0 24 24" aria-hidden="true">${d}</svg>`;
     const ICONS = {
@@ -152,12 +158,14 @@ export class Hud {
           <p class="credit">${CARS.map(c => !c.credit ? "" : c.creditUrl ? `<a href="${c.creditUrl}" target="_blank" rel="noopener">${c.credit}</a>` : `<span>${c.credit}</span>`).join("<br>")}</p>
         </section>
         <aside class="panel menu-side">
+          <div class="acct" id="acct" hidden></div>
           <h3>Mashina</h3>
           <div class="cars">${CARS.map(c => `<button class="carbtn" data-car="${c.id}"><b>${c.name.replace("Chevrolet ", "")}</b><small>${c.info ? c.info.split(" · ")[0] : "Chevrolet"}</small></button>`).join("")}</div>
           <div class="row"><span class="lbl">Rangi</span><div class="swatches">${COLORS.map(([v, hex, t]) => `<button class="sw" data-color="${v}" title="${t}" style="--c:${hex}"></button>`).join("")}</div></div>
           <label class="row"><span class="lbl">Davlat raqami</span><input id="optPlate" maxlength="14" spellcheck="false" autocomplete="off"></label>
           <button class="garagebtn" id="garageBtn"><svg viewBox="0 0 24 24"><path d="M3 21V9l9-5 9 5v12"/><path d="M7 21v-7h10v7M7 17h10"/></svg><span><b>Garaj</b><small>Mashinani ko'rib tanlang</small></span><i>›</i></button>
           <button class="ghost" id="statsBtn">${icon('<path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/>')} Natijalar va xatolar tahlili</button>
+          ${apiOn ? `<button class="ghost" id="rankBtn">${icon('<path d="M8 21h8M12 17v4M7 4h10v5a5 5 0 0 1-10 0z"/><path d="M17 5h3v2a3 3 0 0 1-3 3M7 5H4v2a3 3 0 0 0 3 3"/>')} Reyting</button>` : ""}
           <button class="ghost" id="showroomBtn">${icon('<path d="M3 12a9 4 0 1 0 18 0 9 4 0 1 0-18 0"/><path d="m17 9 3 3-3 3"/>')} 360° ko'rish va salon</button>
           <h3>Haydash</h3>
           <span class="lbl">Uzatmalar qutisi</span>${seg("optTrans", [["manual", "Mexanik"], ["auto", "Avtomat"]])}
@@ -198,6 +206,8 @@ export class Hud {
     m.querySelectorAll("[data-el]").forEach(b => b.onclick = () => this.h.start("practice", b.dataset.el));
     const r = $("#resume", m); if (r) r.onclick = () => this.h.resume();
     $("#statsBtn", m).onclick = () => this.showStats();
+    const rank = $("#rankBtn", m); if (rank) rank.onclick = () => showLeaderboard($("#result", this.root));
+    renderAccount($("#acct", m), { res: $("#result", this.root), onChange: u => this.h.account && this.h.account(u) });
     $("#showroomBtn", m).onclick = () => this.h.showroom();
     $("#garageBtn", m).onclick = () => this.h.garage && this.h.garage();
     this.menuOpen = true; this.root.classList.add("menu-open");

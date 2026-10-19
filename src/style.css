@@ -562,3 +562,27 @@ tr:last-child td { border-bottom: 0; }
 /* an upright phone without screen-lock support (iPhone): the interface is turned a quarter and played sideways */
 #app.rot { inset: auto; left: 0; top: 0; width: 100vh; height: 100vw; width: 100dvh; height: 100dvw; transform-origin: 0 0; transform: rotate(90deg) translateY(-100%); }
 #app.rot .rotate { display: none !important; }
+
+/* accounts (src/ui/account.js): the user's chip in the menu, the login panel, the leaderboard */
+.acct { margin-bottom: 12px; }
+.acct-login, .acct-me { width: 100%; display: flex; align-items: center; gap: 12px; text-align: left; border: 1px solid var(--rule); background: var(--raise); border-radius: 12px; padding: 9px 12px; color: var(--fg); }
+.acct-login { cursor: pointer; }
+.acct-login:hover { border-color: var(--amber); }
+.acct-login span:not(.av), .acct-me span:not(.av) { display: grid; flex: 1; min-width: 0; }
+.acct-login b, .acct-me b { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.acct-login small, .acct-me small { color: var(--muted); font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.acct-login i { font-style: normal; font-size: 24px; color: var(--amber); }
+.acct .btn.small, .btn.small { margin: 0; padding: 6px 10px; font-size: 13px; text-decoration: none; color: var(--fg); }
+.av { width: 34px; height: 34px; border-radius: 50%; flex: none; display: grid; place-items: center; background: var(--blue); color: #fff; font-weight: 700; font-size: 13px; object-fit: cover; }
+.av.sm { width: 26px; height: 26px; font-size: 11px; }
+.login-btns { display: flex; flex-direction: column; align-items: center; gap: 12px; margin: 18px 0 6px; min-height: 48px; }
+.dev-login { display: flex; gap: 8px; }
+.dev-login input { background: #12151a; border: 1px solid var(--rule); border-radius: 8px; padding: 9px 12px; color: var(--fg); font: inherit; }
+.dev-login .btn { margin: 0; }
+.login-err { color: var(--red); text-align: center; }
+.login-wait { color: var(--muted); text-align: center; }
+.lb-keys { max-width: 320px; margin: 10px 0 14px; }
+table.lb .who { display: flex; align-items: center; gap: 8px; }
+table.lb tr.me td { background: rgba(242, 182, 50, .12); }
+table.lb em { color: var(--amber); font-style: normal; }
+.result .note { color: var(--muted); font-size: 13px; margin: 10px 0 0; }

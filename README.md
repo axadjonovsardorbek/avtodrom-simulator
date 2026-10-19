@@ -12,6 +12,10 @@ npm test           # brauzersiz testlar: fizika, trassa, qoidalar
 npm run prepare:cobalt -- ~/Downloads/chevrolet_cobalt_ltz_2014.glb   # Sketchfab modelidan public/models/cobalt.glb
 ```
 
+## Hisoblar va admin panel
+
+Kirish (Google, Telegram), natijalarni serverda saqlash, reyting va admin panel (`admin.html`) uchun Go va PostgreSQL'dagi server bor: `server/`. O'rnatish, Google va Telegram sozlamalari: [server/README.md](server/README.md). Sayt serversiz yig'ilsa (`VITE_API_URL` berilmasa), hammasi oldingidek brauzerda ishlaydi.
+
 ## Ovozli ko'rsatmalar
 
 Imtihon tizimi ovozi o'zbek tilida, `public/audio/uz/*.mp3` fayllarida (Microsoft neyron ovozi `uz-UZ-MadinaNeural`).

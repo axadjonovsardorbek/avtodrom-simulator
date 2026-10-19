@@ -80,4 +80,10 @@ export const CARS = [
   }
 ];
 // "malibu" was the Malibu XL model, now replaced by the Premier
+// every car the simulator has; CARS itself loses the ones the admin switched off (server: /api/config)
+export const ALL_CARS = CARS.slice();
+export function setDisabledCars(ids) {
+  const off = new Set(ids || []), keep = ALL_CARS.filter(c => !off.has(c.id));
+  CARS.splice(0, CARS.length, ...(keep.length ? keep : ALL_CARS.slice(0, 1)));     // never none
+}
 export const carById = id => CARS.find(c => c.id === (id === "malibu" ? "malibu-premier" : id)) || CARS[0];

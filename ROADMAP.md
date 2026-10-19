@@ -34,8 +34,8 @@ Bajarilganini `[x]` bilan belgilang.
 - [ ] **Telegram mini-ilova:** Telegram ichida to'g'ridan-to'g'ri ochiladigan qilish.
 - [ ] **Ko'p tilli:** rus va ingliz tillari (hozir faqat o'zbekcha).
 - [ ] **Haqiqiy rul va pedallar:** Logitech G29 kabi qurilmalar, rul qarshiligi (force feedback).
-- [ ] **Hisoblar (akkaunt) va admin panel:** foydalanuvchi kirishi, natijalar tarixi serverda saqlanadi (hozir faqat brauzerda), admin panelda foydalanuvchilar va ularning natijalarini ko'rish. Oxirida qilinadi.
-- [ ] **Statistika va reyting:** foydalanuvchilar soni, eng yaxshi natijalar jadvali (server kerak).
+- [x] **Hisoblar (akkaunt) va admin panel:** Google va Telegram orqali kirish, natijalar tarixi serverda (Go + PostgreSQL, `server/`). Admin panelda foydalanuvchilar, natijalar, reklama va mashinalarni boshqarish. Ishlashi uchun server VPS'ga o'rnatilishi kerak (`server/README.md`).
+- [x] **Statistika va reyting:** admin panelda foydalanuvchilar soni va faolligi, mashqlar va xatolar statistikasi; o'yinda va admin panelda reyting jadvali.
 
 ## 5. Realistiklik (navbatdagi katta ishlar)
 

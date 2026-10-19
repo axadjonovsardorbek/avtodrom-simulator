@@ -12,8 +12,10 @@ export default defineConfig({
     assetsInlineLimit: 0,
     chunkSizeWarningLimit: 700,          // three.js alone is ~640 kB
     rollupOptions: {
+      // the simulator (its bundle keeps the name "app", its styles "index.css") and the admin panel
+      input: { index: "index.html", admin: "admin.html" },
       output: {
-        entryFileNames: hashed ? "assets/app-[hash].js" : "assets/app.js",
+        entryFileNames: c => { const n = c.name === "index" ? "app" : "[name]"; return hashed ? `assets/${n}-[hash].js` : `assets/${n}.js`; },
         chunkFileNames: hashed ? "assets/[name]-[hash].js" : "assets/[name].js",
         assetFileNames: hashed ? "assets/[name]-[hash][extname]" : "assets/[name][extname]",
         // three.js in its own file: it changes far less often than the app, so browsers keep it cached
