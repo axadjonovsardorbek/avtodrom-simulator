@@ -130,7 +130,7 @@ export function buildFull(car) {
   // ---- 7: the garage, straight on from the snake: the east pad of the south-east quarter, in from the road above, the box on the east side
   const g0 = px(1178, 733), g1 = px(1178, 1012), gth = Math.atan2(g1[1] - g0[1], g1[0] - g0[0]) / DEG, gd = (a, b) => Math.hypot(...px(...a).map((v, i) => v - px(...b)[i]));
   const tX = boksPad(W, { x: g0[0], y: g0[1], th: gth, Lc: gd([1178, 733], [1178, 1012]), cw: gd([1157, 800], [1200, 800]) / 2,
-    bx0: gd([1178, 733], [1178, 890]), bx1: gd([1178, 733], [1178, 950]), bd: gd([1200, 920], [1247, 920]), side: -1, poly: PADS[PAD.T4], open: padOpen(PADS[PAD.T4]) });
+    bx0: gd([1178, 733], [1178, 890]), bx1: gd([1178, 733], [1178, 950]), bd: gd([1200, 920], [1247.5, 920]), side: -1, poly: PADS[PAD.T4], open: padOpen(PADS[PAD.T4]) });
 
   // ---- the junction from the east, straight on (west)
   const c2 = chorraha(W, O, 180, "straight", A);
@@ -152,7 +152,7 @@ export function buildFull(car) {
   // into the middle pocket cut into the island north of it (pad D3)
   const d3 = PADS[PAD.D3], dBot = Math.max(...d3.map(q => q[1])), dX1 = Math.max(...d3.map(q => q[0]));
   const T5 = new Turtle(W, dX1 + 6.3, dBot + LANE / 2 + 0.05, 180, bare);
-  const tK = parkovka(W, T5, { b0: 6.3, len: 30, board: true, bw: 3.2, hideBox: true });
+  const tK = parkovka(W, T5, { b0: 6.53, len: 30, board: true, bw: 3.2, hideBox: true });
 
   // ---- the junction from the east, turning right (north) towards the finish road (4:40-4:53)
   const c3 = chorraha(W, O, 180, "right", A);
