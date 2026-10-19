@@ -3,13 +3,14 @@
 // plan by tools/trace-board.mjs), with the plan's markings on top: zebras, start box, parking diamonds, hatching,
 // lane lines.
 import { FRAME, ISLANDS, PADS, PAD, px } from "./boardData.js";
-import { straighten, insetPoly, PAD_INSET, squareCorners, removeSteps, simplifyClosed, axisShare, squareEdges, removeSlivers, splitPinches, smoothClosed, snapToPads, morphSmooth, stripCentre, stripPoly, carveLanes } from "./straighten.js";
+import { straighten, insetPoly, PAD_INSET, squareCorners, removeSteps, simplifyClosed, axisShare, squareEdges, removeSlivers, splitPinches, smoothClosed, snapToPads, morphSmooth, stripCentre, stripPoly, carveLanes, extendToRoad } from "./straighten.js";
 
 // the snakes: each lane gets one width along a smooth centre line (the pad becomes exactly that strip)
-const SNAKES = ["snakeL", "snakeR"].map(k => { const p = PADS[PAD[k]], sc = stripCentre(p, padOpen(p)); if (sc) { const q = stripPoly(sc.c, sc.w); p.length = 0; p.push(...q); } return sc; }).filter(Boolean);
+const SNAKES = ["snakeL", "snakeR"].map(k => { const p = PADS[PAD[k]], sc = stripCentre(p, padOpen(p)); if (sc) { extendToRoad(sc.c, sc.w, ISLANDS.map(i => i.kerb)); const q = stripPoly(sc.c, sc.w); p.length = 0; p.push(...q); } return sc; }).filter(Boolean);
 // the kerbs of the plan are traced by hand: their long straight runs are made exactly straight, and the little steps of
 // the tracing (jogs under 1.3 m between two parallel runs) are taken out, so the lanes have clean walls as on the
 // aerial photo; the grass is the kerb 0.4 m in
+const RAWK = ISLANDS.map(i => i.kerb.map(p => p.slice()));
 for (const isl of ISLANDS.slice()) {
   straighten(isl.kerb, { strictOnly: true, tol: 1.3 });
   if (axisShare(isl.kerb) > 0.6) {                      // a block of straight walls (not a snake): smooth out the tracing
@@ -17,7 +18,7 @@ for (const isl of ISLANDS.slice()) {
   }
   else { morphSmooth(isl.kerb, 2.0, 1.2); isl.smooth = true; }   // the snakes' islands: rounded   // the snakes: one smooth curve, as on the plan
   if (!isl.smooth) { squareCorners(isl.kerb); removeSteps(isl.kerb); removeSlivers(isl.kerb); }
-  if (isl.kerb.some(q => SNAKES.some(({ c, w }) => c.some(p => Math.hypot(p[0] - q[0], p[1] - q[1]) < w / 2 + 2.5)))) carveLanes(isl.kerb, SNAKES);   // the walls of the snakes along their lanes
+  if (isl.kerb.some(q => SNAKES.some(({ c, w }) => c.some(p => Math.hypot(p[0] - q[0], p[1] - q[1]) < w / 2 + 2.5)))) carveLanes(isl.kerb, SNAKES, RAWK);   // the walls of the snakes along their lanes
   // drop repeated points and the spikes the straightening can leave (an edge that turns straight back on the one before)
   const k = isl.kerb;
   for (let again = true; again;) {
