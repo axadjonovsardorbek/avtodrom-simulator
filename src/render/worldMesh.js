@@ -155,7 +155,7 @@ export function buildWorldMeshes(W, quality) {
       const m = mergeVertices(g); m.computeVertexNormals(); return m; })();
     const rand = (() => { let s = 777; return () => ((s = (s * 1664525 + 1013904223) >>> 0) / 4294967296); })();
     // round shrubs standing apart on the grass (at least `gap` metres between centres), as on the video
-    const spots = [], gap = quality === "low" ? 3.2 : quality === "mid" ? 2.6 : 2.2, cell = new Map(), key = (x, y) => Math.floor(x / gap) + "," + Math.floor(y / gap);
+    const spots = [], gap = quality === "low" ? 2.8 : quality === "mid" ? 2.3 : 1.9, cell = new Map(), key = (x, y) => Math.floor(x / gap) + "," + Math.floor(y / gap);
     const free = (x, y) => { const cx = Math.floor(x / gap), cy = Math.floor(y / gap); for (let i = -1; i <= 1; i++) for (let j = -1; j <= 1; j++) for (const q of cell.get((cx + i) + "," + (cy + j)) || []) if (Math.hypot(q[0] - x, q[1] - y) < gap) return false; return true; };
     for (const isl of bd.islands) {
       const xs = isl.grass.map(q => q[0]), ys = isl.grass.map(q => q[1]), x0 = Math.min(...xs), x1 = Math.max(...xs), y0 = Math.min(...ys), y1 = Math.max(...ys);
@@ -168,7 +168,7 @@ export function buildWorldMeshes(W, quality) {
     }
     const bushes = new THREE.InstancedMesh(bushGeo, new THREE.MeshStandardMaterial({ map: bushTexture(), color: 0xffffff, roughness: 0.9 }), spots.length);
     const bm = new THREE.Matrix4(), bq = new THREE.Quaternion(), bs = new THREE.Vector3(), bv = new THREE.Vector3(), bc = new THREE.Color();
-    spots.forEach(([x, y], i) => { const s = 1.15 + rand() * 0.5; bm.compose(bv.set(x, 0.12 + 0.32 * s, y), bq.setFromAxisAngle(new THREE.Vector3(0, 1, 0), rand() * 6), bs.set(s, s * (0.85 + rand() * 0.25), s)); bushes.setMatrixAt(i, bm); bushes.setColorAt(i, bc.setHSL(0.23 + rand() * 0.05, 0.42 + rand() * 0.12, 0.42 + rand() * 0.10)); });
+    spots.forEach(([x, y], i) => { const s = 0.7 + rand() * 0.35; bm.compose(bv.set(x, 0.15 + 0.32 * s, y), bq.setFromAxisAngle(new THREE.Vector3(0, 1, 0), rand() * 6), bs.set(s, s * (0.85 + rand() * 0.25), s)); bushes.setMatrixAt(i, bm); bushes.setColorAt(i, bc.setHSL(0.23 + rand() * 0.05, 0.42 + rand() * 0.12, 0.42 + rand() * 0.10)); });
     bushes.castShadow = quality === "high"; bushes.receiveShadow = true; group.add(bushes);
 
     // a low concrete wall along the edge of the asphalt (the kerb posts of src/world/board.js stand in it)
