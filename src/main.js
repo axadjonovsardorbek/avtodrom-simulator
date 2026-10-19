@@ -11,6 +11,7 @@ import { Hud } from "./ui/hud.js";
 import { carById } from "./cars/index.js";
 import { loadCarModel, loadTrafficModel } from "./render/carLoader.js";
 import { dressCobalt, addPaint } from "./render/carDress.js";
+import { addScreenAd } from "./render/screenAd.js";
 import { addPlates, DEFAULT_PLATE } from "./render/plates.js";
 import PHRASES from "./audio/phrases.json";
 import { Instructor, lineIds } from "./instructor/instructor.js";
@@ -376,6 +377,7 @@ const modelVariant = () => settings.quality === "low" ? "-mid" : "";
 function prepareCar(car, onProgress) {
   return loadCarModel(car.model.replace(/\.glb$/, modelVariant() + ".glb"), onProgress).then(cv => {
     if (car.id === "cobalt") dressCobalt(cv); else addPaint(cv);
+    addScreenAd(cv, car.screen);
     // the Cobalt file has no plates of its own: put them on the plate holders
     addPlates(cv, settings.plate, car.id === "cobalt" ? [{ pos: [3.582, 0.45, 0], back: false }, { pos: [-0.882, 0.47, 0], back: true }] : undefined);
     if (cv.setPaint) cv.setPaint(settings.color);

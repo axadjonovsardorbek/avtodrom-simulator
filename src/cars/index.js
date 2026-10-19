@@ -34,6 +34,8 @@ export const CARS = [
     credit: "3D model: \"2021 Chevrolet Malibu 2LZ Premier\" by twr422 (Sketchfab), CC BY 4.0, modified",
     creditUrl: "https://sketchfab.com/3d-models/2021-chevrolet-malibu-2lz-premier-c1e8e127ce114b14a166e93100642424",
     dims: PREMIER, eye: [1.37, 1.18, -0.389], seat: [1.5, 0.47, 0.389],
+    // the centre screen (the bowtie picture in its dashboard texture) shows public/ads/ads.json
+    screen: { mat: "selfillumdiffuse__dash", uv: [0.755, 0.995, 0.87, 0.995] },
     mirrors: { center: [1.92, 1.32, 0], left: [2.3, 1.06, -1.0], right: [2.3, 1.06, 1.0] },
     spec: { mass: 1500, wb: PREMIER.wheelbase, rOh: PREMIER.rOh, fOh: PREMIER.fOh, width: 1.854, track: PREMIER.track, wheelR: PREMIER.wheelR, torque: TURBO, clutchCap: 400, autoForce: 5600 },
     sound: TURBO_SOUND,

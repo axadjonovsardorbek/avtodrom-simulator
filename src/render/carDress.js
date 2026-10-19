@@ -116,7 +116,7 @@ export function dressCobalt(cv) {
   const bezel = new THREE.Mesh(new THREE.BoxGeometry(0.176, 0.1, 0.004), satin); bezel.position.set(-0.008, -0.04, 0.0125); stack.add(bezel);
   const glassBlack = new THREE.Mesh(new THREE.PlaneGeometry(0.168, 0.092), piano); glassBlack.position.set(-0.008, -0.04, 0.0148); stack.add(glassBlack);
   const screen = new THREE.Mesh(new THREE.PlaneGeometry(0.152, 0.084), new THREE.MeshBasicMaterial({ map: screenTexture(), toneMapped: false }));
-  screen.position.set(-0.008, -0.04, 0.0152); stack.add(screen);
+  screen.name = "ad_screen"; screen.position.set(-0.008, -0.04, 0.0152); stack.add(screen);
   // volume knob and the two track buttons at the right of the screen
   const vol = new THREE.Mesh(new THREE.CylinderGeometry(0.009, 0.009, 0.01, 20), satin); vol.rotation.x = Math.PI / 2; vol.position.set(0.096, -0.008, 0.017); stack.add(vol);
   for (const by of [-0.04, -0.062]) { const b = new THREE.Mesh(new THREE.BoxGeometry(0.014, 0.016, 0.004), darkGrey); b.position.set(0.096, by, 0.014); stack.add(b); }
