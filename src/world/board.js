@@ -175,17 +175,17 @@ export function addBoard(W) {
   fan(W, [714, 1085], [662, 1085], [714, 1030], 9);                // the gore where the south arm leaves the bottom road: a fan of lines (3:49)
   // lane arrows (the way each lane runs, as on the plan)
   // the arrows of the plan, lane by lane (deg: the way the lane runs; 0 east, 90 south)
-  for (const [x, y, d, kind] of [
+  for (const [x, y, d, kind, len] of [
     [850 + D, 59, 180], [850 + D, 102, 180], [1230, 47, 180], [1230, 92, 180],                     // start box and the road behind it
     [178, 88, 180, "L"], [178, 131, 180, "L"],                                                   // top road, turning south at the west end
-    [100, 330, 90], [100, 465, 90, "L"],                                                    // west road
+    [100, 270, 90], [75, 270, 90], [102, 385, 90, "L", 46], [69, 385, 90, "SL", 46],   // at the 90-degree turn: B (by the island) left, C/D straight or left                                                    // west road
     [565, 212, 0, "R"], [570, 355, 0, "R"], [672, 440, 90], [150, 582, 180, "L"],               // north-west quarter
     [770, 312, 0, "SR"], [1050, 305, 0], [1050, 345, 0], [717, 400, -90, "R"],                     // north-east road
     [995, 520, 180, "SR"], [1165, 520, 180, "SR"], [1315, 520, 180, "SR"], [980, 572, 180], [1165, 572, 180], [1315, 572, 180], [820, 567, 180, "L"],
     [570, 615, 0], [210, 665, -90, "R"], [452, 640, -90, "R"], [90, 1040, 90, "L"], [255, 1090, 0], [475, 1055, 180, "L"], [625, 1052, 180, "SR"], [675, 970, 90, "SL"], [645, 1095, 0],
     [835, 605, 0, "SR"], [1135, 602, 0, "SR"], [1255, 635, 0, "R"], [1355, 670, -90, "L"], [1315, 935, 90, "R"], [710, 725, -90, "L"],
     [770, 1042, 180, "L"], [935, 1072, 180, "SR"], [1160, 1077, 180, "SR"], [975, 1107, 0], [1250, 1115, 0, "L"]
-  ]) arrow(W, x, y, d, 56, kind);
+  ]) arrow(W, x, y, d, len || 56, kind);
   // road signs where the plan has them (px of the plan): each stands on the island next to that spot, 0.6 m in from the
   // kerb, its face turned to the road; a spot outside the frame faces into the ground
   const sign = (x, y, th, kind, extra = {}) => W.signs.push({ x, y, th, kind, ...extra });
