@@ -31,9 +31,9 @@ for (const isl of ISLANDS.slice()) {
   for (let i = 0; i < isl.kerb.length; i++) { const q = isl.kerb[i], r = isl.kerb[(i + 1) % isl.kerb.length];
     if (Math.abs(q[0] + 34.64) < 0.01 && Math.abs(q[1] + 21.71) < 0.3 && Math.abs(r[0] + 37.22) < 0.3 && Math.abs(r[1] + 12.19) < 0.3) { isl.kerb.splice(i + 1, 0, [-34.64, -12.19]); break; } }
   for (let i = isl.kerb.length - 1; i > 0; i--) if (Math.hypot(isl.kerb[i][0] - isl.kerb[i - 1][0], isl.kerb[i][1] - isl.kerb[i - 1][1]) < 0.05) isl.kerb.splice(i, 1);
-  // the thin island under the 90-degree corridor is only about 2 m deep west of the corridor's mouth (as on the plan)
+  // the thin island under the 90-degree corridor: one straight top edge, about 2.4 m deep (the tracing made it 4.4 m)
   { const k = isl.kerb, i = k.findIndex(q => Math.abs(q[0] + 55.36) < 0.3 && Math.abs(q[1] + 16.55) < 0.3);
-    if (i >= 0 && Math.abs(k[i - 1][0] + 56.27) < 0.3) k.splice(i - 1, 2, [-56.1, -13.1], [-55.4, -14.0], [-48.36, -14.0], [-48.36, -16.55]); }
+    if (i >= 0 && Math.abs(k[i - 1][0] + 56.27) < 0.3) { k.splice(i - 1, 2, [-56.1, -13.4], [-55.4, -14.6]); const j = k.findIndex(q => Math.abs(q[0] + 39.09) < 0.3 && Math.abs(q[1] + 16.55) < 0.3); if (j >= 0) k[j] = [-39.09, -14.6]; } }
   { const parts = splitPinches(isl.kerb);                 // two blocks that touch along a wall become two islands
     isl.kerb = parts[0]; for (const q of parts.slice(1)) ISLANDS.push({ kerb: q, grass: q, lanes: [] }); }
   isl.grass = isl.kerb;                                // the kerb is drawn as a 0.4 m band just inside this outline
@@ -147,7 +147,7 @@ export function addBoard(W) {
         for (let j = 0; j < m; j++) {
           const t = j / m, x = a[0] + dx * t, y = a[1] + dy * t;
           let narrow = false; for (let r = 1; r <= 5.5; r += 0.25) if (onIsland(x + ox * r, y + oy * r)) { narrow = true; break; }
-          const qx = x + ox * 0.6, qy = y + oy * 0.6, pad = PADS.some(g => inPoly(g, qx, qy));
+          const qx = x + ox * 0.6, qy = y + oy * 0.6, pad = PADS.some(g => inPoly(g, qx, qy) || inPoly(g, x + ox * 2, y + oy * 2));
           if (!pad && !PADS.some(g => inPoly(g, qx, qy) || edgeDist(g, qx, qy) < 3)) { pts.push([x + ox * 0.2, y + oy * 0.2, false]); continue; }
           pts.push([x + ox * 0.2, y + oy * 0.2, (narrow || pad) && !onIsland(x + ox * 0.3, y + oy * 0.3)]);
         }
