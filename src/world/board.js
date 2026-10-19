@@ -31,6 +31,9 @@ for (const isl of ISLANDS.slice()) {
   for (let i = 0; i < isl.kerb.length; i++) { const q = isl.kerb[i], r = isl.kerb[(i + 1) % isl.kerb.length];
     if (Math.abs(q[0] + 34.64) < 0.01 && Math.abs(q[1] + 21.71) < 0.3 && Math.abs(r[0] + 37.22) < 0.3 && Math.abs(r[1] + 12.19) < 0.3) { isl.kerb.splice(i + 1, 0, [-34.64, -12.19]); break; } }
   for (let i = isl.kerb.length - 1; i > 0; i--) if (Math.hypot(isl.kerb[i][0] - isl.kerb[i - 1][0], isl.kerb[i][1] - isl.kerb[i - 1][1]) < 0.05) isl.kerb.splice(i, 1);
+  // the thin island under the 90-degree corridor is only about 2 m deep west of the corridor's mouth (as on the plan)
+  { const k = isl.kerb, i = k.findIndex(q => Math.abs(q[0] + 55.36) < 0.3 && Math.abs(q[1] + 16.55) < 0.3);
+    if (i >= 0 && Math.abs(k[i - 1][0] + 56.27) < 0.3) k.splice(i - 1, 2, [-56.1, -13.1], [-55.4, -14.0], [-48.36, -14.0], [-48.36, -16.55]); }
   { const parts = splitPinches(isl.kerb);                 // two blocks that touch along a wall become two islands
     isl.kerb = parts[0]; for (const q of parts.slice(1)) ISLANDS.push({ kerb: q, grass: q, lanes: [] }); }
   isl.grass = isl.kerb;                                // the kerb is drawn as a 0.4 m band just inside this outline
@@ -94,9 +97,20 @@ const ARROW = {
   SL: [ribbonArrow([[-28, 0], [15, 0]]), ribbonArrow(bend(-16, -1, 10, 2))],
   LR: [ribbonArrow([[-28, 0], ...bend(-8, 1)]), ribbonArrow([[-28, 0], ...bend(-8, -1)])]
 };
+// the arrow is slid along its lane (up to 8 m back or forward, a little sideways) until it touches no kerb, no line
+// and no other marking
 function arrow(W, x, y, deg, len = 56, kind = "S") {
   const a = deg * Math.PI / 180, c = Math.cos(a), s = Math.sin(a), k = len / 56;
-  for (const shape of ARROW[kind]) W.addPaint(shape.map(([u, v]) => P(x + (u * c - v * s) * k, y + (u * s + v * c) * k)));
+  const make = (du, dv) => ARROW[kind].map(shape => shape.map(([u, v]) => P(x + ((u + du) * c - (v + dv) * s) * k, y + ((u + du) * s + (v + dv) * c) * k)));
+  const segD = (p, q, r) => { const dx = r[0] - q[0], dy = r[1] - q[1], L = dx * dx + dy * dy || 1, t = Math.max(0, Math.min(1, ((p[0] - q[0]) * dx + (p[1] - q[1]) * dy) / L)); return Math.hypot(q[0] + dx * t - p[0], q[1] + dy * t - p[1]); };
+  const inPoly = (g, px_, py_) => { let r = false; for (let i = 0, j = g.length - 1; i < g.length; j = i++) if ((g[i][1] > py_) !== (g[j][1] > py_) && px_ < (g[j][0] - g[i][0]) * (py_ - g[i][1]) / (g[j][1] - g[i][1]) + g[i][0]) r = !r; return r; };
+  const clash = shapes => shapes.some(sh => sh.some(q =>
+    ISLANDS.some(({ kerb: g }) => inPoly(g, q[0], q[1]) || g.some((u, i) => segD(q, u, g[(i + 1) % g.length]) < 0.5)) ||
+    W.lines.some(ln => !ln.hidden && ln.pts.some((u, i) => i + 1 < ln.pts.length && segD(q, u, ln.pts[i + 1]) < 0.25)) ||
+    W.paint.some(pt => pt.poly.length <= 5 && inPoly(pt.poly, q[0], q[1]))));
+  let best = make(0, 0);
+  search: for (let r = 0; r <= 80; r += 5) for (const du of r ? [-r, r] : [0]) for (const dv of [0, -4, 4, -8, 8]) { const sh = make(du, dv); if (!clash(sh)) { best = sh; break search; } }
+  for (const sh of best) W.addPaint(sh);
 }
 // a rounded rectangle of the plan (px), as metres
 const rrect = (x0, y0, x1, y1, r) => [...arc(x1 - r, y0 + r, r, -Math.PI / 2, 0, 6), ...arc(x1 - r, y1 - r, r, 0, Math.PI / 2, 6), ...arc(x0 + r, y1 - r, r, Math.PI / 2, Math.PI, 6), ...arc(x0 + r, y0 + r, r, Math.PI, Math.PI * 1.5, 6)].map(p => P(...p));
@@ -193,7 +207,7 @@ export function addBoard(W) {
     [770, 312, 0, "SR"], [1050, 305, 0], [1050, 345, 0], [717, 400, -90, "R"],                     // north-east road
     [995, 520, 180, "SR"], [1165, 520, 180, "SR"], [1315, 520, 180, "SR"], [980, 572, 180], [1165, 572, 180], [1315, 572, 180], [820, 567, 180, "L"],
     [570, 615, 0], [210, 665, -90, "R"], [452, 640, -90, "R"], [90, 1040, 90, "L"], [255, 1090, 0], [475, 1055, 180, "L"], [625, 1052, 180, "SR"], [675, 960, 90, "R"], [645, 1095, 0],
-    [835, 605, 0, "SR"], [1135, 602, 0, "SR"], [1255, 635, 0, "R"], [1355, 670, -90, "L"], [1315, 935, 90, "R"], [710, 725, -90, "L"],
+    [835, 605, 0, "SR"], [1135, 602, 0, "SR"], [1255, 635, 0, "R"], [1355, 670, -90, "L"], [1348, 935, 90, "R", 48], [710, 725, -90, "L"],
     [770, 1042, 180, "L"], [935, 1072, 180, "SR"], [1160, 1077, 180, "SR"], [975, 1107, 0], [1250, 1115, 0, "L"]
   ]) arrow(W, x, y, d, len || 56, kind);
   // road signs where the plan has them (px of the plan): each stands on the island next to that spot, 0.6 m in from the
