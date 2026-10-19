@@ -70,7 +70,7 @@ function stopHint(ctx, st, lineS) {
 // The rear-wheel line of the garage box and the parking box (as on the video): a white bar 0.5 m wide across the box,
 // 0.35 m in from its back edge (BAR: its edges, measured in from the back); both rear tyres have to stand on it (the
 // body hangs over the low kerb behind).
-const BAR = [0.35, 0.85];
+export const BAR = [0.35, 0.85];
 const onBar = (d0, d1) => [d0, d1].every(d => d >= BAR[0] - 0.1 && d <= BAR[1] + 0.1);
 const barHint = (inside, ok) => !inside ? "" : ok ? "Ikkala orqa g'ildirak oq chiziqda. To'liq to'xtang." : "Ikkala orqa g'ildirak oq chiziqqa tegishi kerak.";
 
