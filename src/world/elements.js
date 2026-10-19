@@ -30,7 +30,9 @@ function task(def) {
   };
 }
 
-// Stop-line bookkeeping (penalties #4, #11/#25, #12) for travel along +s.
+// Stop-line bookkeeping (penalties #4, #11/#25, #12) for travel along +s. lineS is the far edge of the painted line
+// (0.4 m wide): the front bumper may stand anywhere from 1 m before its near edge up to over the paint (STOP_ZONE).
+const LINE_W = 0.4, STOP_ZONE = 1 + LINE_W;
 export function stopLineRule(ctx, key, lineS, required, missCode) {
   const st = ctx.f[key] || (ctx.f[key] = { stopD: null, standT: 0, crossed: false, still: false });
   if (st.crossed) return st;
@@ -39,14 +41,14 @@ export function stopLineRule(ctx, key, lineS, required, missCode) {
     if (!st.still) { st.still = true; st.stopStart = ctx.t; }
     st.stopD = d; st.standT = ctx.t - st.stopStart;
     // tell the UI at once (the penalty itself is only decided when the line is crossed)
-    if (d > 1 && st.standT > 0.4 && !st.farSaid) { st.farSaid = true; ctx.emit("stopFarNow", { d }); }
+    if (d > STOP_ZONE && st.standT > 0.4 && !st.farSaid) { st.farSaid = true; ctx.emit("stopFarNow", { d }); }
   } else st.still = false;
   if (d < 0) {
     st.crossed = true;
     const req = required();
     if (req && st.stopD == null) ctx.pen(missCode);
     else if (st.stopD != null) {
-      if (st.stopD > 1) ctx.pen("stopFar");
+      if (st.stopD > STOP_ZONE) ctx.pen("stopFar");
       if (req && st.standT < 3) ctx.pen("early3s");
     }
   }
@@ -56,11 +58,12 @@ export function stopLineRule(ctx, key, lineS, required, missCode) {
 // Training aid: the 1 m stop zone before each stop line (front bumper between s-1 and s).
 // Drawn only outside the exam (see View.setWorld); rule distances are measured to s.
 function stopZone(W, pose, s, l0 = -HL, l1 = HL) { (W.stopZones || (W.stopZones = [])).push({ pose, s, l0, l1 }); }
-function stopPaint(W, pose, s, l0 = -HL, l1 = HL) { W.addPaint(rect(pose, s - 0.4, s, l0, l1)); stopZone(W, pose, s, l0, l1); }
+function stopPaint(W, pose, s, l0 = -HL, l1 = HL) { W.addPaint(rect(pose, s - LINE_W, s, l0, l1)); stopZone(W, pose, s, l0, l1); }
+// distances shown to the learner are to the near edge of the line (the one the driver sees)
 function stopHint(ctx, st, lineS) {
   if (!st || st.crossed) return "";
-  if (st.still) return `Turibsiz: ${st.standT.toFixed(1)} s · chiziqqacha ${st.stopD.toFixed(2)} m`;
-  const d = lineS - ctx.fs;
+  if (st.still) return `Turibsiz: ${st.standT.toFixed(1)} s${st.standT >= 3 ? " (3 s bo'ldi)" : ""} · chiziqqacha ${Math.max(0, st.stopD - LINE_W).toFixed(2)} m`;
+  const d = lineS - LINE_W - ctx.fs;
   return d < 10 ? `To'xtash chizig'igacha: ${Math.max(0, d).toFixed(1)} m` : "";
 }
 

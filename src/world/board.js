@@ -196,11 +196,13 @@ export const FINISH_X = 1185;                        // the finish line across t
 export const START_X = 1355;                         // the start box: its east end (px), at the very east end of the top road where the run begins
 export function addBoard(W) {
   W.board = { frame: FRAME, islands: ISLANDS, pads: PADS };
-  // the islands cannot be driven over: a row of low kerb posts along the edge of every island and round the whole plan
-  // (solids with the 4th field set: they stop the car but are not a crash; touching the line is the penalty. 2: a low
-  // kerb, met only by the tyres, the body hangs over it; 1: the frame, met by the body)
+  // the kerbs of the islands are low (as on the video): a car can be driven over one, the tyres climbing onto the grass
+  // (src/sim/session.js); touching the kerb is the penalty (its line below)
+  const boxes = ISLANDS.map(({ kerb: k }) => { const xs = k.map(q => q[0]), ys = k.map(q => q[1]); return { k, x0: Math.min(...xs), x1: Math.max(...xs), y0: Math.min(...ys), y1: Math.max(...ys) }; });
+  W.islandAt = (x, y) => boxes.some(b => x > b.x0 && x < b.x1 && y > b.y0 && y < b.y1 && inside(b.k, x, y));
+  // the frame cannot be driven over: a row of posts round the whole plan (solids with the 4th field set: they stop the
+  // car but are not a crash; touching the line is the penalty)
   const posts = [], along = (poly, r, kind, step = 0.45) => { for (let i = 0; i < poly.length; i++) { const a = poly[i], b = poly[(i + 1) % poly.length], L = Math.hypot(b[0] - a[0], b[1] - a[1]), n = Math.max(1, Math.ceil(L / step)); for (let k = 0; k < n; k++) posts.push([a[0] + (b[0] - a[0]) * k / n, a[1] + (b[1] - a[1]) * k / n, r, kind]); } };
-  for (const isl of ISLANDS) along(isl.kerb, 0.2, 2);
   along(FRAME.map(([x, y]) => [x + Math.sign(x) * 0.6, y + Math.sign(y) * 0.6]), 0.3, 1);
   W.baseSolids = posts; W.solids = posts.slice(); W.solidGrid = null;
   // the kerbs and the frame are the lines a car must not touch

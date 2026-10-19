@@ -6,6 +6,7 @@ import { toLocal, polyTouchesSeg, polyNearPoint } from "./geom.js";
 import { buildSolidGrid, collideCar } from "./collide.js";
 
 export const START_SIGNAL_AT = 3;   // seconds after load the "Start" signal is given
+const ISLAND_H = 0.15;              // the grass of an island above the asphalt (inside its kerb)
 
 export class Session {
   // mode: "exam" (stops when the limit is exceeded), "training" (full route, keeps going),
@@ -84,10 +85,16 @@ export class Session {
     const car = this.car, W = this.W;
     this.clock += dt;
     const prev = { x: car.x, y: car.y, th: car.th };
-    car.step(dt, (x, y) => W.heightAt(x, y));
+    car.step(dt, (x, y) => W.heightAt(x, y) + (W.islandAt && W.islandAt(x, y) ? ISLAND_H : 0));
     if (W.ramps.length && W.offRampEdge(car.wheelPoints())) {
       Object.assign(car, prev); car.v = 0;
       if (this.clock - (this.kerbT ?? -9) > 2) { this.kerbT = this.clock; this.emit("car", { kind: "kerb", text: "Estakada chetiga tegdingiz" }); }
+    }
+    // the low kerb of an island: a tyre climbing onto it (or dropping off it) jolts the car and costs it some speed
+    if (W.islandAt) {
+      const on = car.wheelPoints().map(([x, y]) => W.islandAt(x, y));
+      if (this.onIsland) on.forEach((o, i) => { if (o !== this.onIsland[i]) { car.v *= o ? 0.7 : 0.9; this.emit("bump", { strength: o ? 0.25 : 0.15, what: "kerb" }); } });
+      this.onIsland = on;
     }
     for (const e of car.events) {
       if (e.type === "stall" && this.startSignal) this.pen("stall");
@@ -150,8 +157,8 @@ export class Session {
     this.hits = this.hits || new Set();
     const kind = W.solids[hit.index][3];
     // a low kerb of an island: a soft knock (the tyre rides up against it), not a crash
-    this.emit("bump", { strength: kind === 2 ? Math.min(0.2, hit.speed / 20) : Math.min(1, hit.speed / 8), what: kind === 2 ? "kerb" : "solid" });
-    if (kind) return;                                               // a kerb: the car stops against it, the line it touched is the penalty
+    this.emit("bump", { strength: Math.min(1, hit.speed / 8), what: "solid" });
+    if (kind) return;                                               // the frame: the car stops against it, the line it touched is the penalty
     if (!this.hits.has(hit.index) && hit.speed > 1.2) { this.hits.add(hit.index); this.pen("crash"); }
   }
 

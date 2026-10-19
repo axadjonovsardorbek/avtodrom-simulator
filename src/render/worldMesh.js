@@ -118,7 +118,7 @@ export function buildWorldMeshes(W, quality) {
   // the plan of the exam ground (src/world/board.js): asphalt everywhere, the islands with kerbs, the pale pads
   if (W.board) {
     const bd = W.board, grassTex = grassTexture(), islandMat = new THREE.MeshStandardMaterial({ map: grassTex, roughness: 1 });
-    const kerbMat = new THREE.MeshStandardMaterial({ color: 0xe8e6e0, roughness: 0.8 });
+    const kerbMat = new THREE.MeshStandardMaterial({ color: 0xe8e6e0, roughness: 0.8, side: THREE.DoubleSide });
     const frame = new THREE.Mesh(flatPoly(bd.frame, h, Y_ROAD, 7), asphaltMat); frame.receiveShadow = true; group.add(frame);
     // asphalt; the islands raised 10 cm inside a 12 cm kerb; the pads (cut out of the islands) at road level, painted pale
     const flatShape = (shape, y) => { const g = new THREE.ShapeGeometry(shape); const p = g.attributes.position, uv = [];
@@ -126,16 +126,24 @@ export function buildWorldMeshes(W, quality) {
       g.setAttribute("uv", new THREE.Float32BufferAttribute(uv, 2)); g.computeVertexNormals(); return g; };
     const grassGeos = [], kerbGeos = [];
     for (const isl of bd.islands) {
-      // the kerb: a 0.4 m wide, 0.22 m high block along every edge, just inside the outline; the grass fills the outline
-      const k = isl.kerb, n = k.length; let ar = 0;
+      // the kerb: a 0.4 m wide, 0.22 m high band along every edge, just inside the outline, mitred at the corners (nothing
+      // of it sticks out past the outline); the grass fills the outline
+      const k = isl.kerb.filter((q, i, a) => { const r = a[(i + 1) % a.length]; return Math.hypot(r[0] - q[0], r[1] - q[1]) > 0.02; }), n = k.length; let ar = 0;
       for (let i = 0; i < n; i++) { const a = k[i], c = k[(i + 1) % n]; ar += a[0] * c[1] - c[0] * a[1]; }
+      const inN = (a, c) => { const dx = c[0] - a[0], dy = c[1] - a[1], L = Math.hypot(dx, dy); return [-dy / L * Math.sign(ar), dx / L * Math.sign(ar)]; };
+      const inner = k.map((q, i) => {
+        const n1 = inN(k[(i - 1 + n) % n], q), n2 = inN(q, k[(i + 1) % n]), mx = n1[0] + n2[0], my = n1[1] + n2[1], m = Math.hypot(mx, my) || 1;
+        const len = 0.4 / Math.max(0.35, (mx * n1[0] + my * n1[1]) / m);
+        return [q[0] + mx / m * len, q[1] + my / m * len];
+      });
+      const pos = [], quad = (...p) => [p[0], p[1], p[2], p[0], p[2], p[3]].forEach(([x, y, z]) => pos.push(x, y, z));
       for (let i = 0; i < n; i++) {
-        const a = k[i], c = k[(i + 1) % n], dx = c[0] - a[0], dy = c[1] - a[1], L = Math.hypot(dx, dy); if (L < 0.02) continue;
-        const ix = -dy / L * Math.sign(ar) * 0.2, iy = dx / L * Math.sign(ar) * 0.2;          // half the kerb width, inwards
-        const g = new THREE.BoxGeometry(L + 0.02, 0.22, 0.4); g.rotateY(-Math.atan2(dy, dx)); g.translate((a[0] + c[0]) / 2 + ix, 0.11, (a[1] + c[1]) / 2 + iy);
-        kerbGeos.push(g.toNonIndexed());
-        const cy = new THREE.CylinderGeometry(0.2, 0.2, 0.22, 10); cy.translate(c[0] + ix, 0.11, c[1] + iy); kerbGeos.push(cy.toNonIndexed());   // fills the joint
+        const a = k[i], b = k[(i + 1) % n], ai = inner[i], bi = inner[(i + 1) % n];
+        quad([a[0], 0.22, a[1]], [b[0], 0.22, b[1]], [bi[0], 0.22, bi[1]], [ai[0], 0.22, ai[1]]);   // top
+        quad([a[0], 0, a[1]], [b[0], 0, b[1]], [b[0], 0.22, b[1]], [a[0], 0.22, a[1]]);              // the face to the road
+        quad([ai[0], 0.1, ai[1]], [ai[0], 0.22, ai[1]], [bi[0], 0.22, bi[1]], [bi[0], 0.1, bi[1]]);  // the face to the grass
       }
+      const kg = new THREE.BufferGeometry(); kg.setAttribute("position", new THREE.Float32BufferAttribute(pos, 3)); kg.computeVertexNormals(); kerbGeos.push(kg);
       grassGeos.push(flatPoly(isl.grass, h, 0.15, 7));                           // under the top of the kerb (0.22)
     }
     addMerged(group, grassGeos, islandMat);

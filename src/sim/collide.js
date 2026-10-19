@@ -24,12 +24,7 @@ export function collideCar(car, solids, grid) {
       const cell = grid.get(gx + "," + gy); if (!cell) continue;
       for (const i of cell) {
         if (seen.has(i)) continue; seen.add(i);
-        const [sx, sy, r, kind] = solids[i];
-        if (kind === 2) {                                                      // a low kerb: only the tyres meet it, the body hangs over
-          const h = kerbTyres(car, sx, sy, r);
-          if (h && (!worst || h > worst.speed)) worst = { index: i, speed: h };
-          continue;
-        }
+        const [sx, sy, r] = solids[i];
         const dx = sx - car.x, dy = sy - car.y, lx = dx * c + dy * n, ly = -dx * n + dy * c;
         const px = Math.max(R, Math.min(F, lx)), py = Math.max(-hw, Math.min(hw, ly));
         let ex = lx - px, ey = ly - py, d = Math.hypot(ex, ey);
@@ -54,20 +49,4 @@ export function collideCar(car, solids, grid) {
       }
     }
   return worst;
-}
-
-// a tyre against a low kerb post: the car is pushed back off it and loses the speed into the kerb (no bounce, no
-// turn); returns the closing speed or 0
-const TYRE = 0.12;
-function kerbTyres(car, sx, sy, r) {
-  let best = 0;
-  for (const [wx, wy] of car.wheelPoints()) {
-    const ex = sx - wx, ey = sy - wy, d = Math.hypot(ex, ey);
-    if (d >= r + TYRE || d < 1e-6) continue;
-    const nx = ex / d, ny = ey / d, pen = r + TYRE - d;
-    car.x -= nx * pen; car.y -= ny * pen;
-    const along = Math.cos(car.th) * nx + Math.sin(car.th) * ny, vn = car.v * along;
-    if (vn > 0 && along > 0 || vn < 0 && along < 0) { car.v -= vn * along; best = Math.max(best, Math.abs(vn)); }
-  }
-  return best;
 }
