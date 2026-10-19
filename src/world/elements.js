@@ -67,12 +67,13 @@ function stopHint(ctx, st, lineS) {
   return d < 10 ? `To'xtash chizig'igacha: ${Math.max(0, d).toFixed(1)} m` : "";
 }
 
-// The rear-wheel line of the garage box and the parking box (as on the video): a white bar 0.5 m wide across the box,
-// 0.35 m in from its back edge (BAR: its edges, measured in from the back); both rear tyres have to stand on it (the
-// body hangs over the low kerb behind).
+// The white wheel line of the plan (BAR: its edges, measured in from the kerb it lies along; 0.5 m wide). In a garage
+// box it lies across the box by its back kerb and both rear tyres have to stand on it (the body hangs over the low
+// kerb behind); in a parking pocket it runs along the far kerb, parallel to the road, and both tyres on that side
+// (front and rear) have to stand on it.
 export const BAR = [0.35, 0.85];
 const onBar = (d0, d1) => [d0, d1].every(d => d >= BAR[0] - 0.1 && d <= BAR[1] + 0.1);
-const barHint = (inside, ok) => !inside ? "" : ok ? "Ikkala orqa g'ildirak oq chiziqda. To'liq to'xtang." : "Ikkala orqa g'ildirak oq chiziqqa tegishi kerak.";
+const barHint = (inside, ok, which = "orqa") => !inside ? "" : ok ? `Ikkala ${which} g'ildirak oq chiziqda. To'liq to'xtang.` : `Ikkala ${which} g'ildirak oq chiziqqa tegishi kerak.`;
 
 /* 2. Piyodalar o'tish joyi (tartibga solinmagan) */
 export function piyoda(W, T, len = 34, opt = {}) {
@@ -283,10 +284,12 @@ export function boks(W, T) {
 
 /* 9. Orqaga harakatlanib parallel to'xtash (parkovka) */
 export function parkovka(W, T, opt = {}) {
-  // the box is the car's length plus 2.3 m (6.8 m for the Cobalt); the yellow line sits where its rear axle should be
+  // the box is the car's length plus 2.3 m (6.8 m for the Cobalt); the white line runs along its far side, where the
+  // car's right-hand tyres end up (the car in the middle of the box lengthwise)
   const car = W.car || { length: 4.479, rOh: 0.9 };
-  const k = K(W);
-  const b0 = opt.b0 ?? 9, b1 = opt.b1 ?? b0 + car.length + 2.32 + (k - 1) * 4, bw = opt.bw ?? 2.5 * k, wide = 2.5, reg = b0 + (BAR[0] + BAR[1]) / 2, pose = T.pose, Lr = opt.len ?? 30;
+  const k = K(W), track = (W.car && W.car.track) || 1.454;
+  const b0 = opt.b0 ?? 9, b1 = opt.b1 ?? b0 + car.length + 2.32 + (k - 1) * 4, bw = opt.bw ?? 2.5 * k, wide = 2.5, pose = T.pose, Lr = opt.len ?? 30;
+  const far = HL + bw, reg = (b0 + b1) / 2 - (car.length / 2 - car.rOh);
   T.gapR(b0, b1);
   T.gapL(0, Lr);
   T.fwd(Lr);
@@ -297,17 +300,18 @@ export function parkovka(W, T, opt = {}) {
     W.addPad(rect(pose, b0, b1, HL - 0.1, HL + bw));
   }
   W.addLine(W2(pose, [[b0, HL], [b0, HL + bw], [b1, HL + bw], [b1, HL]]), "ctrl", { hidden: !!opt.hideBox });   // on the ground the pocket's own kerb line is the box
-  W.addPaint(rect(pose, b0 + BAR[0], b0 + BAR[1], HL + 0.35, HL + bw - 0.15));
-  { // rear axle: reverse from beside the box in an S-curve onto the yellow line
-    const lf = HL + bw / 2, l0 = 0.6, span = 2 * Math.sqrt(Math.max(1, 2 * 5 * (lf - l0) / 2 - ((lf - l0) / 2) ** 2));
+  if (!opt.board) W.addPaint(rect(pose, b0 + 0.15, b1 - 0.15, far - BAR[1], far - BAR[0]));     // on the ground the plan paints it (src/world/board.js)
+  { // rear axle: reverse from beside the box in an S-curve until the right-hand tyres are on the white line
+    const lf = far - (BAR[0] + BAR[1]) / 2 - track / 2, l0 = 0.6, span = 2 * Math.sqrt(Math.max(1, 2 * 5 * (lf - l0) / 2 - ((lf - l0) / 2) ** 2));
     guide(W, W2(pose, sCurve(reg + span, l0, reg, lf)), W2(pose, carOutline(car, reg, lf, 0)));
   }
-  const inB = q => inBox(q, b0 - 1.2, b1, HL, HL + bw);      // the rear bumper may hang over the back of the box
-  const rearOn = ctx => { const [a, b] = ctx.car.wheelPoints().slice(0, 2).map(([x, y]) => toLocal(pose, x, y)[0] - b0); return onBar(a, b); };
+  const inB = q => inBox(q, b0, b1, HL, far + 0.3);           // the body may hang a little over the white line's kerb
+  // the two tyres nearest the far kerb (the right-hand ones), measured in from it
+  const sideOn = ctx => { const d = ctx.car.wheelPoints().map(([x, y]) => far - toLocal(pose, x, y)[1]).sort((a, b) => a - b); return onBar(d[0], d[1]); };
   return task({
     id: "parkovka", mapNo: 11, name: "Orqaga harakatlanib parallel to'xtash (parkovka)", short: "Parkovka", pose, allowReverse: true,
     stages: [{
-      text: "Qutidan o'tib to'xtang. O'ng chiroqni yoqing, orqaga yurib qutiga kiring: ikkala orqa g'ildirak oq chiziqqa tegsin. To'xtang.",
+      text: "Qutidan o'tib to'xtang. O'ng chiroqni yoqing, orqaga yurib qutiga kiring: o'ng tomondagi ikkala g'ildirak oq chiziqqa tegsin. To'xtang.",
       update(ctx) {
         const f = ctx.f;
         if (!f.entered && ctx.PL.some(([s, l]) => s > b0 && s < b1 && l > HL + 0.1)) {
@@ -315,9 +319,9 @@ export function parkovka(W, T, opt = {}) {
           if (ctx.car.v > 0.05) ctx.pen("notDone");
           if (ctx.sig !== 1) ctx.pen("turnSignal");
         }
-        if (!f.reg && ctx.PL.every(inB) && ctx.still > 1.2) { f.reg = true; if (!rearOn(ctx)) ctx.pen("regLine"); }
+        if (!f.reg && ctx.PL.every(inB) && ctx.still > 1.2) { f.reg = true; if (!sideOn(ctx)) ctx.pen("regLine"); }
       },
-      hint: ctx => barHint(ctx.PL.every(inB), rearOn(ctx)),
+      hint: ctx => barHint(ctx.PL.every(inB), sideOn(ctx), "o'ng"),
       done: ctx => ctx.PL.every(inB) && ctx.still > 1.2
     }, {
       text: "Chap chiroqni yoqing va qutidan chiqib harakatni davom ettiring.",

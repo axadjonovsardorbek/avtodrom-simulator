@@ -250,27 +250,26 @@ export function addBoard(W) {
   }
   W.board.pad = name => PADS[PAD[name]];
 
-  // the white rear-wheel bar (as on the video) in every garage box and every parking pocket, at the back where the
-  // rear wheels end up; the exam's own box (T4) and pocket (D3) get theirs from their exercises (src/world/elements.js),
-  // measured the same way: the box's back 0.27 m (pocket 0.23 m) inside the plan's edge, just within its yellow line
+  // the white wheel lines of the plan in every garage box and every parking pocket (as on the plan): in a garage across
+  // the box by its back kerb, in a pocket along its far kerb, parallel to the road. The exam's garage (T4) gets its own
+  // from its exercise (src/world/elements.js); everything is measured the same way: the box's back 0.27 m inside the
+  // plan's edge (just within its yellow line), the pocket's far side 0.35 m
   {
     const bar = (x0, x1, y0, y1) => W.addPaint([[Math.min(x0, x1), Math.min(y0, y1)], [Math.max(x0, x1), Math.min(y0, y1)], [Math.max(x0, x1), Math.max(y0, y1)], [Math.min(x0, x1), Math.max(y0, y1)]]);
-    // a garage: the box on the `side` of its corridor (-1 west, +1 east); the bar along the back kerb, as long as it
+    // a garage: the box on the `side` of its corridor (-1 west, +1 east); the line along the back kerb, as long as it
     const garage = (name, side) => {
       const p = PADS[PAD[name]], xs = p.map(q => q[0]), back = side < 0 ? Math.min(...xs) : Math.max(...xs);
       const ys = p.filter(q => Math.abs(q[0] - back) < 0.5).map(q => q[1]);
       bar(back - side * (0.27 + BAR[0]), back - side * (0.27 + BAR[1]), Math.min(...ys) + 0.15, Math.max(...ys) - 0.15);
     };
-    // a pocket: the car passes it and reverses in, so the bar is at the `end` it backs into (-1 west, +1 east), across
-    // the pocket from its mouth on the road (`mouth`: -1 the north side, +1 the south side) to its far kerb
-    const pocket = (name, end, mouth) => {
-      const p = PADS[PAD[name]], xs = p.map(q => q[0]), ys = p.map(q => q[1]);
-      const ex = end > 0 ? Math.max(...xs) : Math.min(...xs), my = mouth > 0 ? Math.max(...ys) : Math.min(...ys), fy = mouth > 0 ? Math.min(...ys) : Math.max(...ys);
-      bar(ex - end * (0.23 + BAR[0]), ex - end * (0.23 + BAR[1]), my - mouth * 0.3, fy + mouth * 0.5);
+    // a pocket: the line along the kerb across from its mouth (`far`: -1 the north side, +1 the south side), its whole length
+    const pocket = (name, far) => {
+      const p = PADS[PAD[name]], xs = p.map(q => q[0]), ys = p.map(q => q[1]), fy = far > 0 ? Math.max(...ys) : Math.min(...ys);
+      bar(Math.min(...xs) + 0.4, Math.max(...xs) - 0.4, fy - far * (0.35 + BAR[0]), fy - far * (0.35 + BAR[1]));
     };
     garage("T1", -1); garage("T2", 1); garage("T3", -1);
-    pocket("D1", -1, -1);          // on the top road (eastbound past it): backed into from the east, the bar at its west end
-    pocket("D2", 1, 1); pocket("D4", 1, 1);    // on the road below them, like D3 (westbound past them): the bar at the east end
+    pocket("D1", 1);                                        // open to the top road: the line along its south kerb
+    pocket("D2", -1); pocket("D3", -1); pocket("D4", -1);   // open to the road below them: along their north kerb
   }
 
   // the zebras of the junction (metres; as on the video): each across the whole width of its arm, right at the mouth

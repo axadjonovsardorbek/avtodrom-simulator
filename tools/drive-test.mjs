@@ -91,7 +91,7 @@ go("10 emergency stop on the east road", Q([1362, 1000], [1362, 800], [1362, 660
 if (S.active && S.active.task.id === "avariya") { for (let k = 0; k < 60 * 6; k++) { C.brake = 1; C.throttle = 0; if (S.W.alarm) C.hazard = true; S.step(DT); } C.brake = 0; C.hazard = false; go("after the alarm", [[C.x, C.y], ...Q([1362, 660])], 4); }
 go("to the parking", Q([1362, 660], [1360, 610], [1345, 565], [1320, 540]), 4);
 go("11 parking", [[dX1 + 19, laneY + 0.3], [dX1 + 14, laneY], [dX1 + 6, laneY], [dX1 - 10, laneY]], 3);
-put(dX1 - 0.83, laneY - (LANE / 2 + 1.6), Math.PI);
+put(dX1 - 2.29, laneY - (LANE / 2 + 1.87), Math.PI);       // in the middle of the box, the right-hand tyres on the white line
 for (let k = 0; k < 60 * 3; k++) S.step(DT); progress("in the parking box");
 C.brake = 0; C.sig = -1;
 go("junction from the east, right", [[dX1 - 4, laneY - 0.3], ...Q([1000, 540], [900, 568], [800, 572], [745, 565], [718, 530], [712, 470], [714, 380], [740, 320], [800, 312], [860, 312])], 4);
