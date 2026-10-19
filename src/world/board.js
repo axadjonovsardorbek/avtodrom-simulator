@@ -97,6 +97,14 @@ function zebra(W, x0, y0, x1, y1, dir) {
     W.addPaint(dir === "v" ? [P(a, y0), P(b, y0), P(b, y1), P(a, y1)] : [P(x0, a), P(x1, a), P(x1, b), P(x0, b)]);
   }
 }
+// the same in metres (world coordinates)
+function zebraM(W, x0, y0, x1, y1, dir) {
+  const L = dir === "v" ? x1 - x0 : y1 - y0, n = Math.round(L / 0.96), span = L / n;
+  for (let i = 0; i < n; i++) {
+    const a = (dir === "v" ? x0 : y0) + i * span + span * 0.12, b = a + span * 0.6;
+    W.addPaint(dir === "v" ? [[a, y0], [b, y0], [b, y1], [a, y1]] : [[x0, a], [x1, a], [x1, b], [x0, b]]);
+  }
+}
 // diagonal white hatching of a polygon of the plan
 function hatch(W, poly, step = 14) {
   const xs = poly.map(p => p[0]), ys = poly.map(p => p[1]), x0 = Math.min(...xs), x1 = Math.max(...xs), y0 = Math.min(...ys), y1 = Math.max(...ys);
@@ -180,7 +188,8 @@ const rrect = (x0, y0, x1, y1, r) => [...arc(x1 - r, y0 + r, r, -Math.PI / 2, 0,
 const polyline = pts => pts.map(p => P(...p));
 const arc = (cx, cy, r, a0, a1, n = 14) => Array.from({ length: n + 1 }, (_, i) => { const a = a0 + (a1 - a0) * i / n; return [cx + r * Math.cos(a), cy + r * Math.sin(a)]; });
 
-const D = 150;                                       // the start box and the crossing: px east of where the plan has them
+const D = 150;                                       // the crossing on the top road: px east of where the plan has it
+export const START_X = 1355;                         // the start box: its east end (px), at the very east end of the top road where the run begins
 export function addBoard(W) {
   W.board = { frame: FRAME, islands: ISLANDS, pads: PADS };
   // the islands cannot be driven over: a row of low kerb posts along the edge of every island and round the whole plan
@@ -233,13 +242,16 @@ export function addBoard(W) {
   }
   W.board.pad = name => PADS[PAD[name]];
 
-  // zebras of the junction and of the top road
-  zebra(W, 657, 498, 724, 545, "v"); zebra(W, 662, 646, 728, 690, "v");
-  zebra(W, 612, 556, 655, 610, "h"); zebra(W, 732, 558, 780, 610, "h");
+  // the zebras of the junction (metres; as on the video): each across the whole width of its arm, right at the mouth
+  // of the junction, the four of them a ring round its middle
+  zebraM(W, -3.5, -9.8, 3.8, -5.8, "v"); zebraM(W, -3.55, 5.0, 3.45, 9.6, "v");
+  zebraM(W, -8.1, -4.1, -4.0, 4.35, "h"); zebraM(W, 4.25, -5.35, 8.8, 3.0, "h");
+  // the zebra of the top road
   zebra(W, 696 + D, 42, 737 + D, 122, "h");
   // the start box and the line at its end
-  W.addLine(polyline([[745 + D, 35], [915 + D, 35], [915 + D, 125], [745 + D, 125], [745 + D, 35]]), "paint", { width: 0.25 });
-  W.addLine(polyline([[915 + D, 35], [915 + D, 125]]), "paint", { width: 0.3 });
+  const S0 = START_X - 170;
+  W.addLine(polyline([[S0, 35], [START_X, 35], [START_X, 125], [S0, 125], [S0, 35]]), "paint", { width: 0.25 });
+  W.addLine(polyline([[START_X, 35], [START_X, 125]]), "paint", { width: 0.3 });
   // the angled parking bays south of the start road (0:35 of the video): parallel slanted lines and the line at their ends
   W.addLine(polyline([[760, 210], [1190, 210]]), "paint", { width: 0.16 });
   for (let k = 0; k < 10; k++) { const cx = 770 + 44 * k; W.addLine(polyline([[cx, 210], [cx + 38, 150]]), "paint", { width: 0.14 }); }
@@ -247,20 +259,23 @@ export function addBoard(W) {
   W.addLine(polyline([[790, 330], [1224, 330]]), "paint", { width: 0.14 });   // solid, as on the video (5:02)
   // the east road: the line between its two westbound lanes (the eastbound lane is past the junction arm's middle line)
   W.addLine(polyline([[810, 545], [1335, 545]]), "paint", { width: 0.14, dash: [2.2, 2.2] });
-  // the middle lines of the four arms of the junction (as on the video): solid for the last 15 m before the zebra, dashed further out
-  for (const [a, b, c] of [[[612, 594], [462, 594], [182, 594]], [[780, 590], [930, 590], [1290, 590]], [[695, 498], [420, 420], [695, 340]], [[695, 690], [695, 1034], [695, 1035]]]) {
-    const B = b[1] === 420 ? [695, 420] : b;
-    W.addLine(polyline([a, B]), "paint", { width: 0.15 });
-    W.addLine(polyline([B, c]), "paint", { width: 0.14, dash: [1.0, 1.4] });
-  }
+  // the middle lines of the four arms of the junction: solid all the way (as on the video). The north arm's (metres)
+  // forks at its top, as on the video: one branch bends west to the end of the island north of the 90-degree exit,
+  // the other bends east to the west end of the finish road's kerb. The west arm's bends south into the west road
+  // (on to the railway).
+  const arcM = (cx, cy, r, a0, a1, n = 12) => Array.from({ length: n + 1 }, (_, i) => { const a = a0 + (a1 - a0) * i / n; return [cx + r * Math.cos(a), cy + r * Math.sin(a)]; });
+  W.addLine([[0.38, -9.84], [0.4, -36.6], ...arcM(-5.97, -36.6, 6.37, 0, -Math.PI / 2).slice(1)], "paint", { width: 0.15 });
+  W.addLine(arcM(5.1, -26.6, 4.7, Math.PI, Math.PI * 1.5), "paint", { width: 0.15 });
+  W.addLine([[-8.09, -0.09], [-52.7, -0.03], ...arcM(-52.7, 9.87, 9.9, -Math.PI / 2, -Math.PI).slice(1), P(95, 912)], "paint", { width: 0.15 });
+  W.addLine(polyline([[780, 590], [1290, 590]]), "paint", { width: 0.15 });
+  W.addLine(polyline([[695, 690], [695, 1035]]), "paint", { width: 0.15 });
   // top road: the lane line, and the west road's solid middle
   W.addLine(polyline([[690, 96], [150, 96], ...arc(150, 158, 62, -Math.PI / 2, -Math.PI, 10).slice(1)]), "paint", { width: 0.16 });   // the lane line bends round the corner into the west road
   W.addLine(polyline([[88, 158], [88, 480]]), "paint", { width: 0.14 });
   // the two-way roads round the south half (west, bottom, east): a solid middle line all the way, round the corners
-  // too, broken only at the railway crossing; the bottom road's middle follows the plan's slant (1072 px in the west,
-  // 1094 px in the east)
+  // too, broken only at the railway crossing (the west road's down to the railway is the west arm's, above); the bottom
+  // road's middle follows the plan's slant (1072 px in the west, 1094 px in the east)
   const by = x => 1072 + (x - 160) * 22 / 1130, middle = pts => W.addLine(polyline(pts), "paint", { width: 0.14 });
-  middle([[88, 600], [95, 640], [95, 912]]);
   middle([[95, 966], [95, 1004], ...arc(163, 1004, 68, Math.PI, Math.PI / 2, 10).slice(1), [640, by(640)]]);
   middle([[750, by(750)], [1290, by(1290)], ...arc(1290, by(1290) - 54, 54, Math.PI / 2, 0, 10).slice(1), [1344, 646], ...arc(1290, 646, 54, 0, -Math.PI / 2, 10).slice(1), [1290, 590]]);
   W.addLine(polyline([[445, 45], [445, 135]]), "paint", { width: 0.3 });
@@ -271,15 +286,15 @@ export function addBoard(W) {
   // lane arrows (the way each lane runs, as on the plan)
   // the arrows of the plan, lane by lane (deg: the way the lane runs; 0 east, 90 south)
   for (const [x, y, d, kind, len] of [
-    [850 + D, 59, 180], [850 + D, 102, 180], [1230, 47, 180], [1230, 92, 180],                     // start box and the road behind it
+    [START_X - 70, 59, 180], [START_X - 70, 102, 180],                                     // start box
     [215, 66, 180], [215, 112, 180],                                                   // top road, turning south at the west end
     [104, 385, 90, "L", 46], [70, 478, 90, "L", 46],   // at the 90-degree turn: B (by the island) left, C/D straight or left                                                    // west road
     [565, 212, 0, "R"], [570, 355, 0, "R"], [672, 440, 90], [228, 570, 180, "L", 48],               // north-west quarter
     [770, 312, 0, "SR"], [1050, 305, 0], [1050, 345, 0], [717, 400, -90, "R"],                     // north-east road
     [995, 520, 180, "SR"], [1165, 520, 180, "SR"], [1315, 520, 180, "SR"], [980, 572, 180], [1165, 572, 180], [1315, 572, 180], [820, 567, 180, "L"],
-    [570, 615, 0], [210, 665, -90, "R"], [452, 640, -90, "R"], [90, 1040, 90, "L"], [255, 1090, 0], [475, 1055, 180, "L"], [625, 1052, 180, "SR"], [675, 960, 90, "R"], [645, 1095, 0],
-    [835, 605, 0, "SR"], [1135, 602, 0, "SR"], [1255, 635, 0, "R"], [1355, 670, -90, "L"], [1348, 935, 90, "R", 48], [710, 725, -90, "L"],
-    [770, 1042, 180, "L"], [935, 1072, 180, "SR"], [1160, 1077, 180, "SR"], [975, 1107, 0], [1250, 1115, 0, "L"]
+    [570, 615, 0], [210, 665, -90, "R"], [452, 640, -90, "R"], [90, 1040, 90, "L"], [255, 1090, 0], [475, 1055, 180, "R"], [625, 1052, 180, "SR"], [675, 960, 90, "R"], [645, 1095, 0],
+    [937, 605, 0, "SR"], [1185, 602, 0, "SR"], [1255, 635, 0, "R"], [1355, 670, -90, "L"], [1348, 935, 90, "R", 48], [710, 725, -90, "L"],
+    [770, 1042, 180, "R"], [935, 1072, 180, "SR"], [1160, 1077, 180, "SR"], [975, 1107, 0], [1250, 1115, 0, "L"]
   ]) arrow(W, x, y, d, len || 56, kind);
   // road signs where the plan has them (px of the plan): each stands on the island next to that spot, 0.6 m in from the
   // kerb, its face turned to the road; a spot outside the frame faces into the ground
@@ -308,7 +323,7 @@ export function addBoard(W) {
   const Y = (x, y, arrow = "right") => place(x, y, ["yield", arrow], { stack: true });
   const PK = (x, y) => place(x, y, ["park"], { plates: ["car", "truck"] });
   // north fence (the top road), west and east fence
-  place(390, 22, ["noStop"]); place(428, 20, ["limit20"]); place(595, 22, ["zebra"]); place(680, 20, ["zebra"]); place(760 + D, 20, ["limit20"], { plates: ["startPlate"] }); place(700 + D, 20, ["stop", "zebra"], { stack: true });
+  place(390, 22, ["noStop"]); place(428, 20, ["limit20"]); place(595, 22, ["zebra"]); place(680, 20, ["zebra"]); place(START_X - 155, 20, ["limit20"], { plates: ["startPlate"] }); place(700 + D, 20, ["stop", "zebra"], { stack: true });
   place(33, 328, ["ahead", "aheadRight"], { plates: ["truck"] }); place(43, 460, ["right"]); place(47, 762, ["yield"]); place(55, 1035, ["left"]); place(1305, 1162, ["noStop"]); place(1390, 520, ["ahead", "aheadRight"], { plates: ["car"] });
   // north-west quarter (the zigzags)
   place(572, 260, ["right"]); place(600, 288, ["noEntry"]); Y(590, 390); place(155, 455, ["noEntry"]); place(185, 538, ["left"]); place(615, 505, ["zebra"]);
@@ -322,7 +337,7 @@ export function addBoard(W) {
   Y(797, 975); place(752, 992, ["left"]); PK(872, 985); Y(1062, 990); PK(1142, 990);
   // the paired lane signs along the north fence, as on the video
   for (const x of [-48, -22]) { sign(x, -57.6, Math.PI / 2, "ahead", { plates: ["truck"] }); sign(x + 0.9, -57.6, Math.PI / 2, "aheadRight", { plates: ["car"] }); }
-  W.texts.push({ ...(([x, y]) => ({ x, y }))(P(900 + D, 80)), th: Math.PI, text: "START", size: 2.0 });
+  W.texts.push({ ...(([x, y]) => ({ x, y }))(P(START_X - 15, 80)), th: Math.PI, text: "START", size: 2.0 });
 }
 
 // which edges of a pad are open to the asphalt (no grass beside them): the exercise outline leaves them out

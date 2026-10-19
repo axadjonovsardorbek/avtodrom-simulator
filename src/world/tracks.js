@@ -4,7 +4,7 @@ import { World } from "./world.js";
 import { Turtle, LANE } from "./path.js";
 import { DEG, toWorld, toLocal } from "../sim/geom.js";
 import { Traffic } from "./traffic.js";
-import { addBoard, padOpen } from "./board.js";
+import { addBoard, padOpen, START_X } from "./board.js";
 import { PADS, PAD, px } from "./boardData.js";
 import { piyoda, estakada, burilish, ilon, boks, parkovka, temir, tezlashish, avariya, chorraha, padExercise, boksPad } from "./elements.js";
 
@@ -85,7 +85,7 @@ export function buildFull(car) {
     ],
     peds: [
       { a: px(650, 521), b: px(732, 521), axis: "NS" }, { a: px(655, 668), b: px(735, 668), axis: "NS" },
-      { a: px(633, 550), b: px(633, 617), axis: "EW" }, { a: px(756, 552), b: px(756, 617), axis: "EW" }
+      { a: [-6.05, -4.3], b: [-6.05, 4.5], axis: "EW" }, { a: [6.5, -5.5], b: [6.5, 3.2], axis: "EW" }
     ]
   });
   addBoard(W);
@@ -94,12 +94,12 @@ export function buildFull(car) {
   const at = (x, y, deg) => { const [X, Y] = px(x, y); return new Turtle(W, X, Y, deg, bare); };
 
   // ---- 1-3: start, the crossing and the overpass on the top road (heading west)
-  const D = 150;                                   // the start box and the crossing stand this far (px) east of the overpass
-  const T = at(915 + D, 66, heading([915, 66], [100, 66]));
+  const D = 150;                                   // the crossing stands this far (px) east of the overpass
+  // the car stands in the start box at the east end of the top road; the start line is just ahead of its front
+  const T = at(START_X - 80, 66, heading([915, 66], [100, 66]));
   W.startLine = { pose: T.pose, s: 0 };
-  { const [x, y] = px(962 + D, 66); W.start = { x, y, th: T.pose.th }; }
-  W.addPaint([toWorld(T.pose, -0.3, -HL), toWorld(T.pose, 0, -HL), toWorld(T.pose, 0, HL), toWorld(T.pose, -0.3, HL)]);
-  const zebraS = Math.hypot(...px(716, 66).map((v, i) => v - px(915, 66)[i]));  // distance start line to the crossing
+  { const [x, y] = px(START_X - 33, 66); W.start = { x, y, th: T.pose.th }; }
+  const zebraS = Math.hypot(...px(716 + D, 66).map((v, i) => v - px(START_X - 80, 66)[i]));  // distance start line to the crossing
   T.fwd(zebraS - 17.5);
   const tP = piyoda(W, T, 21, { zebra: false, pave: false, l0: -5.4, l1: 2.6 });
   T.fwd(D * 0.1);                                  // the longer run between the crossing and the overpass
