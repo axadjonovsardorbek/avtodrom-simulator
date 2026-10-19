@@ -194,3 +194,45 @@ export function snapToPads(kerb, pads, tol = 1.6) {
   }
   return kerb;
 }
+
+// rounds an outline the way a kerb is laid: pockets of road narrower than 2 rClose are filled, fingers of island
+// thinner than 2 rOpen are cut off, every corner gets at least that radius. Done on a 0.1 m grid (closing then
+// opening with a disc), the new outline is traced back from the grid.
+export function morphSmooth(poly, rClose = 1.3, rOpen = 1.0, cell = 0.1) {
+  const xs = poly.map(p => p[0]), ys = poly.map(p => p[1]), pad = rClose + 1;
+  const x0 = Math.min(...xs) - pad, y0 = Math.min(...ys) - pad, nx = Math.ceil((Math.max(...xs) + pad - x0) / cell), ny = Math.ceil((Math.max(...ys) + pad - y0) / cell);
+  let g = new Uint8Array(nx * ny);
+  for (let j = 0; j < ny; j++) {                                  // scanline fill
+    const y = y0 + (j + 0.5) * cell, cut = [];
+    for (let i = 0, k = poly.length - 1; i < poly.length; k = i++) { const a = poly[i], b = poly[k]; if ((a[1] > y) !== (b[1] > y)) cut.push(a[0] + (y - a[1]) / (b[1] - a[1]) * (b[0] - a[0])); }
+    cut.sort((a, b) => a - b);
+    for (let c = 0; c + 1 < cut.length; c += 2) for (let i = Math.max(0, Math.ceil((cut[c] - x0) / cell - 0.5)); i < nx && x0 + (i + 0.5) * cell < cut[c + 1]; i++) g[j * nx + i] = 1;
+  }
+  // chamfer distance (in cells) from every cell to the nearest cell with value v
+  const dist = v => { const d = new Float32Array(nx * ny); for (let k = 0; k < d.length; k++) d[k] = g[k] === v ? 0 : 1e9;
+    const pass = (j0, j1, dj, i0, i1, di) => { for (let j = j0; j !== j1; j += dj) for (let i = i0; i !== i1; i += di) { const k = j * nx + i; let m = d[k];
+      if (i - di >= 0 && i - di < nx) m = Math.min(m, d[k - di] + 1); if (j - dj >= 0 && j - dj < ny) { m = Math.min(m, d[k - dj * nx] + 1); if (i - di >= 0 && i - di < nx) m = Math.min(m, d[k - dj * nx - di] + 1.4142); if (i + di >= 0 && i + di < nx) m = Math.min(m, d[k - dj * nx + di] + 1.4142); } d[k] = m; } };
+    pass(0, ny, 1, 0, nx, 1); pass(ny - 1, -1, -1, nx - 1, -1, -1); return d; };
+  const grow = r => { const d = dist(1); g = g.map((_, k) => d[k] <= r / cell ? 1 : 0); };
+  const shrink = r => { const d = dist(0); g = g.map((_, k) => d[k] > r / cell ? 1 : 0); };
+  grow(rClose); shrink(rClose); shrink(rOpen); grow(rOpen);
+  // trace the outline of the island (marching squares on cell corners), walking with the island on the left
+  const at = (i, j) => i >= 0 && j >= 0 && i < nx && j < ny && g[j * nx + i] === 1;
+  let si = -1, sj = -1;
+  for (let k = 0; k < g.length && si < 0; k++) if (g[k] && !at((k % nx), ((k / nx) | 0) - 1)) { si = k % nx; sj = (k / nx) | 0; }
+  if (si < 0) return poly;
+  const out = []; let i = si, j = sj, dir = 0;                      // corner (i, j) = top-left of cell (i, j); dir 0: +x, 1: +y, 2: -x, 3: -y
+  const DX = [1, 0, -1, 0], DY = [0, 1, 0, -1];
+  for (let guard = 0; guard < 4 * nx * ny; guard++) {
+    out.push([x0 + i * cell, y0 + j * cell]);
+    i += DX[dir]; j += DY[dir];
+    if (i === si && j === sj) break;
+    // the two cells ahead of the corner, seen along dir: left (island side) and right
+    const cellsAhead = d => { const L = [[i, j - 1], [i, j], [i - 1, j], [i - 1, j - 1]][d], R = [[i, j], [i - 1, j], [i - 1, j - 1], [i, j - 1]][d]; return [at(...L), at(...R)]; };
+    for (const turn of [1, 0, 3]) { const d = (dir + turn) % 4, [l, r] = cellsAhead(d); if (r && !l) { dir = d; break; } }
+  }
+  const res = out.length > 8 ? out : poly;
+  poly.length = 0; poly.push(...res);
+  simplifyClosed(poly, 0.15); smoothClosed(poly, 2);
+  return poly;
+}

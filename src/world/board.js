@@ -3,7 +3,7 @@
 // plan by tools/trace-board.mjs), with the plan's markings on top: zebras, start box, parking diamonds, hatching,
 // lane lines.
 import { FRAME, ISLANDS, PADS, PAD, px } from "./boardData.js";
-import { straighten, insetPoly, PAD_INSET, squareCorners, removeSteps, simplifyClosed, axisShare, squareEdges, removeSlivers, splitPinches, smoothClosed, snapToPads } from "./straighten.js";
+import { straighten, insetPoly, PAD_INSET, squareCorners, removeSteps, simplifyClosed, axisShare, squareEdges, removeSlivers, splitPinches, smoothClosed, snapToPads, morphSmooth } from "./straighten.js";
 
 // the kerbs of the plan are traced by hand: their long straight runs are made exactly straight, and the little steps of
 // the tracing (jogs under 1.3 m between two parallel runs) are taken out, so the lanes have clean walls as on the
@@ -13,9 +13,9 @@ for (const isl of ISLANDS.slice()) {
   if (axisShare(isl.kerb) > 0.6) {                      // a block of straight walls (not a snake): smooth out the tracing
     simplifyClosed(isl.kerb, 0.5); straighten(isl.kerb, { strictOnly: true, tol: 1.3, ang: 0.12, minLen: 0.8 }); squareEdges(isl.kerb); squareEdges(isl.kerb);
   }
-  else { snapToPads(isl.kerb, [PADS[PAD.snakeR], PADS[PAD.snakeL]]); simplifyClosed(isl.kerb, 0.3); smoothClosed(isl.kerb, 2); isl.smooth = true; }   // the snakes: one smooth curve, as on the plan
+  else { snapToPads(isl.kerb, [PADS[PAD.snakeR], PADS[PAD.snakeL]]); morphSmooth(isl.kerb, 2.0, 1.2); isl.smooth = true; }   // the snakes: smooth walls and rounded mouths   // the snakes: one smooth curve, as on the plan
   if (!isl.smooth) { squareCorners(isl.kerb); removeSteps(isl.kerb); removeSlivers(isl.kerb); }
-  if (!isl.smooth) snapToPads(isl.kerb, [PADS[PAD.snakeR], PADS[PAD.snakeL]]);   // the walls of the snakes follow their pale lanes
+  if (!isl.smooth) { const n0 = isl.kerb.length; snapToPads(isl.kerb, [PADS[PAD.snakeR], PADS[PAD.snakeL]]); if (isl.kerb.length !== n0) morphSmooth(isl.kerb, 2.0, 1.2); }   // the walls of the snakes follow their pale lanes
   // drop repeated points and the spikes the straightening can leave (an edge that turns straight back on the one before)
   const k = isl.kerb;
   for (let again = true; again;) {
@@ -66,6 +66,21 @@ function hatch(W, poly, step = 14) {
     for (let i = 0; i + 1 < hits.length; i += 2) W.addLine([P(...hits[i]), P(...hits[i + 1])], "paint", { width: 0.22 });
   }
 }
+// a gore with curved sides (from b1 to the apex and on to b2, bowed in towards c1 / c2) closed by the straight base b2-b1:
+// outlined, and hatched with lines at `ang` degrees `step` px apart
+function gore(W, b1, apex, b2, c1, c2, ang, step) {
+  const bez = (p, c, q) => Array.from({ length: 13 }, (_, i) => { const t = i / 12, u = 1 - t; return [u * u * p[0] + 2 * u * t * c[0] + t * t * q[0], u * u * p[1] + 2 * u * t * c[1] + t * t * q[1]]; });
+  const side1 = bez(b1, c1, apex), side2 = bez(apex, c2, b2), poly = [...side1, ...side2.slice(1)];
+  W.addLine(polyline(side1), "paint", { width: 0.16 }); W.addLine(polyline(side2), "paint", { width: 0.16 }); W.addLine(polyline([b2, b1]), "paint", { width: 0.16 });
+  const a = ang * Math.PI / 180, c = Math.cos(a), s = Math.sin(a), rot = poly.map(([x, y]) => [x * c + y * s, -x * s + y * c]);
+  const vs = rot.map(p => p[1]);
+  for (let v = Math.min(...vs) + step / 2; v < Math.max(...vs); v += step) {
+    const hits = [];
+    for (let i = 0; i < rot.length; i++) { const p = rot[i], q = rot[(i + 1) % rot.length]; if ((p[1] > v) !== (q[1] > v)) hits.push(p[0] + (v - p[1]) / (q[1] - p[1]) * (q[0] - p[0])); }
+    hits.sort((x, y) => x - y);
+    for (let i = 0; i + 1 < hits.length; i += 2) { const back = u => [u * c - v * s, u * s + v * c]; W.addLine(polyline([back(hits[i] + 1.5), back(hits[i + 1] - 1.5)]), "paint", { width: 0.16 }); }
+  }
+}
 // lines fanning out from `apex` to points spread between `a` and `b` (the gore where a road branches off), outlined
 function fan(W, apex, a, b, n) {
   W.addLine(polyline([apex, a]), "paint", { width: 0.16 }); W.addLine(polyline([apex, b]), "paint", { width: 0.16 });
@@ -104,9 +119,11 @@ function arrow(W, x, y, deg, len = 56, kind = "S") {
   const make = (du, dv) => ARROW[kind].map(shape => shape.map(([u, v]) => P(x + ((u + du) * c - (v + dv) * s) * k, y + ((u + du) * s + (v + dv) * c) * k)));
   const segD = (p, q, r) => { const dx = r[0] - q[0], dy = r[1] - q[1], L = dx * dx + dy * dy || 1, t = Math.max(0, Math.min(1, ((p[0] - q[0]) * dx + (p[1] - q[1]) * dy) / L)); return Math.hypot(q[0] + dx * t - p[0], q[1] + dy * t - p[1]); };
   const inPoly = (g, px_, py_) => { let r = false; for (let i = 0, j = g.length - 1; i < g.length; j = i++) if ((g[i][1] > py_) !== (g[j][1] > py_) && px_ < (g[j][0] - g[i][0]) * (py_ - g[i][1]) / (g[j][1] - g[i][1]) + g[i][0]) r = !r; return r; };
+  const cr = (p, q, r, t) => { const d = (a, b, c) => (b[0] - a[0]) * (c[1] - a[1]) - (b[1] - a[1]) * (c[0] - a[0]); return d(p, q, r) * d(p, q, t) < 0 && d(r, t, p) * d(r, t, q) < 0; };
+  const crosses = (sh, u, v) => sh.some((p, i) => cr(p, sh[(i + 1) % sh.length], u, v)) || inPoly(sh, u[0], u[1]);
   const clash = shapes => shapes.some(sh => sh.some(q =>
     ISLANDS.some(({ kerb: g }) => inPoly(g, q[0], q[1]) || g.some((u, i) => segD(q, u, g[(i + 1) % g.length]) < 0.5)) ||
-    W.lines.some(ln => !ln.hidden && ln.pts.some((u, i) => i + 1 < ln.pts.length && segD(q, u, ln.pts[i + 1]) < 0.25)) ||
+    W.lines.some(ln => !ln.hidden && ln.pts.some((u, i) => i + 1 < ln.pts.length && (segD(q, u, ln.pts[i + 1]) < 0.25 || segD(u, ...sh.slice(0, 2)) < 0 || crosses(sh, u, ln.pts[i + 1])))) ||
     W.paint.some(pt => pt.poly.length <= 5 && inPoly(pt.poly, q[0], q[1]))));
   let best = make(0, 0);
   search: for (let r = 0; r <= 80; r += 5) for (const du of r ? [-r, r] : [0]) for (const dv of [0, -4, 4, -8, 8]) { const sh = make(du, dv); if (!clash(sh)) { best = sh; break search; } }
@@ -184,26 +201,30 @@ export function addBoard(W) {
   // the east road (two ways): its outline and the dashed middle
   W.addLine(polyline([[810, 545], [1335, 545]]), "paint", { width: 0.14, dash: [2.2, 2.2] });
   // the middle lines of the four arms of the junction (as on the video): solid for the last 15 m before the zebra, dashed further out
-  for (const [a, b, c] of [[[612, 594], [462, 594], [160, 594]], [[780, 590], [930, 590], [1290, 590]], [[695, 498], [420, 420], [695, 340]], [[695, 690], [695, 1030], [695, 1031]]]) {
+  for (const [a, b, c] of [[[612, 594], [462, 594], [182, 594]], [[780, 590], [930, 590], [1290, 590]], [[695, 498], [420, 420], [695, 340]], [[695, 690], [695, 1034], [695, 1035]]]) {
     const B = b[1] === 420 ? [695, 420] : b;
     W.addLine(polyline([a, B]), "paint", { width: 0.15 });
     W.addLine(polyline([B, c]), "paint", { width: 0.14, dash: [1.0, 1.4] });
   }
   // top road: the lane line, and the west road's dashed middle
   W.addLine(polyline([[690, 96], [150, 96], ...arc(150, 158, 62, -Math.PI / 2, -Math.PI, 10).slice(1)]), "paint", { width: 0.16 });   // the lane line bends round the corner into the west road
-  W.addLine(polyline([[88, 158], [88, 500]]), "paint", { width: 0.14, dash: [1.0, 1.4] });
+  W.addLine(polyline([[88, 158], [88, 556]]), "paint", { width: 0.14, dash: [1.0, 1.4] });
+  W.addLine(polyline([[88, 632], [88, 700]]), "paint", { width: 0.14, dash: [1.0, 1.4] });
+  // the middle line of the bottom road (solid where the south arm joins it)
+  W.addLine(polyline([[160, 1068], [640, 1068]]), "paint", { width: 0.14, dash: [1.0, 1.4] });
+  W.addLine(polyline([[750, 1068], [1290, 1068]]), "paint", { width: 0.14, dash: [1.0, 1.4] });
   W.addLine(polyline([[445, 45], [445, 135]]), "paint", { width: 0.3 });
   // hatching (no entry)
-  hatch(W, [[68, 522], [112, 540], [136, 560], [132, 578], [68, 580]]);
+  gore(W, [88, 556], [182, 594], [88, 632], [106, 590], [106, 598], 45, 9);       // where the junction road meets the west road (as on the board)
   hatch(W, [[1337, 365], [1385, 365], [1385, 495], [1337, 495]]);
-  fan(W, [714, 1085], [662, 1085], [714, 1030], 9);                // the gore where the south arm leaves the bottom road: a fan of lines (3:49)
+  gore(W, [640, 1068], [695, 1035], [750, 1068], [688, 1063], [702, 1063], 0, 6);   // where the south arm joins the bottom road
   // lane arrows (the way each lane runs, as on the plan)
   // the arrows of the plan, lane by lane (deg: the way the lane runs; 0 east, 90 south)
   for (const [x, y, d, kind, len] of [
     [850 + D, 59, 180], [850 + D, 102, 180], [1230, 47, 180], [1230, 92, 180],                     // start box and the road behind it
     [215, 66, 180], [215, 112, 180],                                                   // top road, turning south at the west end
     [104, 385, 90, "L", 46], [70, 478, 90, "L", 46],   // at the 90-degree turn: B (by the island) left, C/D straight or left                                                    // west road
-    [565, 212, 0, "R"], [570, 355, 0, "R"], [672, 440, 90], [150, 582, 180, "L"],               // north-west quarter
+    [565, 212, 0, "R"], [570, 355, 0, "R"], [672, 440, 90], [228, 570, 180, "L", 48],               // north-west quarter
     [770, 312, 0, "SR"], [1050, 305, 0], [1050, 345, 0], [717, 400, -90, "R"],                     // north-east road
     [995, 520, 180, "SR"], [1165, 520, 180, "SR"], [1315, 520, 180, "SR"], [980, 572, 180], [1165, 572, 180], [1315, 572, 180], [820, 567, 180, "L"],
     [570, 615, 0], [210, 665, -90, "R"], [452, 640, -90, "R"], [90, 1040, 90, "L"], [255, 1090, 0], [475, 1055, 180, "L"], [625, 1052, 180, "SR"], [675, 960, 90, "R"], [645, 1095, 0],
