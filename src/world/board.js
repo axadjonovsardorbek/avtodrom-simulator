@@ -75,6 +75,11 @@ for (const p of PADS) straighten(p);
     m.splice(a, 2, ...arcPx(1146, 650, 12, 270, 360, 5).map(([x, y]) => px(x, y)), ...loop);
     mid.grass = m; ISLANDS.splice(ISLANDS.indexOf(east), 1);
   }
+  // the long pocket west of the T pad: its east wall runs straight to the end (no step into the pocket at its south end)
+  for (const isl of ISLANDS) {
+    const k = isl.kerb, i = k.findIndex(q => near(q, 25.16, 39.79));
+    if (i > 0 && near(k[i - 1], 25.16, 41.72) && near(k[i + 1], 26.48, 39.79)) { k.splice(i - 1, 3, [26.48, 41.72]); isl.grass = k; }
+  }
 }
 // the finish road (the north-east road) as on the video: a narrow kerb along its north side, from its west end (rounded)
 // to its east end, where a kerb across closes it (the plan's double lines there)
@@ -248,16 +253,16 @@ export function addBoard(W) {
     W.addLine(polyline([a, B]), "paint", { width: 0.15 });
     W.addLine(polyline([B, c]), "paint", { width: 0.14, dash: [1.0, 1.4] });
   }
-  // top road: the lane line, and the west road's dashed middle
+  // top road: the lane line, and the west road's solid middle
   W.addLine(polyline([[690, 96], [150, 96], ...arc(150, 158, 62, -Math.PI / 2, -Math.PI, 10).slice(1)]), "paint", { width: 0.16 });   // the lane line bends round the corner into the west road
-  W.addLine(polyline([[88, 158], [88, 480]]), "paint", { width: 0.14, dash: [1.0, 1.4] });
-  // the two-way roads round the south half (west, bottom, east): a dashed middle line all the way, round the corners
+  W.addLine(polyline([[88, 158], [88, 480]]), "paint", { width: 0.14 });
+  // the two-way roads round the south half (west, bottom, east): a solid middle line all the way, round the corners
   // too, broken only at the railway crossing; the bottom road's middle follows the plan's slant (1072 px in the west,
   // 1094 px in the east)
-  const by = x => 1072 + (x - 160) * 22 / 1130, dashed = pts => W.addLine(polyline(pts), "paint", { width: 0.14, dash: [1.0, 1.4] });
-  dashed([[88, 600], [95, 640], [95, 912]]);
-  dashed([[95, 966], [95, 1004], ...arc(163, 1004, 68, Math.PI, Math.PI / 2, 10).slice(1), [640, by(640)]]);
-  dashed([[750, by(750)], [1290, by(1290)], ...arc(1290, by(1290) - 54, 54, Math.PI / 2, 0, 10).slice(1), [1344, 646], ...arc(1290, 646, 54, 0, -Math.PI / 2, 10).slice(1), [1290, 590]]);
+  const by = x => 1072 + (x - 160) * 22 / 1130, middle = pts => W.addLine(polyline(pts), "paint", { width: 0.14 });
+  middle([[88, 600], [95, 640], [95, 912]]);
+  middle([[95, 966], [95, 1004], ...arc(163, 1004, 68, Math.PI, Math.PI / 2, 10).slice(1), [640, by(640)]]);
+  middle([[750, by(750)], [1290, by(1290)], ...arc(1290, by(1290) - 54, 54, Math.PI / 2, 0, 10).slice(1), [1344, 646], ...arc(1290, 646, 54, 0, -Math.PI / 2, 10).slice(1), [1290, 590]]);
   W.addLine(polyline([[445, 45], [445, 135]]), "paint", { width: 0.3 });
   // hatching (no entry)
   gore(W, [62, 486], [176, 557], [62, 557], [92, 548], [120, 557], 45, 9);     // north of the westbound lane: the left turn south to the railway stays free       // where the junction road meets the west road (as on the board)
