@@ -519,12 +519,10 @@ export function padExercise(W, { id, mapNo, name, short, pads, stages, timeLimit
 // d: { x, y, th (deg, the way into the corridor), Lc, cw, bx0, bx1, bd, side, poly, open }
 export function boksPad(W, d) {
   const car = W.car || { length: 4.479, rOh: 0.9 }, { Lc, cw, bx0, bx1, bd, side: sg } = d;
-  // the rear axle ends on the white bar by the back kerb (the arms of the plan are shallow: the nose may stand a little
-  // way out into the corridor)
-  const cp = { x: d.x, y: d.y, th: d.th * DEG }, back = cw + bd, reg = back - (BAR[0] + BAR[1]) / 2;
+  // the rear axle ends on the white line by the back kerb (the arms of the plan are shallow: the nose may stand a little
+  // way out into the corridor); the line is the plan's (src/world/board.js), `backAt` a point on that kerb
+  const cp = { x: d.x, y: d.y, th: d.th * DEG }, back = d.backAt ? sg * toLocal(cp, ...d.backAt)[1] : cw + bd, reg = back - (BAR[0] + BAR[1]) / 2;
   padOutline(W, d.poly, d.open);
-  const lo = Math.min(sg * (back - BAR[1]), sg * (back - BAR[0])), hi = Math.max(sg * (back - BAR[1]), sg * (back - BAR[0]));
-  W.addPaint(rect(cp, bx0 + 0.15, bx1 - 0.15, lo, hi));
   { // reversing arc of the rear axle into the box, and the car as it should end up
     const sf = (bx0 + bx1) / 2, R = Math.min(5, reg + cw - 1, Lc - 0.8 - sf), pts = [];
     for (let i = 0; i <= 20; i++) { const t = Math.PI / 2 * i / 20; pts.push([sf + R - R * Math.sin(t), sg * (reg - R * Math.cos(t))]); }

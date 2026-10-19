@@ -251,23 +251,32 @@ export function addBoard(W) {
   W.board.pad = name => PADS[PAD[name]];
 
   // the white wheel lines of the plan in every garage box and every parking pocket (as on the plan): in a garage across
-  // the box by its back kerb, in a pocket along its far kerb, parallel to the road. The exam's garage (T4) gets its own
-  // from its exercise (src/world/elements.js); everything is measured the same way: the box's back 0.27 m inside the
-  // plan's edge (just within its yellow line), the pocket's far side 0.35 m
+  // the box by its back kerb, in a pocket along its far kerb, parallel to the road; each 0.5 m wide, just inside the
+  // yellow line along that kerb (BAR: its edges, measured from the kerb) and running between the yellow lines at its
+  // ends. Measured from the kerbs as they are built (the plan's pads are only roughly where the kerbs end up);
+  // W.board.wheel[name].kerb is a point on the kerb, for the exercises' rules (src/world/elements.js)
   {
-    const bar = (x0, x1, y0, y1) => W.addPaint([[Math.min(x0, x1), Math.min(y0, y1)], [Math.max(x0, x1), Math.min(y0, y1)], [Math.max(x0, x1), Math.max(y0, y1)], [Math.min(x0, x1), Math.max(y0, y1)]]);
-    // a garage: the box on the `side` of its corridor (-1 west, +1 east); the line along the back kerb, as long as it
+    const toKerb = (x, y, dx, dy) => { for (let d = 0; d < 15; d += 0.02) if (onIsland(x + dx * d, y + dy * d)) return d; return 15; };
+    W.board.wheel = {};
+    const line = (name, c, u) => {               // c: a point inside the box, u: the unit direction to the kerb the line lies along
+      const k = toKerb(c[0], c[1], u[0], u[1]), kx = c[0] + u[0] * k, ky = c[1] + u[1] * k, v = [-u[1], u[0]];
+      const m = [kx - u[0] * 0.6, ky - u[1] * 0.6], a = toKerb(m[0], m[1], -v[0], -v[1]) - 0.3, b = toKerb(m[0], m[1], v[0], v[1]) - 0.3;
+      const P = (d, t) => [kx - u[0] * d + v[0] * t, ky - u[1] * d + v[1] * t];
+      W.addPaint([P(BAR[0], -a), P(BAR[1], -a), P(BAR[1], b), P(BAR[0], b)]);
+      W.board.wheel[name] = { kerb: [kx, ky] };
+    };
+    // a garage: the box on the `side` of its corridor (-1 west, +1 east)
     const garage = (name, side) => {
       const p = PADS[PAD[name]], xs = p.map(q => q[0]), back = side < 0 ? Math.min(...xs) : Math.max(...xs);
       const ys = p.filter(q => Math.abs(q[0] - back) < 0.5).map(q => q[1]);
-      bar(back - side * (0.27 + BAR[0]), back - side * (0.27 + BAR[1]), Math.min(...ys) + 0.15, Math.max(...ys) - 0.15);
+      line(name, [back - side * 1.5, (Math.min(...ys) + Math.max(...ys)) / 2], [side, 0]);
     };
-    // a pocket: the line along the kerb across from its mouth (`far`: -1 the north side, +1 the south side), its whole length
+    // a pocket: the kerb across from its mouth (`far`: -1 the north side, +1 the south side)
     const pocket = (name, far) => {
-      const p = PADS[PAD[name]], xs = p.map(q => q[0]), ys = p.map(q => q[1]), fy = far > 0 ? Math.max(...ys) : Math.min(...ys);
-      bar(Math.min(...xs) + 0.4, Math.max(...xs) - 0.4, fy - far * (0.35 + BAR[0]), fy - far * (0.35 + BAR[1]));
+      const p = PADS[PAD[name]], xs = p.map(q => q[0]), ys = p.map(q => q[1]);
+      line(name, [(Math.min(...xs) + Math.max(...xs)) / 2, (Math.min(...ys) + Math.max(...ys)) / 2], [0, far]);
     };
-    garage("T1", -1); garage("T2", 1); garage("T3", -1);
+    garage("T1", -1); garage("T2", 1); garage("T3", -1); garage("T4", 1);
     pocket("D1", 1);                                        // open to the top road: the line along its south kerb
     pocket("D2", -1); pocket("D3", -1); pocket("D4", -1);   // open to the road below them: along their north kerb
   }
