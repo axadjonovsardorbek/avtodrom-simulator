@@ -8,6 +8,7 @@ import { SMAAPass } from "three/examples/jsm/postprocessing/SMAAPass.js";
 import { RenderPass } from "three/examples/jsm/postprocessing/RenderPass.js";
 import { UnrealBloomPass } from "three/examples/jsm/postprocessing/UnrealBloomPass.js";
 import { OutputPass } from "three/examples/jsm/postprocessing/OutputPass.js";
+import { atmosphereFor, Rain } from "./atmosphere.js";
 
 // sun direction: late-morning sun from the south-east, ~38 degrees up
 const SUN_DIR = new THREE.Vector3().setFromSphericalCoords(1, THREE.MathUtils.degToRad(52), THREE.MathUtils.degToRad(135));
@@ -64,9 +65,9 @@ export class View {
     su.turbidity.value = 2.2; su.rayleigh.value = 0.9; su.mieCoefficient.value = 0.003; su.mieDirectionalG.value = 0.85;
     su.sunPosition.value.copy(SUN_DIR);
     s.add(sky);
-    s.add(new THREE.HemisphereLight(0xdfeaff, 0x5a6a3e, 1.3));
-    const pm = new THREE.PMREMGenerator(r);
-    const envScene = new THREE.Scene(), sky2 = new Sky(); sky2.scale.setScalar(50);
+    s.add(this.hemi = new THREE.HemisphereLight(0xdfeaff, 0x5a6a3e, 1.3));
+    const pm = this.pmrem = new THREE.PMREMGenerator(r);
+    const envScene = this.envScene = new THREE.Scene(), sky2 = this.sky2 = new Sky(); sky2.scale.setScalar(50);
     for (const k of ["turbidity", "rayleigh", "mieCoefficient", "mieDirectionalG"]) sky2.material.uniforms[k].value = su[k].value;
     sky2.material.uniforms.sunPosition.value.copy(SUN_DIR); envScene.add(sky2);
     const eg = new THREE.Mesh(new THREE.CircleGeometry(40, 32), new THREE.MeshBasicMaterial({ color: 0x3a4a2c })); eg.rotation.x = -Math.PI / 2; eg.position.y = -2; envScene.add(eg);
@@ -79,6 +80,7 @@ export class View {
     sun.shadow.bias = -0.0004; sun.shadow.normalBias = 0.03;
     sun.shadow.camera.layers.enable(1);        // the shadow-only stand-ins (worldMesh.js) live on layer 1
     s.add(sun, sun.target);
+    this.sunDir = SUN_DIR.clone();
 
     this.cam = new THREE.PerspectiveCamera(60, 1, 0.05, 900);
     // soft cabin light so the interior is readable under the roof's shadow
@@ -97,8 +99,9 @@ export class View {
       cam.position.set(...m.pos);
       cam.rotation.order = "YXZ";             // pitch about the camera's own axis
       this.carView.root.add(cam);
-      const rt = new THREE.WebGLRenderTarget(m.w, m.h);
-      rt.texture.colorSpace = THREE.SRGBColorSpace;
+      // the mirror's picture is kept as light (linear, beyond white) and tone-mapped when it is shown, like the
+      // main view: dusk and rain look as dark in the mirrors as through the windscreen
+      const rt = new THREE.WebGLRenderTarget(m.w, m.h, { type: THREE.HalfFloatType });
       rt.texture.repeat.set(-1, 1); rt.texture.offset.set(1, 0);
       const frame = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), new THREE.MeshBasicMaterial({ color: 0x111214 }));
       const quad = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), new THREE.MeshBasicMaterial({ map: rt.texture }));
@@ -262,6 +265,54 @@ export class View {
     if (this.postQ !== quality) { if (this.composer) this.composer.dispose(); this.composer = null; this.postQ = quality; }
     this.setupPost(quality);
     this.chasePos = null;
+    this.applyWorldAtmosphere();
+  }
+
+  // Weather and time of day (src/render/atmosphere.js): sky, sun, fog, reflections, rain, lamps, headlights
+  setAtmosphere(weather, time) {
+    const a = this.atmos = atmosphereFor(weather, time), s = this.scene;
+    for (const u of [this.sky.material.uniforms, this.sky2.material.uniforms]) {
+      for (const [k, v] of Object.entries(a.sky)) u[k].value = v;
+      u.sunPosition.value.copy(a.sunDir);
+    }
+    this.sunDir.copy(a.sunDir); this._sunBasis = null;
+    this.sun.color.setHex(a.sunColor); this.sun.intensity = a.sun;
+    this.hemi.color.setHex(a.hemiSky); this.hemi.groundColor.setHex(a.hemiGround); this.hemi.intensity = a.hemi;
+    s.fog.color.setHex(a.fog[0]); s.fog.near = a.fog[1]; s.fog.far = a.fog[2];
+    s.background = a.background !== null ? new THREE.Color(a.background) : null;
+    this.envScene.background = s.background; this.sky.visible = this.sky2.visible = !s.background;
+    // the reflections are taken from the new sky; materials that were given the old one get the new one
+    const old = s.environment, env = this.pmrem.fromScene(this.envScene, 0.02).texture;
+    s.environment = env; s.environmentIntensity = a.env;
+    s.traverse(o => { if (o.material) for (const m of [].concat(o.material)) if (m.envMap === old) m.envMap = env; });
+    if (old) old.dispose();
+    if (a.rain && !this.rain) { this.rain = new Rain(); s.add(this.rain.mesh); }
+    if (this.rain) this.rain.mesh.visible = a.rain;
+    if (a.lights && !this.heads) {
+      // dipped beams: two spot lights from the front of the car onto the road ahead
+      this.heads = [0, 1].map(() => { const l = new THREE.SpotLight(0xfff4e0, 60, 45, 0.42, 0.55, 1.6); s.add(l, l.target); return l; });
+    }
+    if (this.heads) this.heads.forEach(h => { h.visible = a.lights; });
+    this.applyWorldAtmosphere();
+  }
+  // the world's own materials: roads darker and glossy when wet, street lamps lit in the evening
+  applyWorldAtmosphere() {
+    const a = this.atmos;
+    if (!a || !this.worldGroup) return;
+    const seen = new Set();
+    this.worldGroup.traverse(o => {
+      if (!o.material) return;
+      for (const m of [].concat(o.material)) {
+        if (seen.has(m)) continue; seen.add(m);
+        const u = m.userData;
+        if (u.road) {
+          if (!u.base) u.base = { r: m.roughness, c: m.color.clone() };
+          m.roughness = u.base.r + (0.28 - u.base.r) * a.wet;
+          m.color.copy(u.base.c).multiplyScalar(1 - 0.32 * a.wet);
+        }
+        if (u.lamp) m.emissiveIntensity = a.lights ? 4 : 0.35;
+      }
+    });
   }
 
   resize(w, h) {
@@ -389,6 +440,7 @@ export class View {
     root.position.add(pw.sub(root.localToWorld(piv)));
     root.updateMatrixWorld(true);
     this.keepWheelsDown(ground);
+    car.lightsOn = !!(this.atmos && this.atmos.lights);      // headlamps lit in the evening, rain and fog
     this.carView.update(car, now);
     if (this.driver) this.driver.update(dt, this.driver.wheel, car);
     this.cabinLight.visible = this.mode === "cockpit" || this.mode === "interiorRear";
@@ -560,14 +612,19 @@ export class View {
     // the sun's shadow box follows the car in whole shadow-map texels: moved by fractions of a texel, every
     // shadow edge in the ground would crawl and shimmer as the car drives
     const sb = this._sunBasis || (this._sunBasis = (() => {
-      const z = SUN_DIR.clone().normalize(), x = new THREE.Vector3(0, 1, 0).cross(z).normalize();
+      const z = this.sunDir.clone().normalize(), x = new THREE.Vector3(0, 1, 0).cross(z).normalize();
       return { x, y: z.clone().cross(x), z };
     })());
     const texel = (this.sun.shadow.camera.right - this.sun.shadow.camera.left) / this.sun.shadow.mapSize.x;
     const snap = v => Math.round(v / texel) * texel;
     const a = snap(cp.dot(sb.x)), b = snap(cp.dot(sb.y)), c = cp.dot(sb.z);
     const tp = this.sun.target.position.copy(sb.x).multiplyScalar(a).addScaledVector(sb.y, b).addScaledVector(sb.z, c);
-    this.sun.position.copy(tp).addScaledVector(SUN_DIR, 110);
+    this.sun.position.copy(tp).addScaledVector(this.sunDir, 110);
+    if (this.rain && this.rain.mesh.visible) this.rain.update(dt, cam.position, [car.x, car.y, car.h]);
+    if (this.heads && this.heads[0].visible) {
+      const fx = (car.spec ? car.spec.wb + car.spec.fOh : 3.5) - 0.3, P = (x, y, z, v) => v.set(x, y, z).applyMatrix4(root.matrixWorld);
+      this.heads.forEach((h, i) => { const sd = i ? 0.6 : -0.6; P(fx, 0.68, sd, h.position); P(fx + 16, -0.6, sd * 2.2, h.target.position); h.target.updateMatrixWorld(); });
+    }
     this.sky.position.copy(cam.position);
   }
 

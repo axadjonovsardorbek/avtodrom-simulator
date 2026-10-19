@@ -513,6 +513,7 @@ export function buildWorldMeshes(W, quality) {
     const headGeo = new THREE.BoxGeometry(0.55, 0.12, 0.24); headGeo.translate(1.3, 6.28, 0);
     const steel = new THREE.MeshStandardMaterial({ color: 0x8a9096, roughness: 0.5, metalness: 0.7 });
     const lampMat = new THREE.MeshStandardMaterial({ color: 0xf4f1e6, emissive: 0xfff2d0, emissiveIntensity: 0.35 });
+    lampMat.userData.lamp = true;
     const poles = new THREE.InstancedMesh(mergeGeos([poleGeo, armGeo]), steel, spots.length);
     const heads = new THREE.InstancedMesh(headGeo, lampMat, spots.length);
     spots.forEach(([x, y, a], i) => { mtx.compose(v.set(x, 0, y), q.setFromAxisAngle(new THREE.Vector3(0, 1, 0), -a), sc.set(1, 1, 1)); poles.setMatrixAt(i, mtx); heads.setMatrixAt(i, mtx); });
@@ -641,6 +642,8 @@ export function buildWorldMeshes(W, quality) {
     group.add(f);
   }
 
+  // what the weather changes (src/render/atmosphere.js): every asphalt and paint surface gets wet, the lamps light up
+  group.traverse(o => { if (o.isMesh) for (const m of [].concat(o.material)) if (m && (m.map === asph || m === white || m === yellow)) m.userData.road = true; });
   mergeStatic(group, dyn);
   return { group, dyn };
 }

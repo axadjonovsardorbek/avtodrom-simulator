@@ -12,6 +12,7 @@ import { carById } from "./cars/index.js";
 import { loadCarModel, loadTrafficModel } from "./render/carLoader.js";
 import { dressCobalt, addPaint } from "./render/carDress.js";
 import { addScreenAd, setAdSource } from "./render/screenAd.js";
+import { gripFor } from "./render/atmosphere.js";
 import { apiOn, config, refreshMe, telegramMiniAppLogin, sendAttempt, flushAttempts, myAttempts } from "./net/api.js";
 import { addPlates, DEFAULT_PLATE } from "./render/plates.js";
 import PHRASES from "./audio/phrases.json";
@@ -46,11 +47,17 @@ let session = null, mode = null, elementId = null, paused = true, ended = false;
 const app = document.getElementById("app");
 // the server's settings (when the build has one): the admin's advertising list, before any car's screen asks for it
 setAdSource(apiOn ? config().then(c => (c && c.ads) || null) : null);
-const hud = new Hud(app, { settings, account: u => onAccount(u), protocolBack: () => lastResult && hud.showResult(...lastResult), start, resume, action: onAction, resultAction, useCar: selectCar, showroom: openShowroom, save: () => saveSettings(), garage: () => openGarage(),
+const hud = new Hud(app, { settings, account: u => onAccount(u), atmosphere: () => applyAtmosphere(), protocolBack: () => lastResult && hud.showResult(...lastResult), start, resume, action: onAction, resultAction, useCar: selectCar, showroom: openShowroom, save: () => saveSettings(), garage: () => openGarage(),
   setPlate: t => { settings.plate = t; if (view.carView.setPlate) view.carView.setPlate(t); saveSettings(); },
   setColor: id => { settings.color = id; if (view.carView.setPaint) view.carView.setPaint(id); saveSettings(); } });
 const view = new View(hud.canvas);
 if (!qualityChosen) { settings.quality = pickQuality(view.renderer); saveSettings(); }
+// weather and time of day (settings): the picture, and how well the tyres hold
+function applyAtmosphere() {
+  view.setAtmosphere(settings.weather || "clear", settings.time || "day");
+  if (session) session.car.grip = gripFor(settings.weather);
+}
+applyAtmosphere();
 const audio = new CarAudio();
 const instructor = new Instructor(audio);
 instructor.mood = settings.instructor;
@@ -132,7 +139,7 @@ function start(m, el) {
   rec.reset(); replay = null; hud.hideReplay(); view.setReplayMarkers([]);
   tutorial = m === "learn" ? new Tutorial(settings.transmission) : null;
   if (!tutorial) hud.showTutor(null);
-  session = new Session(W, { mode: m === "learn" ? "training" : m, transmission: settings.transmission, spec: carById(settings.car).spec });
+  session = new Session(W, { mode: m === "learn" ? "training" : m, transmission: settings.transmission, spec: carById(settings.car).spec }); session.car.grip = gripFor(settings.weather);
   view.setZonesVisible(m !== "exam");            // the 1 m stop zones are a training aid only
   view.setWorld(W, settings.quality);
   view.setMode(settings.camera || "cockpit");
@@ -194,7 +201,7 @@ function garageAction(a, v) {
 function openShowroom() {
   audio.start(); audio.setMuted(settings.muted);
   const W = buildPractice("tezlashish", carDims());
-  session = new Session(W, { mode: "practice", transmission: settings.transmission, spec: carById(settings.car).spec });
+  session = new Session(W, { mode: "practice", transmission: settings.transmission, spec: carById(settings.car).spec }); session.car.grip = gripFor(settings.weather);
   view.setWorld(W, settings.quality);
   view.orbit = { az: 2.5, el: 0.2, dist: 7.5 }; view.drag = { yaw: 0, pitch: 0 };
   view.setMode("orbit");
@@ -435,7 +442,7 @@ function useCar(id) {
 useCar(settings.car);
 
 // a preview of the autodrome behind the menu
-session = new Session(buildFull(carDims()), { mode: "training", transmission: settings.transmission, spec: carById(settings.car).spec });
+session = new Session(buildFull(carDims()), { mode: "training", transmission: settings.transmission, spec: carById(settings.car).spec }); session.car.grip = gripFor(settings.weather);
 view.setWorld(session.W, settings.quality);
 // behind the menu the car turns slowly on the start pad
 view.setMode("orbit"); view.orbit = { az: 2.3, el: 0.12, dist: 9 };

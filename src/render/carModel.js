@@ -427,7 +427,7 @@ export function rigCar(root) {
       glow(rev, car.gear === "R", 2);
       glow(hazard, car.hazard && blink, 3, 0.15);
       tail.forEach(mt => { mt.emissiveIntensity = car.brake > 0.05 ? 2.6 : car.engineOn ? 0.55 : 0.08; });
-      head.forEach(mt => { mt.emissiveIntensity = car.engineOn ? (mt.name === "lamp_head" ? 0.25 : 1.6) : 0.05; });
+      head.forEach(mt => { mt.emissiveIntensity = car.engineOn || car.lightsOn ? (mt.name === "lamp_head" ? (car.lightsOn ? 2.2 : 0.25) : 1.6) : 0.05; });
       if (interior && interior.visible && now - lastCluster > 90) { cluster.draw(car, now); lastCluster = now; }
     }
   };

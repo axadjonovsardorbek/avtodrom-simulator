@@ -178,6 +178,8 @@ export class Hud {
             <div><span class="lbl">Boshqa mashinalar</span>${seg("optTraffic", [["off", "Yo'q"], ["simple", "Oddiy"], ["real", "Real"]])}</div>
             <div><span class="lbl">Grafika</span>${seg("optQuality", [["high", "Yuqori"], ["mid", "O'rta"], ["low", "Yengil"]])}</div>
             <div><span class="lbl">Kadr tezligi (FPS)</span>${seg("optFps", [["30", "30 tejamkor"], ["60", "60"], ["max", "Maks"]])}</div>
+            <div><span class="lbl">Ob-havo</span>${seg("optWeather", [["clear", "Quyoshli"], ["cloudy", "Bulutli"], ["rain", "Yomg'ir"], ["fog", "Tuman"]])}</div>
+            <div><span class="lbl">Vaqt</span>${seg("optTime", [["day", "Kunduz"], ["evening", "Kechqurun"]])}</div>
           </div>
         </aside>
       </div>`;
@@ -192,6 +194,8 @@ export class Hud {
     bindSeg("optInstr", S.instructor || "angry", v => S.instructor = v);
     bindSeg("optVoice", S.voice === false ? "off" : "on", v => S.voice = v === "on");
     bindSeg("optQuality", S.quality, v => S.quality = v);
+    bindSeg("optWeather", S.weather || "clear", v => { S.weather = v; this.h.atmosphere && this.h.atmosphere(); });
+    bindSeg("optTime", S.time || "day", v => { S.time = v; this.h.atmosphere && this.h.atmosphere(); });
     bindSeg("optFps", S.fps || (matchMedia("(pointer: coarse)").matches ? "60" : "max"), v => S.fps = v);
     bindSeg("optTraffic", S.traffic || "simple", v => S.traffic = v);
     const markCar = () => m.querySelectorAll(".carbtn").forEach(b => b.classList.toggle("on", b.dataset.car === (S.car === "malibu" ? "malibu-premier" : S.car || CARS[0].id)));

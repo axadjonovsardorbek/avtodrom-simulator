@@ -55,6 +55,7 @@ export class Vehicle {
     this.throttle = 0; this.brake = 0; this.clutch = 0;
     this.handbrake = true;
     this.wheelSpin = 0; this.odo = 0;
+    this.grip = 1;                 // the road: 1 dry, less when wet (src/render/atmosphere.js gripFor)
     this.events = [];
   }
 
@@ -113,7 +114,7 @@ export class Vehicle {
     // the front wheels follow the steering wheel through the rack (a little lag, not instant)
     // like power steering and stability control: full lock only when crawling, less and less as speed rises
     // (so the car cannot be thrown sideways), which also makes steering with keys much easier
-    const lim = Math.min(s.maxSteer, Math.atan(6.5 * s.wb / Math.max(this.v * this.v, 0.01)));
+    const lim = Math.min(s.maxSteer, Math.atan(6.5 * this.grip * s.wb / Math.max(this.v * this.v, 0.01)));
     const want = clamp(this.sw / s.wheelLock * s.maxSteer, -lim, lim), ds = want - this.steer;
     this.steer += Math.sign(ds) * Math.min(Math.abs(ds), s.steerRate * dt);
 
@@ -135,7 +136,8 @@ export class Vehicle {
 
     let v = this.v + a * dt;
     const v0 = this.v;
-    const dec = s.roll + this.brake * s.brakeDecel + (this.handbrake ? s.handbrakeDecel : 0) + (this.gear === "P" ? 50 : 0);
+    // brakes: on a wet road the tyres hold less, so the car stops later (ABS keeps it steerable)
+    const dec = s.roll + (this.brake * s.brakeDecel + (this.handbrake ? s.handbrakeDecel : 0)) * this.grip + (this.gear === "P" ? 50 : 0);
     if (Math.abs(v) <= dec * dt) v = 0; else v -= Math.sign(v) * dec * dt;
     this.v = v;
 
