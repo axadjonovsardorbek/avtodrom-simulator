@@ -6,6 +6,8 @@ ok(T && T.cars.length > 0, "junction is busy at the start (" + T.cars.length + "
 let redRun = 0, minGap = 99, maxCars = 0, blockedSpawn = 0;
 T.setBlock(90, 0, 1e6);               // the learner will use the north arm (heading 90): arm position -90
 T.setBlock(-90, 0, 1e6);
+// cars already past the stop line in that arm when it is blocked drive on and leave; only new ones would be wrong
+const before = new Set(T.lanes.filter(a => a.blockBy.includes(-90)).flatMap(a => a.cars));
 for (let t = 0; t < 400; t += 0.05) {
   T.step(0.05, t);
   maxCars = Math.max(maxCars, T.cars.length);
@@ -17,7 +19,7 @@ for (let t = 0; t < 400; t += 0.05) {
       c.prev = c.s;
       if (i > 0) minGap = Math.min(minGap, arm.cars[i - 1].s - 4.3 - c.s);
     });
-    if (arm.blockBy.includes(-90) && t > 15 && arm.cars.length) blockedSpawn++;
+    if (arm.blockBy.includes(-90) && arm.cars.some(c => !before.has(c))) blockedSpawn++;
   }
 }
 ok(redRun === 0, "cars stop on red (violations: " + redRun + ")");

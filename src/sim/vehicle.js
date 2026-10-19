@@ -203,6 +203,7 @@ export class Vehicle {
       const vf = this.v * dir;
       if (this.throttle > 0.03) F += dir * this.throttle * s.autoForce * clamp(1 - vf / 17, 0.15, 1);
       else if (vf < 1.0) F += dir * 1100;          // creep
+      else if (vf > 2.5) F -= dir * Math.min(450, (vf - 2.5) * 90);   // engine braking off the gas (in gear, above walking pace)
     }
     // gear and rpm for display only
     const kmh = Math.abs(this.v) * 3.6;
