@@ -166,8 +166,8 @@ export function addBoard(W) {
   // the east road (two ways): its outline and the dashed middle
   W.addLine(polyline([[810, 545], [1335, 545]]), "paint", { width: 0.14, dash: [2.2, 2.2] });
   // top road: the lane line, and the west road's dashed middle
-  W.addLine(polyline([[150, 96], [690, 96]]), "paint", { width: 0.16 });
-  W.addLine(polyline([[88, 150], [88, 450]]), "paint", { width: 0.14, dash: [2.2, 2.2] });
+  W.addLine(polyline([[690, 96], [150, 96], ...arc(150, 158, 62, -Math.PI / 2, -Math.PI, 10).slice(1)]), "paint", { width: 0.16 });   // the lane line bends round the corner into the west road
+  W.addLine(polyline([[88, 158], [88, 500]]), "paint", { width: 0.14, dash: [1.0, 1.4] });
   W.addLine(polyline([[445, 45], [445, 135]]), "paint", { width: 0.3 });
   // hatching (no entry)
   hatch(W, [[68, 498], [130, 522], [166, 548], [160, 578], [68, 580]]);
@@ -177,8 +177,8 @@ export function addBoard(W) {
   // the arrows of the plan, lane by lane (deg: the way the lane runs; 0 east, 90 south)
   for (const [x, y, d, kind, len] of [
     [850 + D, 59, 180], [850 + D, 102, 180], [1230, 47, 180], [1230, 92, 180],                     // start box and the road behind it
-    [178, 88, 180, "L"], [178, 131, 180, "L"],                                                   // top road, turning south at the west end
-    [100, 270, 90], [75, 270, 90], [102, 385, 90, "L", 46], [69, 385, 90, "SL", 46],   // at the 90-degree turn: B (by the island) left, C/D straight or left                                                    // west road
+    [215, 66, 180], [215, 112, 180],                                                   // top road, turning south at the west end
+    [104, 385, 90, "L", 46], [70, 478, 90, "L", 46],   // at the 90-degree turn: B (by the island) left, C/D straight or left                                                    // west road
     [565, 212, 0, "R"], [570, 355, 0, "R"], [672, 440, 90], [150, 582, 180, "L"],               // north-west quarter
     [770, 312, 0, "SR"], [1050, 305, 0], [1050, 345, 0], [717, 400, -90, "R"],                     // north-east road
     [995, 520, 180, "SR"], [1165, 520, 180, "SR"], [1315, 520, 180, "SR"], [980, 572, 180], [1165, 572, 180], [1315, 572, 180], [820, 567, 180, "L"],
