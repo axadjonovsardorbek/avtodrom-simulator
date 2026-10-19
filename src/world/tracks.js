@@ -4,7 +4,7 @@ import { World } from "./world.js";
 import { Turtle, LANE } from "./path.js";
 import { DEG, toWorld, toLocal } from "../sim/geom.js";
 import { Traffic } from "./traffic.js";
-import { addBoard, padOpen, START_X } from "./board.js";
+import { addBoard, padOpen, START_X, FINISH_X } from "./board.js";
 import { PADS, PAD, px } from "./boardData.js";
 import { piyoda, estakada, burilish, ilon, boks, parkovka, temir, tezlashish, avariya, chorraha, padExercise, boksPad } from "./elements.js";
 
@@ -101,7 +101,8 @@ export function buildFull(car) {
   { const [x, y] = px(START_X - 33, 66); W.start = { x, y, th: T.pose.th }; }
   const zebraS = Math.hypot(...px(716 + D, 66).map((v, i) => v - px(START_X - 80, 66)[i]));  // distance start line to the crossing
   T.fwd(zebraS - 17.5);
-  const tP = piyoda(W, T, 21, { zebra: false, pave: false, l0: -5.4, l1: 2.6 });
+  // the stop line across both lanes of the top road (from its south to its north kerb, as the zebra)
+  const tP = piyoda(W, T, 21, { zebra: false, pave: false, l0: -5.4, l1: 2.6, road: [toLocal(T.pose, ...px(800, 121))[1], toLocal(T.pose, ...px(800, 43))[1]].sort((a, b) => a - b) });
   T.fwd(D * 0.1);                                  // the longer run between the crossing and the overpass
   const tE = estakada(W, T, { s0: 1, s1: 13, s2: 24, s3: 36, h: 1.44, stopS: 9, len: 37 });
   // the decorative lane signs of the board must not stand on the overpasses
@@ -129,7 +130,7 @@ export function buildFull(car) {
   // ---- 7: the garage, straight on from the snake: the east pad of the south-east quarter, in from the road above, the box on the east side
   const g0 = px(1178, 733), g1 = px(1178, 1012), gth = Math.atan2(g1[1] - g0[1], g1[0] - g0[0]) / DEG, gd = (a, b) => Math.hypot(...px(...a).map((v, i) => v - px(...b)[i]));
   const tX = boksPad(W, { x: g0[0], y: g0[1], th: gth, Lc: gd([1178, 733], [1178, 1012]), cw: gd([1157, 800], [1200, 800]) / 2,
-    bx0: gd([1178, 733], [1178, 890]), bx1: gd([1178, 733], [1178, 950]), bd: gd([1200, 920], [1257, 920]), side: -1, poly: PADS[PAD.T4], open: padOpen(PADS[PAD.T4]) });
+    bx0: gd([1178, 733], [1178, 890]), bx1: gd([1178, 733], [1178, 950]), bd: gd([1200, 920], [1247, 920]), side: -1, poly: PADS[PAD.T4], open: padOpen(PADS[PAD.T4]) });
 
   // ---- the junction from the east, straight on (west)
   const c2 = chorraha(W, O, 180, "straight", A);
@@ -145,7 +146,7 @@ export function buildFull(car) {
   // ---- 10: the emergency stop on the east road (heading north), after the left turn at the end of the speed lane and
   // before the turn to the parking
   const T4 = at(1362, 1050, heading([1362, 1050], [1362, 640]));
-  const tA = avariya(W, T4, 38);
+  const tA = avariya(W, T4, 38, { gantries: false });
 
   // ---- 11: the parallel parking of the video (4:16-4:39): up the east side, then west along the east road and back
   // into the middle pocket cut into the island north of it (pad D3)
@@ -156,15 +157,13 @@ export function buildFull(car) {
   // ---- the junction from the east, turning right (north) towards the finish road (4:40-4:53)
   const c3 = chorraha(W, O, 180, "right", A);
 
-  // ---- 12: the finish at the end of the north-east road (heading east)
-  const fs0 = px(860, 312), fp = { x: fs0[0], y: fs0[1], th: Math.atan2(...[1, 0].map(i => px(1224, 312)[i] - fs0[i])) };
-  const fEnd = Math.hypot(...px(1224, 312).map((v, i) => v - fs0[i]));          // the kerb that closes the road
-  // the finish of the video (5:00-5:11): a white box across the whole road at its closed end, FINISH written in it;
-  // the run ends once the car's front is 3 m into it
-  { const a = fEnd - 6.5, hw = 3.3;
-    W.finishLine = { pose: fp, s: a + 3, halfW: 5 };
-    W.addLine([toWorld(fp, fEnd - 0.1, -hw), toWorld(fp, a, -hw), toWorld(fp, a, hw), toWorld(fp, fEnd - 0.1, hw)], "paint", { width: 0.25 });
-    const [x, y] = toWorld(fp, a + 3.2, 0); W.texts.push({ x, y, th: fp.th, text: "FINISH", size: 1.6 }); }
+  // ---- 12: the finish at the east end of the north-east road (heading east): one line across the whole road, FINISH
+  // written before it; the run ends when the car's front crosses it, and the road runs on out (the car rolls through)
+  { const fs0 = px(860, 312), fp = { x: fs0[0], y: fs0[1], th: Math.atan2(...[1, 0].map(i => px(1224, 312)[i] - fs0[i])) };
+    const a = Math.hypot(...px(FINISH_X, 312).map((v, i) => v - fs0[i]));
+    W.finishLine = { pose: fp, s: a, halfW: 5 };
+    W.addLine([px(FINISH_X, 291), px(FINISH_X, 356.5)], "paint", { width: 0.4 });
+    const [x, y] = px(FINISH_X - 22, 323); W.texts.push({ x, y, th: fp.th, text: "FINISH", size: 1.6 }); }
 
   W.tasks.push(tP, tE, tB, c1, tI, tX, c2, tR, tZ, tA, tK, c3);   // the order of the exam (as the instructor drives it)
   return W.build();

@@ -148,8 +148,10 @@ export class Session {
     const hit = collideCar(this.car, W.solids, W.solidGrid);
     if (!hit || hit.speed < 0.6) return;
     this.hits = this.hits || new Set();
-    this.emit("bump", { strength: Math.min(1, hit.speed / 8), what: "solid" });
-    if (W.solids[hit.index][3] === 1) return;                       // a kerb: the car stops against it, the line it touched is the penalty
+    const kind = W.solids[hit.index][3];
+    // a low kerb of an island: a soft knock (the tyre rides up against it), not a crash
+    this.emit("bump", { strength: kind === 2 ? Math.min(0.2, hit.speed / 20) : Math.min(1, hit.speed / 8), what: kind === 2 ? "kerb" : "solid" });
+    if (kind) return;                                               // a kerb: the car stops against it, the line it touched is the penalty
     if (!this.hits.has(hit.index) && hit.speed > 1.2) { this.hits.add(hit.index); this.pen("crash"); }
   }
 

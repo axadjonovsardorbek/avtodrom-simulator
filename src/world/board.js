@@ -80,10 +80,13 @@ for (const p of PADS) straighten(p);
     const k = isl.kerb, i = k.findIndex(q => near(q, 25.16, 39.79));
     if (i > 0 && near(k[i - 1], 25.16, 41.72) && near(k[i + 1], 26.48, 39.79)) { k.splice(i - 1, 3, [26.48, 41.72]); isl.grass = k; }
   }
+  // the island of the parking pockets: the kerb between the pockets ends flush with their mouths (the tracing stood it
+  // 0.5 m out into the road)
+  for (const isl of ISLANDS) if (isl.kerb.some(q => near(q, 42.24, -9.42))) for (const q of isl.kerb) if (Math.abs(q[1] + 9.42) < 0.05 && q[0] > 9 && q[0] < 51) q[1] = -9.96;
 }
 // the finish road (the north-east road) as on the video: a narrow kerb along its north side, from its west end (rounded)
-// to its east end, where a kerb across closes it (the plan's double lines there)
-{ const strip = [...arcPx(746, 285, 5, 90, 270), [1234, 276], [1234, 357.5], [1224, 357.5], [1224, 290]].map(([x, y]) => px(x, y));
+// to its east end; the end itself is open (the car drives on through the finish)
+{ const strip = [...arcPx(746, 285, 5, 90, 270), [1234, 276], [1234, 290]].map(([x, y]) => px(x, y));
   ISLANDS.push({ kerb: strip, grass: strip, lanes: [] }); }
 
 const P = (x, y) => px(x, y);
@@ -189,14 +192,16 @@ const polyline = pts => pts.map(p => P(...p));
 const arc = (cx, cy, r, a0, a1, n = 14) => Array.from({ length: n + 1 }, (_, i) => { const a = a0 + (a1 - a0) * i / n; return [cx + r * Math.cos(a), cy + r * Math.sin(a)]; });
 
 const D = 150;                                       // the crossing on the top road: px east of where the plan has it
+export const FINISH_X = 1185;                        // the finish line across the finish road (px), 5 m before its east end
 export const START_X = 1355;                         // the start box: its east end (px), at the very east end of the top road where the run begins
 export function addBoard(W) {
   W.board = { frame: FRAME, islands: ISLANDS, pads: PADS };
   // the islands cannot be driven over: a row of low kerb posts along the edge of every island and round the whole plan
-  // (solids with the 4th field 1: they stop the car but are not a crash; touching the line is the penalty)
-  const posts = [], along = (poly, r, step = 0.45) => { for (let i = 0; i < poly.length; i++) { const a = poly[i], b = poly[(i + 1) % poly.length], L = Math.hypot(b[0] - a[0], b[1] - a[1]), n = Math.max(1, Math.ceil(L / step)); for (let k = 0; k < n; k++) posts.push([a[0] + (b[0] - a[0]) * k / n, a[1] + (b[1] - a[1]) * k / n, r, 1]); } };
-  for (const isl of ISLANDS) along(isl.kerb, 0.2);
-  along(FRAME.map(([x, y]) => [x + Math.sign(x) * 0.6, y + Math.sign(y) * 0.6]), 0.3);
+  // (solids with the 4th field set: they stop the car but are not a crash; touching the line is the penalty. 2: a low
+  // kerb, met only by the tyres, the body hangs over it; 1: the frame, met by the body)
+  const posts = [], along = (poly, r, kind, step = 0.45) => { for (let i = 0; i < poly.length; i++) { const a = poly[i], b = poly[(i + 1) % poly.length], L = Math.hypot(b[0] - a[0], b[1] - a[1]), n = Math.max(1, Math.ceil(L / step)); for (let k = 0; k < n; k++) posts.push([a[0] + (b[0] - a[0]) * k / n, a[1] + (b[1] - a[1]) * k / n, r, kind]); } };
+  for (const isl of ISLANDS) along(isl.kerb, 0.2, 2);
+  along(FRAME.map(([x, y]) => [x + Math.sign(x) * 0.6, y + Math.sign(y) * 0.6]), 0.3, 1);
   W.baseSolids = posts; W.solids = posts.slice(); W.solidGrid = null;
   // the kerbs and the frame are the lines a car must not touch
   for (const isl of ISLANDS) W.addLine(closed(isl.kerb), "edge", { width: 0.2, hidden: true });
@@ -256,7 +261,7 @@ export function addBoard(W) {
   W.addLine(polyline([[760, 210], [1190, 210]]), "paint", { width: 0.16 });
   for (let k = 0; k < 10; k++) { const cx = 770 + 44 * k; W.addLine(polyline([[cx, 210], [cx + 38, 150]]), "paint", { width: 0.14 }); }
   // the north-east road (the finish road): the line between its two lanes
-  W.addLine(polyline([[790, 330], [1224, 330]]), "paint", { width: 0.14 });   // solid, as on the video (5:02)
+  W.addLine(polyline([[790, 330], [FINISH_X - 40, 330]]), "paint", { width: 0.14 });   // solid, as on the video (5:02), up to the finish line
   // the east road: the line between its two westbound lanes (the eastbound lane is past the junction arm's middle line)
   W.addLine(polyline([[810, 545], [1335, 545]]), "paint", { width: 0.14, dash: [2.2, 2.2] });
   // the middle lines of the four arms of the junction: solid all the way (as on the video). The north arm's (metres)
@@ -269,9 +274,10 @@ export function addBoard(W) {
   W.addLine([[-8.09, -0.09], [-52.7, -0.03], ...arcM(-52.7, 9.87, 9.9, -Math.PI / 2, -Math.PI).slice(1), P(95, 912)], "paint", { width: 0.15 });
   W.addLine(polyline([[780, 590], [1290, 590]]), "paint", { width: 0.15 });
   W.addLine(polyline([[695, 690], [695, 1035]]), "paint", { width: 0.15 });
-  // top road: the lane line, and the west road's solid middle
-  W.addLine(polyline([[690, 96], [150, 96], ...arc(150, 158, 62, -Math.PI / 2, -Math.PI, 10).slice(1)]), "paint", { width: 0.16 });   // the lane line bends round the corner into the west road
-  W.addLine(polyline([[88, 158], [88, 480]]), "paint", { width: 0.14 });
+  // top road: the lane line, and the west road's middle down to the 90-degree turn
+  // (dashed, from the foot of the overpasses on: none in front of them, the kerb between them parts the lanes there)
+  W.addLine(polyline([[310, 96], [150, 96], ...arc(150, 158, 62, -Math.PI / 2, -Math.PI, 10).slice(1)]), "paint", { width: 0.16, dash: [2.2, 2.2] });   // the lane line bends round the corner into the west road
+  W.addLine(polyline([[88, 158], [88, 480]]), "paint", { width: 0.14, dash: [2.2, 2.2] });   // dashed on to the 90-degree turn
   // the two-way roads round the south half (west, bottom, east): a solid middle line all the way, round the corners
   // too, broken only at the railway crossing (the west road's down to the railway is the west arm's, above); the bottom
   // road's middle follows the plan's slant (1072 px in the west, 1094 px in the east)

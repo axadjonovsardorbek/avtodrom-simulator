@@ -265,8 +265,10 @@ function handleEvent(ev) {
         hud.showResult(...lastResult);
       };
       // the car with real doors: the doors open and the people get out first
-      if (view.canExit() && mode !== "practice") setTimeout(() => { if (ended) view.startExit(showResult); }, 900);
-      else setTimeout(showResult, 1200);
+      // (the car rolls to a stop first: see the frame loop)
+      const whenStill = (f, ms) => setTimeout(function wait() { if (Math.abs(session.car.v) > 0.01) setTimeout(wait, 150); else f(); }, ms);
+      if (view.canExit() && mode !== "practice") whenStill(() => { if (ended) view.startExit(showResult); }, 900);
+      else whenStill(showResult, 1200);
       break;
   }
 }
@@ -535,6 +537,11 @@ function frame(now) {
       while (acc >= H && n < 60) { session.step(H); acc -= H; n++; }
       rec.sample(session);
     } else acc = 0;
+    // after the end (past the finish line) the car does not freeze: it rolls on, engine off, and comes to rest
+    if (ended && !replay && !paused && session.car.v) {
+      const c = session.car, v = Math.sign(c.v) * Math.max(0, Math.abs(c.v) - 3 * dt);
+      c.x += Math.cos(c.th) * v * dt; c.y += Math.sin(c.th) * v * dt; c.v = v;
+    }
     view.look = controls.look;
     app.classList.toggle("cockpit", view.mode === "cockpit");
     app.classList.toggle("playing", !paused && !inShowroom && !ended);

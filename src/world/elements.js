@@ -68,7 +68,8 @@ function stopHint(ctx, st, lineS) {
 export function piyoda(W, T, len = 34, opt = {}) {
   const pose = T.pose, stopS = 14, z0 = 15.5, z1 = 19.5, cross = (z0 + z1) / 2;
   T.fwd(len);
-  stopPaint(W, pose, stopS);
+  const [r0, r1] = opt.road || [-HL, HL];             // the stretch across the road the stop line covers (both lanes of a wide road)
+  stopPaint(W, pose, stopS, r0, r1);
   if (opt.zebra !== false) for (let l = -HL + 0.2; l < HL - 0.2; l += 0.9) W.addPaint(rect(pose, z0, z1, l, Math.min(l + 0.5, HL - 0.1)));   // the board draws its own zebra when opt.zebra is false
   if (opt.pave !== false) { W.addPad(rect(pose, 10, 25, -5.4, -HL - 0.35), "concrete"); W.addPad(rect(pose, 10, 25, HL + 0.35, 5.4), "concrete"); }
   if (opt.l0 === undefined) {                       // a road of its own: a sign on each side; on the ground the plan places them
@@ -79,7 +80,7 @@ export function piyoda(W, T, len = 34, opt = {}) {
   const ped = { x: 0, y: 0, th: pose.th + Math.PI / 2, visible: opt.l0 !== undefined || Math.random() < 0.85, l: l0, walking: false, phase: 0 };
   const place = () => { const [x, y] = toWorld(pose, cross, ped.l); ped.x = x; ped.y = y; };
   place(); W.peds.push(ped);
-  const onRoad = () => ped.walking && ped.l > -HL - 0.6 && ped.l < HL + 0.6;
+  const onRoad = () => ped.walking && ped.l > r0 - 0.6 && ped.l < r1 + 0.6;
   return task({
     id: "piyoda", mapNo: 2, name: "Piyodalar o'tish joyi", short: "Piyoda", pose,
     tick(ctx) {
@@ -94,13 +95,13 @@ export function piyoda(W, T, len = 34, opt = {}) {
     stages: [{
       text: "Tartibga solinmagan piyodalar o'tish joyi. Piyoda o'tayotgan bo'lsa, to'xtash chizig'i oldida (1 m ichida) to'xtab yo'l bering.",
       update(ctx) {
-        stopLineRule(ctx, "sl", stopS, () => ped.visible && ped.walking && ped.l < HL + 0.6, "stopLine");
+        stopLineRule(ctx, "sl", stopS, () => ped.visible && ped.walking && ped.l < r1 + 0.6, "stopLine");
         if (!ctx.f.hit && ped.visible && Math.abs(ctx.car.v) > 0.05 && polyNearPoint(ctx.P, [ped.x, ped.y], 0.25)) {
           ctx.f.hit = true; ctx.pen("crash");
         }
       },
       hint: ctx => onRoad() ? "Piyoda yo'lni kesib o'tmoqda. To'xtang!" :
-        ped.walking && ped.l <= -HL - 0.6 ? "Piyoda o'tishga tayyorlanmoqda." : stopHint(ctx, ctx.f.sl, stopS),
+        ped.walking && ped.l <= r0 - 0.6 ? "Piyoda o'tishga tayyorlanmoqda." : stopHint(ctx, ctx.f.sl, stopS),
       done: ctx => ctx.rs > z1 + 0.5
     }]
   });
@@ -275,7 +276,7 @@ export function parkovka(W, T, opt = {}) {
   // the box is the car's length plus 2.3 m (6.8 m for the Cobalt); the yellow line sits where its rear axle should be
   const car = W.car || { length: 4.479, rOh: 0.9 };
   const k = K(W);
-  const b0 = opt.b0 ?? 9, b1 = opt.b1 ?? b0 + car.length + 2.32 + (k - 1) * 4, bw = opt.bw ?? 2.5 * k, wide = 2.5, reg = b0 + car.rOh + 0.65, pose = T.pose, Lr = opt.len ?? 30;
+  const b0 = opt.b0 ?? 9, b1 = opt.b1 ?? b0 + car.length + 2.32 + (k - 1) * 4, bw = opt.bw ?? 2.5 * k, wide = 2.5, reg = b0 + car.rOh + 1.0, pose = T.pose, Lr = opt.len ?? 30;
   T.gapR(b0, b1);
   T.gapL(0, Lr);
   T.fwd(Lr);
@@ -286,7 +287,7 @@ export function parkovka(W, T, opt = {}) {
     W.addPad(rect(pose, b0, b1, HL - 0.1, HL + bw));
   }
   W.addLine(W2(pose, [[b0, HL], [b0, HL + bw], [b1, HL + bw], [b1, HL]]), "ctrl", { hidden: !!opt.hideBox });   // on the ground the pocket's own kerb line is the box
-  W.addPaint(rect(pose, reg - 0.06, reg + 0.06, HL + 0.15, HL + bw - 0.15), "yellow");
+  W.addPaint(rect(pose, reg - 0.08, reg + 0.08, HL + 0.15, HL + bw - 0.15), "yellow");
   { // rear axle: reverse from beside the box in an S-curve onto the yellow line
     const lf = HL + bw / 2, l0 = 0.6, span = 2 * Math.sqrt(Math.max(1, 2 * 5 * (lf - l0) / 2 - ((lf - l0) / 2) ** 2));
     guide(W, W2(pose, sCurve(reg + span, l0, reg, lf)), W2(pose, carOutline(car, reg, lf, 0)));
@@ -355,16 +356,18 @@ export function tezlashish(W, T, L = 75, zone = [L - 19, L - 11]) {
         if (!f.chk && ctx.fs > z0) { f.chk = true; if (!f.g2) ctx.pen("gear2"); }
       },
       hint: ctx => `Uzatma: ${ctx.car.gearNumber || "N"} · eng yuqori tezlik ${Math.round(ctx.f.vmax || 0)} km/soat${ctx.f.g2 ? " · 2-uzatma qayd etildi" : ""}`,
-      done: ctx => (ctx.f.chk && ctx.still > 0.8) || ctx.rs > L
+      // (40 km/h holds until the car has slowed back to 20 (+5 tolerance): braking after the lane is not speeding)
+      done: ctx => (ctx.f.chk && ctx.still > 0.8) || (ctx.rs > L && ctx.car.kmh <= 25)
     }]
   });
 }
 
 /* 8. Avariya holatda to'xtash */
-export function avariya(W, T, L = 62) {
+export function avariya(W, T, L = 62, opt = {}) {
   const pose = T.pose, trig = 16 + Math.random() * 12;
   T.fwd(L);
-  for (let s = 8; s < L; s += 12) W.gantries.push({ ...at(pose, s, 0), th: pose.th, width: 5.2 });
+  // the signal gantries over the road (the exam ground has none: the signal is the beeper and the instructor's call)
+  if (opt.gantries !== false) for (let s = 8; s < L; s += 12) W.gantries.push({ ...at(pose, s, 0), th: pose.th, width: 5.2 });
   return task({
     id: "avariya", mapNo: 10, name: "Avariya holatda to'xtash", short: "Avariya", pose,
     stages: [{
@@ -501,10 +504,12 @@ export function padExercise(W, { id, mapNo, name, short, pads, stages, timeLimit
 // d: { x, y, th (deg, the way into the corridor), Lc, cw, bx0, bx1, bd, side, poly, open }
 export function boksPad(W, d) {
   const car = W.car || { length: 4.479, rOh: 0.9 }, { Lc, cw, bx0, bx1, bd, side: sg } = d;
-  const cp = { x: d.x, y: d.y, th: d.th * DEG }, reg = cw + bd - 1.2;      // the arms of the plan are shallow: the nose may stand a little way out into the corridor
+  // the rear axle's line 1.5 m in from the back kerb: the rear bumper stops about 0.6 m short of it (the arms of the plan
+  // are shallow: the nose may stand a little way out into the corridor)
+  const cp = { x: d.x, y: d.y, th: d.th * DEG }, reg = cw + bd - 1.5;
   padOutline(W, d.poly, d.open);
   const lo = Math.min(sg * (reg - 0.06), sg * (reg + 0.06)), hi = Math.max(sg * (reg - 0.06), sg * (reg + 0.06));
-  W.addPaint(rect(cp, bx0 + 0.15, bx1 - 0.15, lo, hi), "yellow");
+  W.addPaint(rect(cp, bx0 + 0.15, bx1 - 0.15, lo - 0.02, hi + 0.02), "yellow");
   { // reversing arc of the rear axle into the box, and the car as it should end up
     const sf = (bx0 + bx1) / 2, R = Math.min(5, reg + cw - 1, Lc - 0.8 - sf), pts = [];
     for (let i = 0; i <= 20; i++) { const t = Math.PI / 2 * i / 20; pts.push([sf + R - R * Math.sin(t), sg * (reg - R * Math.cos(t))]); }

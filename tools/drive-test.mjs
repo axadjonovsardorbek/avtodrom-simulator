@@ -70,14 +70,14 @@ const put = (x, y, th) => { Object.assign(C, { x, y, th, v: 0 }); C.brake = 1; }
 const Q = (...pts) => pts.map(([x, y]) => px(x, y));
 const pad = (name, a, b) => padPath(PADS[PAD[name]], px(...a), px(...b));
 go("1-3 top road, crossing, overpass", Q([962, 66], [700, 66], [400, 66], [180, 68], [120, 85], [86, 130], [78, 200], [78, 420], [90, 470], [130, 500], [250, 503], [318, 503]), 5);
-go("4 the zigzag pad", [...pad("zigB", [330, 503], [424, 356]), ...Q([460, 356], [560, 356], [610, 362], [650, 395], [672, 440], [674, 480])], 3);
+go("4 the zigzag pad", [...pad("zigB", [330, 503], [424, 356]), ...Q([460, 356], [560, 356], [610, 360], [650, 365], [672, 390], [674, 440], [674, 480])], 3);
 go("5 junction from the north, right", Q([674, 480], [674, 530], [660, 565], [620, 578], [520, 578], [470, 580], [445, 600], [430, 630], [428, 655]), 4);
 go("6 the snake", [...pad("snakeR", [428, 662], [568, 888]), ...Q([555, 905], [530, 950], [522, 1000], [530, 1045], [580, 1078], [700, 1081])], 2.6);
 go("bottom road east and up the east road", Q([700, 1081], [1000, 1081], [1250, 1085], [1330, 1070], [1360, 1030], [1362, 1000], [1362, 800], [1362, 660]), 5);
 C.sig = -1;
 go("to the garage", Q([1362, 660], [1355, 610], [1330, 575], [1280, 567], [1235, 570], [1205, 590], [1186, 620], [1179, 650], [1178, 700]), 3);   // into the westbound lane, then left across the other into the pocket
 progress("at the garage");
-{ const b = px(1228, 920); put(b[0], b[1], Math.atan2(...(() => { const p = px(1178, 920), q = px(1228, 920); return [p[1] - q[1], p[0] - q[0]]; })()) ); for (let k = 0; k < 60 * 3; k++) S.step(DT); progress("in the box"); }
+{ const b = px(1233, 920); put(b[0], b[1], Math.atan2(...(() => { const p = px(1178, 920), q = px(1233, 920); return [p[1] - q[1], p[0] - q[0]]; })()) ); for (let k = 0; k < 60 * 3; k++) S.step(DT); progress("in the box"); }
 C.brake = 0; C.sig = 1; { const a = px(1178, 700), b = px(1178, 600); put(a[0], a[1], Math.atan2(b[1] - a[1], b[0] - a[0])); } for (let k = 0; k < 60 * 2; k++) S.step(DT); progress("out of the garage");
 C.sig = 0;
 go("to the junction from the east", Q([1178, 700], [1176, 630], [1150, 590], [1100, 572], [900, 572], [790, 576], [700, 577], [500, 577], [200, 577], [130, 585], [95, 620], [80, 680], [78, 715]), 4.5);
@@ -91,7 +91,7 @@ go("10 emergency stop on the east road", Q([1362, 1000], [1362, 800], [1362, 660
 if (S.active && S.active.task.id === "avariya") { for (let k = 0; k < 60 * 6; k++) { C.brake = 1; C.throttle = 0; if (S.W.alarm) C.hazard = true; S.step(DT); } C.brake = 0; C.hazard = false; go("after the alarm", [[C.x, C.y], ...Q([1362, 660])], 4); }
 go("to the parking", Q([1362, 660], [1360, 610], [1345, 565], [1320, 540]), 4);
 go("11 parking", [[dX1 + 19, laneY + 0.3], [dX1 + 14, laneY], [dX1 + 6, laneY], [dX1 - 10, laneY]], 3);
-put(dX1 - 0.9 - 0.65, laneY - (LANE / 2 + 1.6), Math.PI);
+put(dX1 - 0.9 - 1.0, laneY - (LANE / 2 + 1.6), Math.PI);
 for (let k = 0; k < 60 * 3; k++) S.step(DT); progress("in the parking box");
 C.brake = 0; C.sig = -1;
 go("junction from the east, right", [[dX1 - 4, laneY - 0.3], ...Q([1000, 540], [900, 568], [800, 572], [745, 565], [718, 530], [712, 470], [714, 380], [740, 320], [800, 312], [860, 312])], 4);
