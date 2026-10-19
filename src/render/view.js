@@ -727,7 +727,9 @@ export class View {
       // which mirrors are redrawn this frame: on high the inside one every frame and the wing mirrors in turn,
       // on mid one of the three in turn, on low one every other frame
       const f = this.frame, M = this.mirrors;
-      const now = this.quality === "high" ? [M[0], M[1 + f % 2]] : this.quality === "mid" ? [M[f % 3]] : f % 2 ? [] : [M[(f >> 1) % 3]];
+      // a device that falls behind (frames over ~22 ms) gets the next lighter schedule
+      const q = this.ft > 22 ? (this.quality === "high" ? "mid" : "low") : this.quality;
+      const now = q === "high" ? [M[0], M[1 + f % 2]] : q === "mid" ? [M[f % 3]] : f % 2 ? [] : [M[(f >> 1) % 3]];
       if (now.length) this.carView.setCockpit(false);
       for (const m of now) {
         const hid = (m.housing || []).filter(o => o.visible); hid.forEach(o => { o.visible = false; });

@@ -30,6 +30,24 @@ function noiseTex(base, specks, seed, size = 512) {
   return t;
 }
 
+// A normal map from a texture's own brightness (dark specks are pits, light ones grains): the asphalt gets a
+// grain the light catches. Kept faint: strong fine bumps glitter on a wet road.
+export function normalFrom(tex, strength = 2) {
+  const src = tex.image, w = src.width, h = src.height;
+  const d = src.getContext("2d").getImageData(0, 0, w, h).data, H = new Float32Array(w * h);
+  for (let i = 0; i < w * h; i++) H[i] = (d[i * 4] * 0.3 + d[i * 4 + 1] * 0.59 + d[i * 4 + 2] * 0.11) / 255;
+  const [c, g] = canvas(w, h), out = g.createImageData(w, h), o = out.data;
+  const at = (x, y) => H[((y + h) % h) * w + (x + w) % w];
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+    const dx = (at(x + 1, y) - at(x - 1, y)) * strength, dy = (at(x, y + 1) - at(x, y - 1)) * strength, k = 1 / Math.hypot(dx, dy, 1), i = (y * w + x) * 4;
+    o[i] = (-dx * k * 0.5 + 0.5) * 255; o[i + 1] = (dy * k * 0.5 + 0.5) * 255; o[i + 2] = (k * 0.5 + 0.5) * 255; o[i + 3] = 255;
+  }
+  g.putImageData(out, 0, 0);
+  const t = new THREE.CanvasTexture(c);
+  t.wrapS = t.wrapT = THREE.RepeatWrapping; t.anisotropy = 8;
+  return t;
+}
+
 export const asphaltTexture = () => noiseTex("#6b7077", [["rgba(0,0,0,0.18)", 9000, 2.2], ["rgba(255,255,255,0.06)", 7000, 1.6], ["rgba(120,110,95,0.10)", 2500, 2.5]], 7);
 export const grassTexture = () => noiseTex("#4b6a33", [["rgba(30,50,15,0.35)", 12000, 3], ["rgba(140,170,80,0.18)", 9000, 2.2], ["rgba(110,95,60,0.12)", 1500, 3]], 11);
 // leaves of a shrub: dark gaps and lit leaf tips (tinted per bush)

@@ -22,7 +22,7 @@ Bajarilganini `[x]` bilan belgilang.
 
 ## 3. Poligon va dunyo
 
-- [ ] **Ob-havo va kun vaqti:** kechqurun (faralar yonadi), yomg'ir (sirpanchiq yo'l, uzoqroq tormoz yo'li), tuman.
+- [x] **Ob-havo va kun vaqti:** sozlamalarda quyoshli, bulutli, yomg'ir, tuman; kunduz yoki kechqurun (ko'cha chiroqlari va faralar yonadi). Yomg'irda yo'l ho'l: tormoz yo'li uzunroq, tezlikda keskin burilib bo'lmaydi.
 - [x] **Boshqa mashinalar:** svetoforli chorrahada boshqa mashinalar yo'lda yuradi, qizil va sariqda to'xtaydi, orasida masofa saqlaydi; o'quvchining yo'liga tushadigan yo'l bo'sh qoldiriladi. Tegib ketsa — to'qnashuv jarimasi (100 ball).
 - [ ] **Ko'proq piyodalar:** hozir faqat piyodalar o'tish joyida bitta piyoda bor.
 - [ ] **Qo'shimcha poligonlar:** boshqa imtihon markazlari sxemasi bo'yicha (har biri uchun sxema va raqamlar ro'yxati kerak).
@@ -40,7 +40,7 @@ Bajarilganini `[x]` bilan belgilang.
 ## 5. Realistiklik (navbatdagi katta ishlar)
 
 - [x] **Mashinaga kirish:** Cobalt'da haqiqiy eshiklar: instruktor yo'lovchi eshigidan yurib kirib o'tiradi, eshik yopiladi, keyin haydovchi eshigi ochiladi va kamera kiradi.
-- [ ] **Tushish:** mashq tugagach eshiklar ochilib, instruktor va haydovchi tushishi.
+- [x] **Tushish:** imtihon tugagach eshiklar ochilib, instruktor va haydovchi tushadi (eshiklari alohida qism bo'lgan Cobalt'da).
 - [ ] **Boshqa mashinalarda eshiklar:** Cobalt'dan boshqa modellarda eshik alohida qism emas; Monza, Malibu, Matiz, Damas uchun eshiklarni model ichidan ajratib ishlash kerak.
 - [ ] **Fizika:** shinalarning ushlashi, og'irlik ko'chishi, tormoz yo'li (nam yo'l), qiyalikda orqaga siljish, dvigatel tormozi, ABS.
 - [ ] **Avtodrom:** haqiqiy imtihon markazi o'lchamlari va belgilari, asfalt chiziqlar, to'siqlar, binolar, daraxtlar (aniq sxema kerak).

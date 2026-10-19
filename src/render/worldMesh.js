@@ -3,7 +3,7 @@
 import * as THREE from "three";
 import { mergeVertices, mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js";
 import { offsetPolyline, untangle, toWorld, polylineLength } from "../sim/geom.js";
-import { asphaltTexture, grassTexture, concreteTexture, signTexture, textTexture, facadeTexture, bushTexture, modernTexture, towerTexture } from "./textures.js";
+import { asphaltTexture, normalFrom, grassTexture, concreteTexture, signTexture, textTexture, facadeTexture, bushTexture, modernTexture, towerTexture } from "./textures.js";
 
 const Y_ROAD = 0.0, Y_PAD = 0.006, Y_PAINT = 0.05, Y_LINE = 0.055;      // the plan's layers (grass, kerb band, pads) lie between 0.02 and 0.04
 
@@ -106,12 +106,12 @@ export function buildWorldMeshes(W, quality) {
   const solid = (x, y, r) => W.solids.push([x, y, r]);
   const wall = (x0, y0, x1, y1, r = 0.2, step = 0.7) => { const L = Math.hypot(x1 - x0, y1 - y0), n = Math.max(1, Math.ceil(L / step)); for (let i = 0; i <= n; i++) solid(x0 + (x1 - x0) * i / n, y0 + (y1 - y0) * i / n, r); };
 
-  const asph = asphaltTexture(), grass = grassTexture(), conc = concreteTexture();
-  const asphaltMat = new THREE.MeshStandardMaterial({ map: asph, roughness: 0.92, metalness: 0, polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -1 });
+  const asph = asphaltTexture(), grass = grassTexture(), conc = concreteTexture(), asphN = quality === "low" ? null : normalFrom(asph, 3);
+  const asphaltMat = new THREE.MeshStandardMaterial({ map: asph, normalMap: asphN, normalScale: new THREE.Vector2(0.45, 0.45), roughness: 0.92, metalness: 0, polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -1 });
   const padMat = asphaltMat.clone(); padMat.polygonOffsetFactor = -2; padMat.polygonOffsetUnits = -2;
   const concMat = new THREE.MeshStandardMaterial({ map: conc, roughness: 0.95 });
   // the exercise lanes are asphalt like the roads (a shade lighter, newer); their white edge lines are painted over them
-  const padLightMat = new THREE.MeshStandardMaterial({ map: asph, color: 0xffffff, roughness: 0.92, polygonOffset: true, polygonOffsetFactor: -3, polygonOffsetUnits: -3 });
+  const padLightMat = new THREE.MeshStandardMaterial({ map: asph, normalMap: asphN, normalScale: new THREE.Vector2(0.45, 0.45), color: 0xffffff, roughness: 0.92, polygonOffset: true, polygonOffsetFactor: -3, polygonOffsetUnits: -3 });
   const paintMat = c => new THREE.MeshStandardMaterial({ color: c, roughness: 0.7, polygonOffset: true, polygonOffsetFactor: -4, polygonOffsetUnits: -4 });
   const white = paintMat(0xeeece4), yellow = paintMat(0xf2b632);
 
