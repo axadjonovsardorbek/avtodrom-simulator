@@ -13,9 +13,9 @@ for (const isl of ISLANDS.slice()) {
   if (axisShare(isl.kerb) > 0.6) {                      // a block of straight walls (not a snake): smooth out the tracing
     simplifyClosed(isl.kerb, 0.5); straighten(isl.kerb, { strictOnly: true, tol: 1.3, ang: 0.12, minLen: 0.8 }); squareEdges(isl.kerb); squareEdges(isl.kerb);
   }
-  else { simplifyClosed(isl.kerb, 0.25); smoothClosed(isl.kerb, 2); isl.smooth = true; }   // the snakes: one smooth curve, as on the plan
+  else { snapToPads(isl.kerb, [PADS[PAD.snakeR], PADS[PAD.snakeL]]); simplifyClosed(isl.kerb, 0.3); smoothClosed(isl.kerb, 2); isl.smooth = true; }   // the snakes: one smooth curve, as on the plan
   if (!isl.smooth) { squareCorners(isl.kerb); removeSteps(isl.kerb); removeSlivers(isl.kerb); }
-  snapToPads(isl.kerb, [PADS[PAD.snakeR], PADS[PAD.snakeL]]);            // the walls of the snakes follow their pale lanes
+  if (!isl.smooth) snapToPads(isl.kerb, [PADS[PAD.snakeR], PADS[PAD.snakeL]]);   // the walls of the snakes follow their pale lanes
   // drop repeated points and the spikes the straightening can leave (an edge that turns straight back on the one before)
   const k = isl.kerb;
   for (let again = true; again;) {
@@ -194,7 +194,7 @@ export function addBoard(W) {
   W.addLine(polyline([[88, 158], [88, 500]]), "paint", { width: 0.14, dash: [1.0, 1.4] });
   W.addLine(polyline([[445, 45], [445, 135]]), "paint", { width: 0.3 });
   // hatching (no entry)
-  hatch(W, [[68, 498], [130, 522], [166, 548], [160, 578], [68, 580]]);
+  hatch(W, [[68, 522], [112, 540], [136, 560], [132, 578], [68, 580]]);
   hatch(W, [[1337, 365], [1385, 365], [1385, 495], [1337, 495]]);
   fan(W, [714, 1085], [662, 1085], [714, 1030], 9);                // the gore where the south arm leaves the bottom road: a fan of lines (3:49)
   // lane arrows (the way each lane runs, as on the plan)
