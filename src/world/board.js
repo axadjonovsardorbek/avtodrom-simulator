@@ -24,6 +24,11 @@ for (const isl of ISLANDS) {
       if (la < 0.05 || lb < 0.05 || (ax * bx + ay * by) / (la * lb) < -0.3) { k.splice(i, 1); again = true; break; }
     }
   }
+  // the west wall of the 90-degree corridor runs straight down to its mouth (the tracing stepped it out half way)
+  for (const q of isl.kerb) if (Math.abs(q[0] + 37.22) < 0.3 && Math.abs(q[1] + 21.71) < 0.3) q[0] = -34.64;
+  for (let i = 0; i < isl.kerb.length; i++) { const q = isl.kerb[i], r = isl.kerb[(i + 1) % isl.kerb.length];
+    if (Math.abs(q[0] + 34.64) < 0.01 && Math.abs(q[1] + 21.71) < 0.3 && Math.abs(r[0] + 37.22) < 0.3 && Math.abs(r[1] + 12.19) < 0.3) { isl.kerb.splice(i + 1, 0, [-34.64, -12.19]); break; } }
+  for (let i = isl.kerb.length - 1; i > 0; i--) if (Math.hypot(isl.kerb[i][0] - isl.kerb[i - 1][0], isl.kerb[i][1] - isl.kerb[i - 1][1]) < 0.05) isl.kerb.splice(i, 1);
   isl.grass = isl.kerb;                                // the kerb is drawn as a 0.4 m band just inside this outline
 }
 for (const p of PADS) straighten(p);
@@ -173,7 +178,7 @@ export function addBoard(W) {
   for (const [x, y, d, kind] of [
     [850 + D, 59, 180], [850 + D, 102, 180], [1230, 47, 180], [1230, 92, 180],                     // start box and the road behind it
     [178, 88, 180, "L"], [178, 131, 180, "L"],                                                   // top road, turning south at the west end
-    [103, 345, 90, "SL"], [75, 465, 90, "SL"],                                                    // west road
+    [100, 330, 90], [100, 465, 90, "L"],                                                    // west road
     [565, 212, 0, "R"], [570, 355, 0, "R"], [672, 440, 90], [150, 582, 180, "L"],               // north-west quarter
     [770, 312, 0, "SR"], [1050, 305, 0], [1050, 345, 0], [717, 400, -90, "R"],                     // north-east road
     [995, 520, 180, "SR"], [1165, 520, 180, "SR"], [1315, 520, 180, "SR"], [980, 572, 180], [1165, 572, 180], [1315, 572, 180], [820, 567, 180, "L"],
