@@ -234,15 +234,18 @@ export function addBoard(W) {
   // top road: the lane line, and the west road's dashed middle
   W.addLine(polyline([[690, 96], [150, 96], ...arc(150, 158, 62, -Math.PI / 2, -Math.PI, 10).slice(1)]), "paint", { width: 0.16 });   // the lane line bends round the corner into the west road
   W.addLine(polyline([[88, 158], [88, 480]]), "paint", { width: 0.14, dash: [1.0, 1.4] });
-  W.addLine(polyline([[88, 600], [88, 700]]), "paint", { width: 0.14, dash: [1.0, 1.4] });
-  // the middle line of the bottom road (solid where the south arm joins it)
-  W.addLine(polyline([[160, 1068], [640, 1068]]), "paint", { width: 0.14, dash: [1.0, 1.4] });
-  W.addLine(polyline([[750, 1068], [1290, 1068]]), "paint", { width: 0.14, dash: [1.0, 1.4] });
+  // the two-way roads round the south half (west, bottom, east): a dashed middle line all the way, round the corners
+  // too, broken only at the railway crossing; the bottom road's middle follows the plan's slant (1072 px in the west,
+  // 1094 px in the east)
+  const by = x => 1072 + (x - 160) * 22 / 1130, dashed = pts => W.addLine(polyline(pts), "paint", { width: 0.14, dash: [1.0, 1.4] });
+  dashed([[88, 600], [95, 640], [95, 912]]);
+  dashed([[95, 966], [95, 1004], ...arc(163, 1004, 68, Math.PI, Math.PI / 2, 10).slice(1), [640, by(640)]]);
+  dashed([[750, by(750)], [1290, by(1290)], ...arc(1290, by(1290) - 54, 54, Math.PI / 2, 0, 10).slice(1), [1344, 646], ...arc(1290, 646, 54, 0, -Math.PI / 2, 10).slice(1), [1290, 590]]);
   W.addLine(polyline([[445, 45], [445, 135]]), "paint", { width: 0.3 });
   // hatching (no entry)
   gore(W, [62, 486], [176, 557], [62, 557], [92, 548], [120, 557], 45, 9);     // north of the westbound lane: the left turn south to the railway stays free       // where the junction road meets the west road (as on the board)
   hatch(W, [[1337, 365], [1385, 365], [1385, 495], [1337, 495]]);
-  gore(W, [640, 1068], [695, 1035], [750, 1068], [688, 1063], [702, 1063], 0, 6);   // where the south arm joins the bottom road
+  gore(W, [640, 1081], [695, 1035], [750, 1083], [688, 1076], [702, 1078], 0, 6);   // where the south arm joins the bottom road
   // lane arrows (the way each lane runs, as on the plan)
   // the arrows of the plan, lane by lane (deg: the way the lane runs; 0 east, 90 south)
   for (const [x, y, d, kind, len] of [
