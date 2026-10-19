@@ -138,7 +138,7 @@ export function buildFull(car) {
   const c2 = chorraha(W, O, 180, "straight", A);
 
   // ---- 8: the railway crossing on the west road (heading south; the line comes in from outside the ground, on the right)
-  const T2 = at(78, 715, heading([78, 715], [78, 1000]));
+  const T2 = at(78, 768, heading([78, 768], [78, 1000]));   // the crossing near the corner, as on the board (rails at about 943 px)
   const tR = temir(W, T2, { l0: -4.2, l1: 34, deadEnd: true, from: 1 });
 
   // ---- 9: the speed lane on the bottom road (heading east)
