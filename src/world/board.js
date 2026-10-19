@@ -3,22 +3,44 @@
 // plan by tools/trace-board.mjs), with the plan's markings on top: zebras, start box, parking diamonds, hatching,
 // lane lines.
 import { FRAME, ISLANDS, PADS, PAD, px } from "./boardData.js";
-import { straighten, insetPoly, PAD_INSET, squareCorners, removeSteps, simplifyClosed, axisShare, squareEdges, removeSlivers, splitPinches, smoothClosed, snapToPads, morphSmooth, stripCentre, stripPoly, carveLanes, extendToRoad } from "./straighten.js";
+import { straighten, insetPoly, PAD_INSET, squareCorners, removeSteps, simplifyClosed, axisShare, squareEdges, removeSlivers, splitPinches, smoothClosed, snapToPads, morphSmooth, stripCentre, stripPoly, carveBlock, extendToRoad, shapeEnd } from "./straighten.js";
 
 // the snakes: each lane gets one width along a smooth centre line (the pad becomes exactly that strip)
-const SNAKES = ["snakeL", "snakeR"].map(k => { const p = PADS[PAD[k]], sc = stripCentre(p, padOpen(p)); if (sc) { extendToRoad(sc.c, sc.w, ISLANDS.map(i => i.kerb)); const q = stripPoly(sc.c, sc.w); p.length = 0; p.push(...q); } return sc; }).filter(Boolean);
+// and runs out to its mouths where the plan has them: snakeL straight south at the bottom and a little east at the top
+const PLAN_NS = (() => { const a = px(400, 800), b = px(400, 900), l = Math.hypot(b[0] - a[0], b[1] - a[1]); return [(b[0] - a[0]) / l, (b[1] - a[1]) / l]; })();
+const PLAN_E = (() => { const a = px(400, 800), b = px(401, 800); return [b[0] - a[0], b[1] - a[1]]; })();   // one plan px east, in metres
+const ENDS = { snakeL: [{ axis: PLAN_NS }, { axis: PLAN_NS, shift: PLAN_E.map(v => v * 6), L: 8 }], snakeR: [{ shift: PLAN_E.map(v => v * -4), L: 6 }, null] };
+const SNAKES = ["snakeL", "snakeR"].map(k => { const p = PADS[PAD[k]], sc = stripCentre(p, padOpen(p)); if (sc) { ENDS[k].forEach((o, i) => o && shapeEnd(sc.c, i === 0, o)); extendToRoad(sc.c, sc.w, ISLANDS.map(i => i.kerb)); const q = stripPoly(sc.c, sc.w); p.length = 0; p.push(...q); } return sc; }).filter(Boolean);
+// the three islands of the snakes, as on the plan: the outer kerb of the block they make (plan px), cut by the lanes
+// carried straight on to the road, every corner rounded. Their mouths: a rounded finger and square corners on the west
+// side of each lane at the top, a 45-degree chamfer on its east side; at the bottom the west island's diagonal and
+// the rounded tips of the middle and east islands.
+const arcPx = (cx, cy, r, a0, a1, n = 6) => Array.from({ length: n + 1 }, (_, k) => { const a = (a0 + (a1 - a0) * k / n) * Math.PI / 180; return [cx + r * Math.cos(a), cy + r * Math.sin(a)]; });
+const SNAKE_BLOCK = [
+  [130, 690], ...arcPx(152, 660, 22, 180, 270), [168, 636], [190, 690], [205, 724],            // the west finger; the snakeL lane
+  [268, 634], ...arcPx(400, 650, 14, 270, 360), [430, 690], [446, 707],                        // the middle island's top
+  [505, 633], [612, 640], [655, 683], ...arcPx(635, 1002, 20, 0, 90), ...arcPx(605, 1002, 20, 90, 180), [585, 905], [570, 890],   // the east island
+  [548, 870], [477, 983], ...arcPx(454, 970, 20, 30, 180), [440, 950],                         // the middle island's tip
+  [393, 945], [320, 1040], ...arcPx(168, 1005, 36, 90, 180)].map(([x, y]) => px(x, y));       // the west island's bottom
+const BLOCK = carveBlock(SNAKE_BLOCK, SNAKES);
+const inside = (g, x, y) => { let c = false; for (let i = 0, j = g.length - 1; i < g.length; j = i++) if ((g[i][1] > y) !== (g[j][1] > y) && x < (g[j][0] - g[i][0]) * (y - g[i][1]) / (g[j][1] - g[i][1]) + g[i][0]) c = !c; return c; };
 // the kerbs of the plan are traced by hand: their long straight runs are made exactly straight, and the little steps of
 // the tracing (jogs under 1.3 m between two parallel runs) are taken out, so the lanes have clean walls as on the
 // aerial photo; the grass is the kerb 0.4 m in
-const RAWK = ISLANDS.map(i => i.kerb.map(p => p.slice()));
 for (const isl of ISLANDS.slice()) {
-  straighten(isl.kerb, { strictOnly: true, tol: 1.3 });
-  if (axisShare(isl.kerb) > 0.6) {                      // a block of straight walls (not a snake): smooth out the tracing
-    simplifyClosed(isl.kerb, 0.5); straighten(isl.kerb, { strictOnly: true, tol: 1.3, ang: 0.12, minLen: 0.8 }); squareEdges(isl.kerb); squareEdges(isl.kerb);
+  // an island of the snakes: the piece of the block that lies on it
+  if (isl.kerb.some(q => SNAKES.some(({ c, w }) => c.some(p => Math.hypot(p[0] - q[0], p[1] - q[1]) < w / 2 + 2.5)))) {
+    const best = BLOCK.map(b => b.filter(q => inside(isl.kerb, q[0], q[1])).length).reduce((m, n, i, a) => n > a[m] ? i : m, 0);
+    isl.kerb.length = 0; isl.kerb.push(...BLOCK[best]); isl.smooth = true;
   }
-  else { morphSmooth(isl.kerb, 2.0, 1.2); isl.smooth = true; }   // the snakes' islands: rounded   // the snakes: one smooth curve, as on the plan
-  if (!isl.smooth) { squareCorners(isl.kerb); removeSteps(isl.kerb); removeSlivers(isl.kerb); }
-  if (isl.kerb.some(q => SNAKES.some(({ c, w }) => c.some(p => Math.hypot(p[0] - q[0], p[1] - q[1]) < w / 2 + 2.5)))) carveLanes(isl.kerb, SNAKES, RAWK);   // the walls of the snakes along their lanes
+  else {
+    straighten(isl.kerb, { strictOnly: true, tol: 1.3 });
+    if (axisShare(isl.kerb) > 0.6) {                      // a block of straight walls: smooth out the tracing
+      simplifyClosed(isl.kerb, 0.5); straighten(isl.kerb, { strictOnly: true, tol: 1.3, ang: 0.12, minLen: 0.8 }); squareEdges(isl.kerb); squareEdges(isl.kerb);
+      squareCorners(isl.kerb); removeSteps(isl.kerb); removeSlivers(isl.kerb);
+    }
+    else { morphSmooth(isl.kerb, 2.0, 1.2); isl.smooth = true; }   // a curved island: rounded
+  }
   // drop repeated points and the spikes the straightening can leave (an edge that turns straight back on the one before)
   const k = isl.kerb;
   for (let again = true; again;) {

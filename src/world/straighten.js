@@ -263,58 +263,47 @@ export function stripCentre(pad, isOpen) {
 // the pad of the lane: the two walls joined at the ends
 export function stripPoly(c, w) { return [...offsetOpen(c, w / 2), ...offsetOpen(c, -w / 2).reverse()]; }
 
-// the island `poly` with the lanes (centre lines `cs`, widths) cut out of it: the walls are laid along the lanes, the
-// little gaps the tracing left beside them are filled, the rest rounded; returns the outline of its biggest piece
-export function carveLanes(poly, lanes, all = [poly], cell = 0.1) {
-  const xs = poly.map(p => p[0]), ys = poly.map(p => p[1]), pad = 3;
+// the islands of the snakes: the whole block they make (`block`, its outer kerb) with the lanes (centre lines `c`,
+// widths `w`) cut through it, each carried on straight `ext` m past its ends so it opens to the road with straight
+// walls; every corner left is rounded with an `r` m disc. Returns the pieces, biggest first.
+export function carveBlock(block, lanes, ext = 15, r = 1.2, cell = 0.1) {
+  const xs = block.map(p => p[0]), ys = block.map(p => p[1]), pad = 3;
   const x0 = Math.min(...xs) - pad, y0 = Math.min(...ys) - pad, nx = Math.ceil((Math.max(...xs) + pad - x0) / cell), ny = Math.ceil((Math.max(...ys) + pad - y0) / cell);
   const g = new Uint8Array(nx * ny);
   for (let j = 0; j < ny; j++) {
     const y = y0 + (j + 0.5) * cell, cut = [];
-    for (let i = 0, k = poly.length - 1; i < poly.length; k = i++) { const a = poly[i], b = poly[k]; if ((a[1] > y) !== (b[1] > y)) cut.push(a[0] + (y - a[1]) / (b[1] - a[1]) * (b[0] - a[0])); }
+    for (let i = 0, k = block.length - 1; i < block.length; k = i++) { const a = block[i], b = block[k]; if ((a[1] > y) !== (b[1] > y)) cut.push(a[0] + (y - a[1]) / (b[1] - a[1]) * (b[0] - a[0])); }
     cut.sort((a, b) => a - b);
     for (let c = 0; c + 1 < cut.length; c += 2) for (let i = Math.max(0, Math.ceil((cut[c] - x0) / cell - 0.5)); i < nx && x0 + (i + 0.5) * cell < cut[c + 1]; i++) g[j * nx + i] = 1;
   }
-  // the distance of every cell from the lanes' centre lines, in metres, less the lane's half width (< 0: in a lane)
-  const dl = new Float32Array(nx * ny).fill(1e9), side = new Uint8Array(nx * ny);     // side: 1 when the nearest point is along the lane itself (not past its ends)
+  const inLane = new Uint8Array(nx * ny);
   for (const { c, w } of lanes) {
     const e0 = c[0], e1 = c[c.length - 1], u0 = [c[0][0] - c[4][0], c[0][1] - c[4][1]], u1 = [e1[0] - c[c.length - 5][0], e1[1] - c[c.length - 5][1]], l0 = Math.hypot(...u0), l1 = Math.hypot(...u1);
-    const ext = [[e0[0] + u0[0] / l0 * 8, e0[1] + u0[1] / l0 * 8], ...c, [e1[0] + u1[0] / l1 * 8, e1[1] + u1[1] / l1 * 8]];
-    const cum = [0]; for (let q = 1; q < ext.length; q++) cum.push(cum[q - 1] + Math.hypot(ext[q][0] - ext[q - 1][0], ext[q][1] - ext[q - 1][1]));
-    // the bell mouths: past each end of the lane its walls curve out with a 2.5 m fillet, on each side where the island
-    // does not go on beside the road (a wall that carries on as the edge of a road stays straight)
-    const inAny = (x, y) => all.some(P => { let r = false; for (let i = 0, j = P.length - 1; i < P.length; j = i++) if ((P[i][1] > y) !== (P[j][1] > y) && x < (P[j][0] - P[i][0]) * (y - P[i][1]) / (P[j][1] - P[i][1]) + P[i][0]) r = !r; return r; });
-    const FR = 2.5, A = cum[1], B = cum[ext.length - 2];
-    // goesOn(end point, outward direction, side): is there island 3 and 5 m past the end, just beyond that wall?
-    const goesOn = (e, u, l, sg) => { const nx_ = -u[1] / l * sg, ny_ = u[0] / l * sg, o = w / 2 + 0.8; return [3, 5].every(k => inAny(e[0] + u[0] / l * k + nx_ * o, e[1] + u[1] / l * k + ny_ * o)); };
-    const keepA = [goesOn(e0, u0, l0, 1), goesOn(e0, u0, l0, -1)], keepB = [goesOn(e1, u1, l1, 1), goesOn(e1, u1, l1, -1)];
-    for (let s = 0; s + 1 < ext.length; s++) {
-      const a = ext[s], b = ext[s + 1], dx = b[0] - a[0], dy = b[1] - a[1], L2 = dx * dx + dy * dy || 1, R = w / 2 + FR + 2;
+    const pts = [[e0[0] + u0[0] / l0 * ext, e0[1] + u0[1] / l0 * ext], ...c, [e1[0] + u1[0] / l1 * ext, e1[1] + u1[1] / l1 * ext]];
+    for (let s = 0; s + 1 < pts.length; s++) {
+      const a = pts[s], b = pts[s + 1], dx = b[0] - a[0], dy = b[1] - a[1], L2 = dx * dx + dy * dy || 1, R = w / 2 + 1;
       const i0 = Math.max(0, Math.floor((Math.min(a[0], b[0]) - R - x0) / cell)), i1 = Math.min(nx - 1, Math.ceil((Math.max(a[0], b[0]) + R - x0) / cell));
       const j0 = Math.max(0, Math.floor((Math.min(a[1], b[1]) - R - y0) / cell)), j1 = Math.min(ny - 1, Math.ceil((Math.max(a[1], b[1]) + R - y0) / cell));
-      for (let j = j0; j <= j1; j++) for (let i = i0; i <= i1; i++) { const x = x0 + (i + 0.5) * cell, y = y0 + (j + 0.5) * cell, t = Math.max(0, Math.min(1, ((x - a[0]) * dx + (y - a[1]) * dy) / L2)), along = cum[s] + t * (cum[s + 1] - cum[s]), ea = A + FR - along, eb = along - (B - FR), crs = dx * (y - a[1]) - dy * (x - a[0]),
-        ee = ea > 0 && !keepA[crs < 0 ? 0 : 1] ? ea : eb > 0 && !keepB[crs > 0 ? 0 : 1] ? eb : 0, fl = ee <= 0 ? 0 : FR - Math.sqrt(FR * FR - Math.min(ee, FR) ** 2), d = Math.hypot(a[0] + dx * t - x, a[1] + dy * t - y) - w / 2 - fl; const k = j * nx + i; if (d < dl[k]) { dl[k] = d; side[k] = s > 0 && s < ext.length - 2 && t > 0 && t < 1 || (s > 1 && s < ext.length - 3) ? 1 : 0; } }
+      for (let j = j0; j <= j1; j++) for (let i = i0; i <= i1; i++) { const x = x0 + (i + 0.5) * cell, y = y0 + (j + 0.5) * cell, t = Math.max(0, Math.min(1, ((x - a[0]) * dx + (y - a[1]) * dy) / L2));
+        if (Math.hypot(a[0] + dx * t - x, a[1] + dy * t - y) < w / 2) inLane[j * nx + i] = 1; }
     }
   }
-  // fill the strip beside each lane where this island reaches it, then cut the lanes
-  const near = new Uint8Array(nx * ny);
-  for (let j = 0; j < ny; j++) for (let i = 0; i < nx; i++) if (g[j * nx + i]) for (let dj = -15; dj <= 15; dj += 3) for (let di = -15; di <= 15; di += 3) { const ii = i + di, jj = j + dj; if (ii >= 0 && jj >= 0 && ii < nx && jj < ny) near[jj * nx + ii] = 1; }
-  for (let k = 0; k < g.length; k++) { if (dl[k] < 0) g[k] = 0; else if (dl[k] < 1.2 && near[k] && side[k]) g[k] = 1; }
-  // round the tips at the lanes' mouths (an opening with a 1 m disc)
-  { const dist0 = () => { const d = new Float32Array(nx * ny); for (let k = 0; k < d.length; k++) d[k] = g[k] ? 1e9 : 0;
-      const pass = (j0, j1, dj, i0, i1, di) => { for (let j = j0; j !== j1; j += dj) for (let i = i0; i !== i1; i += di) { const k = j * nx + i; let m = d[k]; if (i - di >= 0 && i - di < nx) m = Math.min(m, d[k - di] + 1); if (j - dj >= 0 && j - dj < ny) { m = Math.min(m, d[k - dj * nx] + 1); if (i - di >= 0 && i - di < nx) m = Math.min(m, d[k - dj * nx - di] + 1.4142); if (i + di >= 0 && i + di < nx) m = Math.min(m, d[k - dj * nx + di] + 1.4142); } d[k] = m; } };
-      pass(0, ny, 1, 0, nx, 1); pass(ny - 1, -1, -1, nx - 1, -1, -1); return d; };
-    const open = R => { const g0 = g.slice(); const r = R / cell; let d = dist0(); for (let k = 0; k < g.length; k++) g[k] = d[k] > r ? 1 : 0;
-      const save = g.slice(); g.set(save.map(v => 1 - v)); d = dist0(); g.set(save); const out = g.map((_, k) => d[k] <= r ? 1 : 0); g.set(g0); return out; };
-    g.set(open(1.0)); for (let k = 0; k < g.length; k++) if (dl[k] < 0) g[k] = 0; }
-  // the biggest piece only
-  const lab = new Int32Array(nx * ny).fill(-1); let best = -1, bestN = 0;
-  for (let k = 0; k < g.length; k++) if (g[k] && lab[k] < 0) { const q = [k]; lab[k] = k; let m = 0; while (q.length) { const v = q.pop(); m++; const i = v % nx, j = (v / nx) | 0; for (const [a, b] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const ii = i + a, jj = j + b; if (ii < 0 || jj < 0 || ii >= nx || jj >= ny) continue; const u = jj * nx + ii; if (g[u] && lab[u] < 0) { lab[u] = k; q.push(u); } } } if (m > bestN) { bestN = m; best = k; } }
-  for (let k = 0; k < g.length; k++) if (lab[k] !== best) g[k] = 0;
-  const out = traceGrid(g, nx, ny, x0, y0, cell);
-  if (!out) return poly;
-  poly.length = 0; poly.push(...out); simplifyClosed(poly, 0.08); smoothClosed(poly, 2);
-  return poly;
+  for (let k = 0; k < g.length; k++) if (inLane[k]) g[k] = 0;
+  // round the corners: an opening with an r m disc (chamfer distance on the grid)
+  const dist = v => { const d = new Float32Array(nx * ny); for (let k = 0; k < d.length; k++) d[k] = g[k] === v ? 1e9 : 0;
+    const pass = (j0, j1, dj, i0, i1, di) => { for (let j = j0; j !== j1; j += dj) for (let i = i0; i !== i1; i += di) { const k = j * nx + i; let m = d[k]; if (i - di >= 0 && i - di < nx) m = Math.min(m, d[k - di] + 1); if (j - dj >= 0 && j - dj < ny) { m = Math.min(m, d[k - dj * nx] + 1); if (i - di >= 0 && i - di < nx) m = Math.min(m, d[k - dj * nx - di] + 1.4142); if (i + di >= 0 && i + di < nx) m = Math.min(m, d[k - dj * nx + di] + 1.4142); } d[k] = m; } };
+    pass(0, ny, 1, 0, nx, 1); pass(ny - 1, -1, -1, nx - 1, -1, -1); return d; };
+  { const rc = r / cell; let d = dist(1); for (let k = 0; k < g.length; k++) g[k] = d[k] > rc ? 1 : 0; d = dist(0); for (let k = 0; k < g.length; k++) g[k] = d[k] <= rc ? 1 : 0; }
+  // the pieces
+  const lab = new Int32Array(nx * ny).fill(-1), pieces = [];
+  for (let k = 0; k < g.length; k++) if (g[k] && lab[k] < 0) { const q = [k], cells = []; lab[k] = k; while (q.length) { const v = q.pop(); cells.push(v); const i = v % nx, j = (v / nx) | 0; for (const [a, b] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const ii = i + a, jj = j + b; if (ii < 0 || jj < 0 || ii >= nx || jj >= ny) continue; const u = jj * nx + ii; if (g[u] && lab[u] < 0) { lab[u] = k; q.push(u); } } } pieces.push(cells); }
+  pieces.sort((a, b) => b.length - a.length);
+  return pieces.filter(cells => cells.length * cell * cell > 20).map(cells => {
+    const h = new Uint8Array(nx * ny); for (const v of cells) h[v] = 1;
+    let out = traceGrid(h, nx, ny, x0, y0, cell);
+    for (let it = 0; it < 4; it++) out = out.map((_, i) => { let x = 0, y = 0; for (let d = -4; d <= 4; d++) { const q = out[(i + d + out.length) % out.length]; x += q[0]; y += q[1]; } return [x / 9, y / 9]; });   // the grid's steps smoothed away
+    simplifyClosed(out, 0.02); return out;
+  });
 }
 function traceGrid(g, nx, ny, x0, y0, cell) {
   const at = (i, j) => i >= 0 && j >= 0 && i < nx && j < ny && g[j * nx + i] === 1;
@@ -331,6 +320,22 @@ function traceGrid(g, nx, ny, x0, y0, cell) {
   return out;
 }
 
+// reshape the last `L` m of one end of a lane's centre line `c` (smoothly from nothing to full at the end): bend it to
+// run out along `axis` (a unit vector, either way) and/or move it sideways by `shift` (a vector in metres)
+export function shapeEnd(c, atStart, { axis = null, shift = [0, 0], L = 5 } = {}) {
+  const pts = atStart ? c.slice().reverse() : c.slice(), n = pts.length, e = pts[n - 1], f = pts[n - 5], ux = e[0] - f[0], uy = e[1] - f[1];
+  let k = n - 1, s = 0; while (k > 0 && s < L) { s += Math.hypot(pts[k][0] - pts[k - 1][0], pts[k][1] - pts[k - 1][1]); k--; }
+  const P = pts[k], sg = axis ? Math.sign(ux * axis[0] + uy * axis[1]) || 1 : 0, dx = axis ? axis[0] * sg : 0, dy = axis ? axis[1] * sg : 0;
+  let acc = 0;
+  for (let i = k + 1; i < n; i++) {
+    acc += Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]); const t = Math.min(1, acc / s), wgt = t * t * (3 - 2 * t);
+    let q = pts[i];
+    if (axis) { const along = (q[0] - P[0]) * dx + (q[1] - P[1]) * dy; q = [q[0] + (P[0] + dx * along - q[0]) * wgt, q[1] + (P[1] + dy * along - q[1]) * wgt]; }
+    pts[i] = [q[0] + shift[0] * wgt, q[1] + shift[1] * wgt];
+  }
+  const res = atStart ? pts.reverse() : pts; for (let i = 0; i < n; i++) c[i] = res[i];
+  return c;
+}
 // a lane that stops short of the road (both its walls go on as kerbs past its end) is carried on straight to the road
 export function extendToRoad(c, w, islands, max = 10) {
   const inAny = (x, y) => islands.some(P => { let r = false; for (let i = 0, j = P.length - 1; i < P.length; j = i++) if ((P[i][1] > y) !== (P[j][1] > y) && x < (P[j][0] - P[i][0]) * (y - P[i][1]) / (P[j][1] - P[i][1]) + P[i][0]) r = !r; return r; });
