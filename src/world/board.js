@@ -64,6 +64,10 @@ for (const isl of ISLANDS.slice()) {
   isl.grass = isl.kerb;                                // the kerb is drawn as a 0.4 m band just inside this outline
 }
 for (const p of PADS) straighten(p);
+// the finish road (the north-east road) as on the video: a narrow kerb along its north side, from its west end (rounded)
+// to its east end, where a kerb across closes it (the plan's double lines there)
+{ const strip = [...arcPx(746, 285, 5, 90, 270), [1234, 276], [1234, 357.5], [1224, 357.5], [1224, 290]].map(([x, y]) => px(x, y));
+  ISLANDS.push({ kerb: strip, grass: strip, lanes: [] }); }
 
 const P = (x, y) => px(x, y);
 const closed = poly => [...poly, poly[0]];
@@ -200,13 +204,14 @@ export function addBoard(W) {
       for (let j = 1; j <= pts.length; j++) { const q = pts[(start + j) % pts.length]; if (q[2]) run.push([q[0], q[1]]); else flush(); }
       flush();
     }
+    const pockets = ["D1", "D2", "D3", "D4"].map(k => PADS[PAD[k]]);   // the parking pockets: the whole long side open to the road (as on the video)
     for (const p of PADS) {
-      const ins = insetPoly(p, PAD_INSET), n = p.length; let ar = 0;
+      const ins = insetPoly(p, PAD_INSET), n = p.length, maxL = pockets.includes(p) ? 20 : 8; let ar = 0;
       for (let i = 0; i < n; i++) { const a = p[i], b = p[(i + 1) % n]; ar += a[0] * b[1] - b[0] * a[1]; }
       const isOpen = p.map((a, i) => { const b = p[(i + 1) % n], dx = b[0] - a[0], dy = b[1] - a[1], L = Math.hypot(dx, dy) || 1, ox = dy / L * Math.sign(ar), oy = -dx / L * Math.sign(ar);
         return [0.25, 0.5, 0.75].filter(t => !onIsland(a[0] + dx * t + ox, a[1] + dy * t + oy)).length >= 2; });
       for (let i = 0; i < n; i++) { const a = p[i], b = p[(i + 1) % n], L = Math.hypot(b[0] - a[0], b[1] - a[1]);
-        if (isOpen[i] && !isOpen[(i + n - 1) % n] && !isOpen[(i + 1) % n] && L > 2 && L < 8) W.addLine([ins[i], ins[(i + 1) % n]], "paint", { width: 0.15, color: "yellow", dash: [0.9, 0.7] }); }
+        if (isOpen[i] && !isOpen[(i + n - 1) % n] && !isOpen[(i + 1) % n] && L > 2 && L < maxL) W.addLine([ins[i], ins[(i + 1) % n]], "paint", { width: 0.15, color: "yellow", dash: [0.9, 0.7] }); }
     }
   }
   W.board.pad = name => PADS[PAD[name]];
@@ -221,9 +226,9 @@ export function addBoard(W) {
   // the angled parking bays south of the start road (0:35 of the video): parallel slanted lines and the line at their ends
   W.addLine(polyline([[760, 210], [1190, 210]]), "paint", { width: 0.16 });
   for (let k = 0; k < 10; k++) { const cx = 770 + 44 * k; W.addLine(polyline([[cx, 210], [cx + 38, 150]]), "paint", { width: 0.14 }); }
-  // the north-east road: its outline, the line at its end, the dashed middle
-  W.addLine(polyline([[790, 330], [1215, 330]]), "paint", { width: 0.14, dash: [2.2, 2.2] });
-  // the east road (two ways): its outline and the dashed middle
+  // the north-east road (the finish road): the line between its two lanes
+  W.addLine(polyline([[790, 330], [1224, 330]]), "paint", { width: 0.14 });   // solid, as on the video (5:02)
+  // the east road: the line between its two westbound lanes (the eastbound lane is past the junction arm's middle line)
   W.addLine(polyline([[810, 545], [1335, 545]]), "paint", { width: 0.14, dash: [2.2, 2.2] });
   // the middle lines of the four arms of the junction (as on the video): solid for the last 15 m before the zebra, dashed further out
   for (const [a, b, c] of [[[612, 594], [462, 594], [182, 594]], [[780, 590], [930, 590], [1290, 590]], [[695, 498], [420, 420], [695, 340]], [[695, 690], [695, 1034], [695, 1035]]]) {

@@ -155,13 +155,14 @@ export function buildFull(car) {
   const c3 = chorraha(W, O, 180, "right", A);
 
   // ---- 12: the finish at the end of the north-east road (heading east)
-  const fs0 = px(860, 312), fp = { x: fs0[0], y: fs0[1], th: 0 };
-  const fS = Math.hypot(...px(1218, 312).map((v, i) => v - fs0[i]));
-  W.finishLine = { pose: fp, s: fS, halfW: 5 };
-  // the finish of the video (5:00-5:11): a white box across both lanes with FINISH written in it
-  { const a = fS - 6, b = fS, hw = 3.6;
-    W.addLine([toWorld(fp, a, -hw), toWorld(fp, b, -hw), toWorld(fp, b, hw), toWorld(fp, a, hw), toWorld(fp, a, -hw)], "paint", { width: 0.25 });
-    const [x, y] = toWorld(fp, (a + b) / 2, 0); W.texts.push({ x, y, th: fp.th, text: "FINISH", size: 1.6 }); }
+  const fs0 = px(860, 312), fp = { x: fs0[0], y: fs0[1], th: Math.atan2(...[1, 0].map(i => px(1224, 312)[i] - fs0[i])) };
+  const fEnd = Math.hypot(...px(1224, 312).map((v, i) => v - fs0[i]));          // the kerb that closes the road
+  // the finish of the video (5:00-5:11): a white box across the whole road at its closed end, FINISH written in it;
+  // the run ends once the car's front is 3 m into it
+  { const a = fEnd - 6.5, hw = 3.3;
+    W.finishLine = { pose: fp, s: a + 3, halfW: 5 };
+    W.addLine([toWorld(fp, fEnd - 0.1, -hw), toWorld(fp, a, -hw), toWorld(fp, a, hw), toWorld(fp, fEnd - 0.1, hw)], "paint", { width: 0.25 });
+    const [x, y] = toWorld(fp, a + 3.2, 0); W.texts.push({ x, y, th: fp.th, text: "FINISH", size: 1.6 }); }
 
   W.tasks.push(tP, tE, tB, c1, tI, tA, tX, c2, tR, tZ, tK, c3);
   return W.build();
