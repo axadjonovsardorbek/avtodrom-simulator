@@ -115,3 +115,46 @@ export function squareEdges(poly) {
   }
   return poly;
 }
+
+// a thin finger of the outline (two antiparallel edges less than `w` apart joined by a short end) is cut off at its base
+export function removeSlivers(poly, w = 0.7) {
+  for (let again = true, guard = 0; again && guard < 100; guard++) {
+    again = false;
+    const n = poly.length; if (n < 6) break;
+    for (let i = 0; i < n; i++) {
+      const p = poly[(i + n - 1) % n], a = poly[i], b = poly[(i + 1) % n], q = poly[(i + 2) % n];
+      const e = Math.hypot(b[0] - a[0], b[1] - a[1]); if (e > w) continue;
+      const ux = a[0] - p[0], uy = a[1] - p[1], vx = q[0] - b[0], vy = q[1] - b[1], lu = Math.hypot(ux, uy), lv = Math.hypot(vx, vy);
+      if (lu < 1e-6 || lv < 1e-6 || (ux * vx + uy * vy) / (lu * lv) > -0.95) continue;
+      // cut at the shorter side's length along the longer one: a and b give way to one point at the base
+      const c = lu <= lv ? [b[0] + vx * lu / lv, b[1] + vy * lu / lv] : [a[0] - ux * lv / lu, a[1] - uy * lv / lu];
+      const out = poly.filter((_, k) => k !== i && k !== (i + 1) % n); out.splice(i < n - 1 ? i : 0, 0, c);
+      poly.length = 0; poly.push(...out);
+      again = true; break;
+    }
+  }
+  return poly;
+}
+
+// an outline that runs along the same straight line twice, in opposite directions (two blocks of the tracing that
+// touch along a wall), is split there into two outlines; returns the list of outlines
+export function splitPinches(poly) {
+  const area = q => { let a = 0; for (let i = 0; i < q.length; i++) { const u = q[i], v = q[(i + 1) % q.length]; a += u[0] * v[1] - v[0] * u[1]; } return a / 2; };
+  const n = poly.length;
+  for (let i = 0; i < n; i++) for (let j = i + 2; j < n; j++) {
+    if (i === 0 && j === n - 1) continue;
+    const a0 = poly[i], a1 = poly[i + 1], b0 = poly[j], b1 = poly[(j + 1) % n];
+    for (const k of [0, 1]) {
+      const o = 1 - k;                                         // edges along o (k fixed)
+      if (Math.abs(a1[k] - a0[k]) > 0.02 || Math.abs(b1[k] - b0[k]) > 0.02 || Math.abs(a0[k] - b0[k]) > 0.05) continue;
+      const da = a1[o] - a0[o], db = b1[o] - b0[o];
+      if (da * db >= 0) continue;
+      const lo = Math.max(Math.min(a0[o], a1[o]), Math.min(b0[o], b1[o])), hi = Math.min(Math.max(a0[o], a1[o]), Math.max(b0[o], b1[o]));
+      if (hi - lo < 0.3) continue;
+      const P1 = [...poly.slice(0, i + 1), ...poly.slice(j + 1)], P2 = poly.slice(i + 1, j + 1);
+      if (Math.abs(area(P1)) < 1 || Math.abs(area(P2)) < 1 || Math.sign(area(P1)) !== Math.sign(area(poly)) || Math.sign(area(P2)) !== Math.sign(area(poly))) continue;
+      return [...splitPinches(P1), ...splitPinches(P2)];
+    }
+  }
+  return [poly];
+}

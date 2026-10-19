@@ -3,17 +3,18 @@
 // plan by tools/trace-board.mjs), with the plan's markings on top: zebras, start box, parking diamonds, hatching,
 // lane lines.
 import { FRAME, ISLANDS, PADS, PAD, px } from "./boardData.js";
-import { straighten, insetPoly, PAD_INSET, squareCorners, removeSteps, simplifyClosed, axisShare, squareEdges } from "./straighten.js";
+import { straighten, insetPoly, PAD_INSET, squareCorners, removeSteps, simplifyClosed, axisShare, squareEdges, removeSlivers, splitPinches } from "./straighten.js";
 
 // the kerbs of the plan are traced by hand: their long straight runs are made exactly straight, and the little steps of
 // the tracing (jogs under 1.3 m between two parallel runs) are taken out, so the lanes have clean walls as on the
 // aerial photo; the grass is the kerb 0.4 m in
-for (const isl of ISLANDS) {
+for (const isl of ISLANDS.slice()) {
   straighten(isl.kerb, { strictOnly: true, tol: 1.3 });
   if (axisShare(isl.kerb) > 0.6) {                      // a block of straight walls (not a snake): smooth out the tracing
     simplifyClosed(isl.kerb, 0.5); straighten(isl.kerb, { strictOnly: true, tol: 1.3, ang: 0.12, minLen: 0.8 }); squareEdges(isl.kerb); squareEdges(isl.kerb);
   }
-  squareCorners(isl.kerb); removeSteps(isl.kerb);
+  else simplifyClosed(isl.kerb, 0.3);                  // the snakes: straight diagonals, no stair steps of the tracing
+  squareCorners(isl.kerb); removeSteps(isl.kerb); removeSlivers(isl.kerb);
   // drop repeated points and the spikes the straightening can leave (an edge that turns straight back on the one before)
   const k = isl.kerb;
   for (let again = true; again;) {
@@ -29,6 +30,8 @@ for (const isl of ISLANDS) {
   for (let i = 0; i < isl.kerb.length; i++) { const q = isl.kerb[i], r = isl.kerb[(i + 1) % isl.kerb.length];
     if (Math.abs(q[0] + 34.64) < 0.01 && Math.abs(q[1] + 21.71) < 0.3 && Math.abs(r[0] + 37.22) < 0.3 && Math.abs(r[1] + 12.19) < 0.3) { isl.kerb.splice(i + 1, 0, [-34.64, -12.19]); break; } }
   for (let i = isl.kerb.length - 1; i > 0; i--) if (Math.hypot(isl.kerb[i][0] - isl.kerb[i - 1][0], isl.kerb[i][1] - isl.kerb[i - 1][1]) < 0.05) isl.kerb.splice(i, 1);
+  { const parts = splitPinches(isl.kerb);                 // two blocks that touch along a wall become two islands
+    isl.kerb = parts[0]; for (const q of parts.slice(1)) ISLANDS.push({ kerb: q, grass: q, lanes: [] }); }
   isl.grass = isl.kerb;                                // the kerb is drawn as a 0.4 m band just inside this outline
 }
 for (const p of PADS) straighten(p);
