@@ -448,7 +448,18 @@ export function chorraha(W, center, approachDeg, dir, A) {
 
 // the outline of a pad as control lines, without the edges that are open ends (open(mx, my) tells which)
 function padOutline(W, poly, open) {
-  // the control line is the yellow line painted just inside the kerb (src/world/board.js draws it); it is touched, not seen here
+  // on the ground the control lines are the yellow lines painted along the kerbs of the pad (src/world/board.js): the
+  // stretches of them beside this pad become control lines (seen already, so hidden here)
+  if (W.board && W.board.yellow) {
+    const near = (x, y) => { let d = 1e9, c = false; for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) { const a = poly[j], b = poly[i]; if ((b[1] > y) !== (a[1] > y) && x < (a[0] - b[0]) * (y - b[1]) / (a[1] - b[1]) + b[0]) c = !c; const dx = b[0] - a[0], dy = b[1] - a[1], L = dx * dx + dy * dy || 1, t = Math.max(0, Math.min(1, ((x - a[0]) * dx + (y - a[1]) * dy) / L)); d = Math.min(d, Math.hypot(a[0] + dx * t - x, a[1] + dy * t - y)); } return c || d < 2.5; };
+    for (const run of W.board.yellow) {
+      let piece = [];
+      const flush = () => { if (piece.length > 1) W.addLine(piece, "ctrl", { width: 0.16, color: "yellow", hidden: true }); piece = []; };
+      for (const q of run) { if (near(q[0], q[1])) piece.push(q); else flush(); }
+      flush();
+    }
+    return;
+  }
   const ins = insetPoly(poly, PAD_INSET);
   let run = [];
   const flush = () => { if (run.length > 1) W.addLine(run, "ctrl", { width: 0.2, color: "yellow", hidden: true }); run = []; };

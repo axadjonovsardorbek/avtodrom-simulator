@@ -126,10 +126,16 @@ export function buildWorldMeshes(W, quality) {
       g.setAttribute("uv", new THREE.Float32BufferAttribute(uv, 2)); g.computeVertexNormals(); return g; };
     const grassGeos = [], kerbGeos = [];
     for (const isl of bd.islands) {
-      const shape = new THREE.Shape(isl.kerb.map(([x, y]) => new THREE.Vector2(x, -y)));
-      shape.holes.push(new THREE.Path(isl.grass.map(([x, y]) => new THREE.Vector2(x, -y))));
-      const kg = new THREE.ExtrudeGeometry(shape, { depth: 0.22, bevelEnabled: false }); kg.rotateX(-Math.PI / 2);   // a raised kerb round the raised island
-      kerbGeos.push(kg.index ? kg.toNonIndexed() : kg);
+      // the kerb: a 0.4 m wide, 0.22 m high block along every edge, just inside the outline; the grass fills the outline
+      const k = isl.kerb, n = k.length; let ar = 0;
+      for (let i = 0; i < n; i++) { const a = k[i], c = k[(i + 1) % n]; ar += a[0] * c[1] - c[0] * a[1]; }
+      for (let i = 0; i < n; i++) {
+        const a = k[i], c = k[(i + 1) % n], dx = c[0] - a[0], dy = c[1] - a[1], L = Math.hypot(dx, dy); if (L < 0.02) continue;
+        const ix = -dy / L * Math.sign(ar) * 0.2, iy = dx / L * Math.sign(ar) * 0.2;          // half the kerb width, inwards
+        const g = new THREE.BoxGeometry(L + 0.02, 0.22, 0.4); g.rotateY(-Math.atan2(dy, dx)); g.translate((a[0] + c[0]) / 2 + ix, 0.11, (a[1] + c[1]) / 2 + iy);
+        kerbGeos.push(g.toNonIndexed());
+        const cy = new THREE.CylinderGeometry(0.2, 0.2, 0.22, 10); cy.translate(c[0] + ix, 0.11, c[1] + iy); kerbGeos.push(cy.toNonIndexed());   // fills the joint
+      }
       grassGeos.push(flatPoly(isl.grass, h, 0.18, 7));
     }
     addMerged(group, grassGeos, islandMat);

@@ -3,9 +3,29 @@
 // plan by tools/trace-board.mjs), with the plan's markings on top: zebras, start box, parking diamonds, hatching,
 // lane lines.
 import { FRAME, ISLANDS, PADS, PAD, px } from "./boardData.js";
-import { straighten, insetPoly, PAD_INSET } from "./straighten.js";
+import { straighten, insetPoly, PAD_INSET, squareCorners, removeSteps, simplifyClosed, axisShare, squareEdges } from "./straighten.js";
 
-for (const isl of ISLANDS) { straighten(isl.grass, { strictOnly: true, tol: 0.7 }); straighten(isl.kerb, { strictOnly: true, tol: 0.7 }); }
+// the kerbs of the plan are traced by hand: their long straight runs are made exactly straight, and the little steps of
+// the tracing (jogs under 1.3 m between two parallel runs) are taken out, so the lanes have clean walls as on the
+// aerial photo; the grass is the kerb 0.4 m in
+for (const isl of ISLANDS) {
+  straighten(isl.kerb, { strictOnly: true, tol: 1.3 });
+  if (axisShare(isl.kerb) > 0.6) {                      // a block of straight walls (not a snake): smooth out the tracing
+    simplifyClosed(isl.kerb, 0.5); straighten(isl.kerb, { strictOnly: true, tol: 1.3, ang: 0.12, minLen: 0.8 }); squareEdges(isl.kerb); squareEdges(isl.kerb);
+  }
+  squareCorners(isl.kerb); removeSteps(isl.kerb);
+  // drop repeated points and the spikes the straightening can leave (an edge that turns straight back on the one before)
+  const k = isl.kerb;
+  for (let again = true; again;) {
+    again = false;
+    for (let i = 0; i < k.length && k.length > 3; i++) {
+      const p = k[(i + k.length - 1) % k.length], c = k[i], q = k[(i + 1) % k.length];
+      const ax = c[0] - p[0], ay = c[1] - p[1], bx = q[0] - c[0], by = q[1] - c[1], la = Math.hypot(ax, ay), lb = Math.hypot(bx, by);
+      if (la < 0.05 || lb < 0.05 || (ax * bx + ay * by) / (la * lb) < -0.3) { k.splice(i, 1); again = true; break; }
+    }
+  }
+  isl.grass = isl.kerb;                                // the kerb is drawn as a 0.4 m band just inside this outline
+}
 for (const p of PADS) straighten(p);
 
 const P = (x, y) => px(x, y);
@@ -80,7 +100,7 @@ export function addBoard(W) {
   // the islands cannot be driven over: a row of low kerb posts along the edge of every island and round the whole plan
   // (solids with the 4th field 1: they stop the car but are not a crash; touching the line is the penalty)
   const posts = [], along = (poly, r, step = 0.45) => { for (let i = 0; i < poly.length; i++) { const a = poly[i], b = poly[(i + 1) % poly.length], L = Math.hypot(b[0] - a[0], b[1] - a[1]), n = Math.max(1, Math.ceil(L / step)); for (let k = 0; k < n; k++) posts.push([a[0] + (b[0] - a[0]) * k / n, a[1] + (b[1] - a[1]) * k / n, r, 1]); } };
-  for (const isl of ISLANDS) along(isl.grass, 0.25);
+  for (const isl of ISLANDS) along(isl.kerb, 0.2);
   along(FRAME.map(([x, y]) => [x + Math.sign(x) * 0.6, y + Math.sign(y) * 0.6]), 0.3);
   W.baseSolids = posts; W.solids = posts.slice(); W.solidGrid = null;
   // the kerbs and the frame are the lines a car must not touch
@@ -91,6 +111,8 @@ export function addBoard(W) {
   // exercise lane: a narrow corridor (another kerb within 5.5 m across it) or a pad of the plan; a short dashed yellow
   // line across the mouth of each pad
   {
+    W.board.yellow = [];
+    const edgeDist = (g, x, y) => { let d = 1e9; for (let i = 0; i < g.length; i++) { const a = g[i], b = g[(i + 1) % g.length], dx = b[0] - a[0], dy = b[1] - a[1], L = dx * dx + dy * dy || 1, t = Math.max(0, Math.min(1, ((x - a[0]) * dx + (y - a[1]) * dy) / L)); d = Math.min(d, Math.hypot(a[0] + dx * t - x, a[1] + dy * t - y)); } return d; };
     const inPoly = (g, x, y) => { let c = false; for (let i = 0, j = g.length - 1; i < g.length; j = i++) if ((g[i][1] > y) !== (g[j][1] > y) && x < (g[j][0] - g[i][0]) * (y - g[i][1]) / (g[j][1] - g[i][1]) + g[i][0]) c = !c; return c; };
     for (const isl of ISLANDS) {
       const k = isl.kerb, n = k.length; let ar = 0;
@@ -102,13 +124,14 @@ export function addBoard(W) {
         for (let j = 0; j < m; j++) {
           const t = j / m, x = a[0] + dx * t, y = a[1] + dy * t;
           let narrow = false; for (let r = 1; r <= 5.5; r += 0.25) if (onIsland(x + ox * r, y + oy * r)) { narrow = true; break; }
-          const pad = PADS.some(g => inPoly(g, x + ox * 0.6, y + oy * 0.6));
+          const qx = x + ox * 0.6, qy = y + oy * 0.6, pad = PADS.some(g => inPoly(g, qx, qy));
+          if (!pad && !PADS.some(g => inPoly(g, qx, qy) || edgeDist(g, qx, qy) < 3)) { pts.push([x + ox * 0.2, y + oy * 0.2, false]); continue; }
           pts.push([x + ox * 0.2, y + oy * 0.2, (narrow || pad) && !onIsland(x + ox * 0.3, y + oy * 0.3)]);
         }
       }
       let start = pts.findIndex(q => !q[2]); if (start < 0) start = 0;
       let run = [];
-      const flush = () => { let L = 0; for (let i = 1; i < run.length; i++) L += Math.hypot(run[i][0] - run[i - 1][0], run[i][1] - run[i - 1][1]); if (L > 1.5) W.addLine(run, "paint", { width: 0.16, color: "yellow" }); run = []; };
+      const flush = () => { let L = 0; for (let i = 1; i < run.length; i++) L += Math.hypot(run[i][0] - run[i - 1][0], run[i][1] - run[i - 1][1]); if (L > 1.5) { W.addLine(run, "paint", { width: 0.16, color: "yellow" }); W.board.yellow.push(run); } run = []; };
       for (let j = 1; j <= pts.length; j++) { const q = pts[(start + j) % pts.length]; if (q[2]) run.push([q[0], q[1]]); else flush(); }
       flush();
     }

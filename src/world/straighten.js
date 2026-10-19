@@ -31,7 +31,7 @@ function strict(poly, { tol = 0.4, ang = 0.07, minLen = 1.2 } = {}) {
 }
 
 // a short diagonal between a vertical and a horizontal edge is a worn corner: replace it by the right-angle corner
-function squareCorners(poly) {
+export function squareCorners(poly) {
   const axisOf = (a, b) => Math.abs(b[0] - a[0]) < 1e-6 ? "v" : Math.abs(b[1] - a[1]) < 1e-6 ? "h" : null;
   for (let again = true, guard = 0; again && guard < 40; guard++) {
     again = false;
@@ -62,3 +62,56 @@ export function insetPoly(poly, d) {
 
 // how far inside the kerb of a pad its yellow (control) line is painted
 export const PAD_INSET = 0.2;
+
+// a short step (under `max` m) between two parallel runs going the same way: the shorter run is moved over onto the
+// longer one's line, so the wall is one straight line
+export function removeSteps(poly, max = 0.9) {
+  const ax = (a, b) => Math.abs(b[0] - a[0]) < 1e-6 ? 0 : Math.abs(b[1] - a[1]) < 1e-6 ? 1 : -1;   // 0: runs along y (x fixed), 1: along x
+  for (let again = true, guard = 0; again && guard < 200; guard++) {
+    again = false;
+    const n = poly.length;
+    for (let i = 0; i < n; i++) {
+      const p = poly[(i + n - 1) % n], c = poly[i], q = poly[(i + 1) % n], r = poly[(i + 2) % n];
+      const e = ax(c, q), e1 = ax(p, c), e2 = ax(q, r);
+      if (e < 0 || e1 < 0 || e1 !== e2 || e1 === e || Math.hypot(q[0] - c[0], q[1] - c[1]) > max) continue;
+      const k = 1 - e1, d1 = Math.sign(c[k] - p[k]), d2 = Math.sign(r[k] - q[k]);   // the runs' direction along their axis
+      if (d1 !== d2) continue;                                                         // a notch, not a step
+      const L1 = Math.hypot(c[0] - p[0], c[1] - p[1]), L2 = Math.hypot(r[0] - q[0], r[1] - q[1]);
+      if (L1 >= L2) { q[e1] = c[e1]; r[e1] = c[e1]; } else { c[e1] = q[e1]; p[e1] = q[e1]; }
+      poly.splice(L1 >= L2 ? (i + 1) % n : i, 1); again = true; break;
+    }
+  }
+  return poly;
+}
+
+// Douglas-Peucker on a closed outline: points within `eps` of the line through their neighbours are dropped
+export function simplifyClosed(poly, eps) {
+  const n = poly.length; if (n < 5) return poly;
+  let a = 0, far = 0; for (let i = 1; i < n; i++) { const d = Math.hypot(poly[i][0] - poly[0][0], poly[i][1] - poly[0][1]); if (d > far) { far = d; a = i; } }
+  const dp = pts => { if (pts.length < 3) return pts; const A = pts[0], B = pts[pts.length - 1], dx = B[0] - A[0], dy = B[1] - A[1], L = Math.hypot(dx, dy) || 1;
+    let k = 0, dm = 0; for (let i = 1; i < pts.length - 1; i++) { const d = Math.abs((pts[i][0] - A[0]) * dy - (pts[i][1] - A[1]) * dx) / L; if (d > dm) { dm = d; k = i; } }
+    return dm <= eps ? [A, B] : [...dp(pts.slice(0, k + 1)).slice(0, -1), ...dp(pts.slice(k))]; };
+  const r1 = dp(poly.slice(0, a + 1)), r2 = dp([...poly.slice(a), poly[0]]);
+  const out = [...r1.slice(0, -1), ...r2.slice(0, -1)];
+  poly.length = 0; poly.push(...out); return poly;
+}
+// the share of the outline's length that runs exactly along x or y
+export function axisShare(poly) {
+  let all = 0, ax = 0; for (let i = 0; i < poly.length; i++) { const a = poly[i], b = poly[(i + 1) % poly.length], dx = Math.abs(b[0] - a[0]), dy = Math.abs(b[1] - a[1]), L = Math.hypot(dx, dy); all += L; if (Math.min(dx, dy) < 1e-6) ax += L; }
+  return ax / (all || 1);
+}
+
+// a slightly slanted edge (under 0.2 rad) of a block of straight walls is turned square: the end whose other edge runs
+// across it slides along that edge
+export function squareEdges(poly) {
+  const n = poly.length;
+  for (let i = 0; i < n; i++) {
+    const p = poly[(i + n - 1) % n], a = poly[i], c = poly[(i + 1) % n], q = poly[(i + 2) % n];
+    const dx = Math.abs(c[0] - a[0]), dy = Math.abs(c[1] - a[1]), L = Math.hypot(dx, dy);
+    if (L < 0.3 || Math.min(dx, dy) < 1e-6 || Math.min(dx, dy) / L > 0.2) continue;
+    const k = dx > dy ? 1 : 0;                              // the coordinate that should be equal at both ends
+    const across = (u, v) => Math.abs(v[k] - u[k]) > Math.abs(v[1 - k] - u[1 - k]);
+    if (across(c, q)) c[k] = a[k]; else if (across(p, a)) a[k] = c[k]; else c[k] = a[k];
+  }
+  return poly;
+}
