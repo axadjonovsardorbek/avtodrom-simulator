@@ -441,9 +441,13 @@ export function chorraha(W, center, approachDeg, dir, A) {
       update(ctx) {
         const f = ctx.f, [st] = W.lightState(axis, ctx.clock);
         stopLineRule(ctx, "sl", stopS, () => false, "stopLine");
+        // the yellow coming on when the car is already too close to stop without braking hard (half a second to react,
+        // then 4 m/s²): it may go on, as the traffic rules allow (6.14); on red, and on a yellow it could stop for, it may not
+        if (!f.crossed && st === "yellow" && f.yellowOk === undefined) { const v = Math.max(0, ctx.car.v); f.yellowOk = stopS - ctx.fs < v * 0.5 + v * v / 8; }
+        if (st === "green") f.yellowOk = undefined;
         if (!f.crossed && ctx.fs > stopS) {
           f.crossed = true;
-          if (st !== "green") ctx.pen("redLight");
+          if (st === "red" || (st === "yellow" && !f.yellowOk)) ctx.pen("redLight");
           if (turn && ctx.sig !== turn) ctx.pen("turnSignal");
         }
         if (!f.crossed && st === "green") {

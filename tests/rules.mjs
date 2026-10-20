@@ -85,6 +85,17 @@ const codes = s => s.log.map(e => e.code).join(",");
   check("intersection on green: no penalties", s.total === 0, codes(s));
   check("intersection done", s.state === "done");
 }
+// intersection: the yellow comes on just as the car reaches the stop line (it cannot stop): it may go on
+{
+  const s = setup("chorraha-straight"); s.W.lightOffset = 1.75;
+  const task = s.W.tasks[0];
+  drive(s, 60, fs => {
+    const [st] = s.W.lightState("NS", s.clock), crossed = s.active && s.active.f.crossed;
+    if (!crossed && st !== "green" && 30 - fs < 0.8 + s.car.v * s.car.v / 9) return { stop: true };
+    return { v: 3 };
+  });
+  check("yellow at the stop line: no penalty", !s.log.some(e => e.code === "redLight"), codes(s));
+}
 // intersection: run the red
 {
   const s = setup("chorraha-straight");
