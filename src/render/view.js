@@ -739,6 +739,7 @@ export class View {
   setupPost(quality) {
     const T = TIER[quality] || TIER.high;
     this.renderer.toneMapping = direct(quality) ? THREE.CustomToneMapping : THREE.ACESFilmicToneMapping;
+    this.renderer.offscreenPost = !direct(quality);           // read by warmUp (garage.js): where the scene is drawn
     if (direct(quality)) { this.composer = null; this.bloom = null; return; }
     if (this.composer) return;
     const size = this.renderer.getDrawingBufferSize(new THREE.Vector2());

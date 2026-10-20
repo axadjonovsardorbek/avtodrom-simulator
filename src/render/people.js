@@ -15,13 +15,13 @@ const V = () => new THREE.Vector3(), Q = () => new THREE.Quaternion(), Z = new T
 /* ---------- materials: matte, and recoloured to match the reference photos ---------- */
 // Tint keeps the texture's light and shade but replaces its colour. `bands` paints horizontal
 // stripes (model space, bind pose); `sleeves` gives the parts beyond |x| > sleeves.x their own tint.
-let styleId = 0;
 function restyle(mat, { tint, bands, sleeves, gain = 2.1 } = {}) {
   const m = new THREE.MeshStandardMaterial({ map: mat.map, normalMap: mat.normalMap, alphaMap: mat.alphaMap, transparent: mat.transparent, alphaTest: mat.alphaTest || (mat.transparent ? 0.4 : 0), side: mat.side, roughness: 0.82, metalness: 0, name: mat.name });
   if (!tint && !bands && !sleeves) return m;
-  // own shader program per style: three only runs onBeforeCompile (which sets the uniforms) when it builds one
-  const key = "people-" + (++styleId);
-  m.customProgramCacheKey = () => key;
+  // one shader program for every style: the colours are uniforms, and three runs onBeforeCompile (which sets
+  // them) for each material, also when it reuses the program (a program per style was over a hundred
+  // programs for the passers-by alone, each one linked on the main thread)
+  m.customProgramCacheKey = () => "people-style";
   m.onBeforeCompile = sh => {
     sh.uniforms.uTint = { value: new THREE.Color(tint || 0xffffff) };
     sh.uniforms.uBands = { value: (bands || [0xffffff, 0xffffff, 0xffffff]).map(c => new THREE.Color(c)) };

@@ -174,9 +174,18 @@ let garage = null, garageComposer = null, inGarage = false, garageDrag = null;
 function openGarage() {
   if (!garage) {
     garage = new Garage(CARS, view.renderer);
-    // one car at a time, with a pause between them, so the picture does not stall while they decode;
-    // the same copy as on the road (the full model on "Yuqori"): the garage shows the cars as they are
-    CARS.reduce((p, car, i) => p.then(() => prepareCar(car).then(cv => garage.setModel(i, cv)).catch(() => {})).then(() => new Promise(r => setTimeout(r, 250))), Promise.resolve());
+    // the garage's own shaders and textures (floor, walls, signs, lights) made ready before its first frame:
+    // drawn at once, the first frame waited for every one of them to link
+    garage.ready = false;
+    const ready = () => { garage.ready = true; };
+    warmUp(view.renderer, garage.scene, garage.cam, garage.scene).then(ready, ready);
+    // the bays get the light -mid copies, one car at a time, the one in front first and then outwards, with a
+    // pause between them so the picture does not stall while they decode; the car in front is then swapped
+    // for the full model (garageSharpen): nine full models at once stalled the garage for seconds
+    garage.mids = [];
+    const at = Math.max(0, CARS.findIndex(c => c.id === carById(settings.car).id));
+    const order = CARS.map((_, i) => i).sort((a, b) => Math.abs(a - at) - Math.abs(b - at));
+    order.reduce((p, i) => p.then(() => prepareCar(CARS[i], undefined, "-mid").then(cv => { garage.mids[i] = cv; if (!garage.full || garage.full.i !== i) garage.setModel(i, cv); if (i === garage.index) garageSharpen(); }).catch(() => {})).then(() => new Promise(r => setTimeout(r, 250))), Promise.resolve());
   }
   garage.index = Math.max(0, CARS.findIndex(c => c.id === carById(settings.car).id));
   garage.camX = garage.index * 7.5;
@@ -185,15 +194,39 @@ function openGarage() {
   hud.hideMenu(); inGarage = true; paused = true;
   app.classList.add("garage-open");
   hud.showGarage(true, garageAction, CARS[garage.index], settings.color);
+  garageSharpen();
+}
+// The car in front of the camera at full quality ("Yuqori" only): loaded once the player has stopped on it for
+// a moment, then shown in place of its light copy; the one before goes back to its light copy and is freed.
+function garageSharpen() {
+  clearTimeout(garageSharpen.t);
+  if (!garage || modelVariant() !== "") return;
+  const i = garage.index;
+  garageSharpen.t = setTimeout(() => {
+    if (!inGarage || garage.index !== i || (garage.full && garage.full.i === i) || !garage.mids[i]) return;
+    const old = garage.full; garage.full = { i, cv: null };
+    if (old) { if (old.cv) { garage.setModel(old.i, garage.mids[old.i]); freeModel(old.cv); } }
+    prepareCar(CARS[i]).then(cv => {
+      if (!garage.full || garage.full.i !== i) { freeModel(cv); return; }
+      garage.full.cv = cv; garage.setModel(i, cv);
+    }).catch(() => { if (garage.full && garage.full.i === i) garage.full = null; });
+  }, 600);
+}
+function freeModel(cv) {
+  cv.root.traverse(o => {
+    if (o.geometry) o.geometry.dispose();
+    for (const m of o.material ? [].concat(o.material) : []) { for (const k in m) if (m[k] && m[k].isTexture) m[k].dispose(); m.dispose(); }
+  });
 }
 function garageAction(a, v) {
   if (a === "prev" || a === "next") {
     garage.index = (garage.index + (a === "next" ? 1 : CARS.length - 1)) % CARS.length; garageDrag = null;
     playCarVoice(CARS[garage.index].id);
     hud.showGarage(true, garageAction, CARS[garage.index], settings.color);
+    garageSharpen();
   } else if (a === "color") {
     settings.color = v; saveSettings();
-    for (const b of garage.bays) if (b.cv && b.cv.setPaint) b.cv.setPaint(v);
+    for (const cv of [...garage.bays.map(b => b.cv), ...garage.mids]) if (cv && cv.setPaint) cv.setPaint(v);
     if (view.carView.setPaint) view.carView.setPaint(v);
     hud.showGarage(true, garageAction, CARS[garage.index], v);
   } else if (a === "pick" || a === "back") {
@@ -581,7 +614,7 @@ function frame(now) {
   const dt = Math.max(0, Math.min(0.1, (now - last) / 1000)); last = now;   // the first frame can be stamped before `last`
   if (inGarage) {
     garage.update(dt, garageDrag);
-    if (garageComposer) garageComposer.render(); else garage.render(view.renderer);
+    if (garage.ready) { if (garageComposer) garageComposer.render(); else garage.render(view.renderer); }
     requestAnimationFrame(frame); return;
   }
   if (session) {

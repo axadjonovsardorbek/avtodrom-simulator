@@ -9,12 +9,20 @@ const BAY = 7.5;                         // distance between bays, m
 // Gets a loaded model ready to show without a stall: its shaders built (in parallel where the
 // browser can) and its textures sent to the GPU one per frame; both done on first sight took a
 // frame or several.
+let warmTarget = null;
 export async function warmUp(renderer, root, cam, scene) {
   // never held up for long: a browser that cannot report the compile status still gets the car
   const late = ms => new Promise(r => setTimeout(() => r("late"), ms));
   if (renderer.compileAsync) {
-    const r = await Promise.race([renderer.compileAsync(root, cam, scene).catch(e => console.warn("compile", e)), late(2000)]);
-    if (r === "late") console.warn("warmUp: shaders still compiling after 2 s");
+    // shown before its shaders are linked, the car's first frame waits for every one of them (seconds on a slow GPU).
+    // With the full-screen passes the scene is drawn into a half-float target, not the screen (no tone mapping in the
+    // material, linear output): compiled for the screen, every program was another one and was linked again at draw
+    const prev = renderer.getRenderTarget();
+    if (renderer.offscreenPost) renderer.setRenderTarget(warmTarget || (warmTarget = new THREE.WebGLRenderTarget(1, 1, { type: THREE.HalfFloatType })));
+    let job;
+    try { job = renderer.compileAsync(root, cam, scene); } finally { renderer.setRenderTarget(prev); }
+    const r = await Promise.race([job.catch(e => console.warn("compile", e)), late(8000)]);
+    if (r === "late") console.warn("warmUp: shaders still compiling after 8 s");
   }
   const seen = new Set();
   root.traverse(o => { if (o.isMesh) for (const m of [].concat(o.material)) for (const k in m) { const t = m[k]; if (t && t.isTexture && !t.isVideoTexture && !t.isRenderTargetTexture) seen.add(t); } });
