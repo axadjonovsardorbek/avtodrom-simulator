@@ -33,9 +33,9 @@ import { buildDriver } from "./render/driverFigure.js";
 import { loadPeople, realInstructor, realDriver, realKid, realPedestrian, realWalker, realDriverWalker } from "./render/people.js";
 
 const coarse = matchMedia("(pointer: coarse)").matches;
-const settings = { transmission: "manual", quality: coarse ? "mid" : "high", traffic: "real", mouseSteer: false, muted: false, voice: true, car: "cobalt", instructor: "angry", color: "white", plate: DEFAULT_PLATE, size: "real" };
+const settings = { transmission: "manual", quality: coarse ? "mid" : "high", traffic: "real", mouseSteer: false, muted: false, voice: true, car: "cobalt", instructor: "angry", color: "original", plate: DEFAULT_PLATE, size: "real" };
 let qualityChosen = false;          // the player (or an earlier visit) has a quality setting; else it is picked for the device below
-try { const saved = JSON.parse(localStorage.getItem("avtodrom.settings") || "{}"); qualityChosen = !!saved.quality; Object.assign(settings, saved); } catch (_) {}
+try { const saved = JSON.parse(localStorage.getItem("avtodrom.settings") || "{}"); qualityChosen = !!saved.quality; Object.assign(settings, saved); if (!saved.color2) { settings.color = "original"; settings.color2 = true; } } catch (_) {}
 if (!settings.v2) { settings.v2 = true; if (settings.traffic === "simple") settings.traffic = "real"; }     // phones were given the box cars before
 // the old "Ovoz" button muted on first press; start everyone unmuted once
 // phones used to start on "light"; the new balanced tier keeps shadows and the colour grade at a moderate cost

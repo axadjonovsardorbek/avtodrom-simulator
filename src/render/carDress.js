@@ -5,6 +5,7 @@ import * as THREE from "three";
 import { castRays } from "./fastRay.js";
 
 export const COLORS = {
+  original: { name: "Asl rangi" },             // the model's own paint, as it came
   white: { name: "Oq", color: 0xf3f4f2, metalness: 0.15, roughness: 0.28 },
   blue: { name: "To'q ko'k", color: 0x1b2b63, metalness: 0.55, roughness: 0.3 },
   graphite: { name: "Grafit", color: 0x3a3d41, metalness: 0.55, roughness: 0.3 }
@@ -40,9 +41,15 @@ function screenTexture() {
 export function addPaint(cv) {
   const paints = [];
   cv.root.traverse(o => { if (o.isMesh) for (const m of [].concat(o.material)) if (m.name === "paint" && !paints.includes(m)) paints.push(m); });
+  const own = paints.map(p => ({ color: p.color.getHex(), metalness: p.metalness, roughness: p.roughness, map: p.map }));
   cv.setPaint = id => {
-    const c = COLORS[id] || COLORS.white;
-    for (const p of paints) { p.color.setHex(c.color); p.metalness = c.metalness; p.roughness = c.roughness; if (p.map) p.map = null; p.needsUpdate = true; }
+    const c = COLORS[id] || COLORS.original;
+    paints.forEach((p, i) => {
+      const o = c.color === undefined ? own[i] : c;
+      p.color.setHex(o.color); p.metalness = o.metalness; p.roughness = o.roughness;
+      const map = c.color === undefined ? own[i].map : null;
+      if (p.map !== map) { p.map = map; p.needsUpdate = true; }
+    });
   };
 }
 

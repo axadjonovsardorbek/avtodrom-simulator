@@ -34,7 +34,8 @@ const byName = name => root.listNodes().find(n => n.getName() === name);
 const M4 = a => new THREE.Matrix4().fromArray(a);
 const box = n => { const b = getBounds(n); return { min: new THREE.Vector3(...b.min), max: new THREE.Vector3(...b.max) }; };
 const centre = n => { const b = box(n); return b.min.clone().add(b.max).multiplyScalar(0.5); };
-await doc.transform(dedup());
+// "keepMaterials": identical materials stay apart (the K5's wheels and body share plain white ones until "fix" tells them apart)
+await doc.transform(CFG.keepMaterials ? dedup({ propertyTypes: ["Accessor", "Mesh", "Texture"] }) : dedup());
 
 /* ---------- placement: rear axle centre on the ground at the origin, +x forward, +z right ---------- */
 // source direction of travel and the rotation that turns it to +x

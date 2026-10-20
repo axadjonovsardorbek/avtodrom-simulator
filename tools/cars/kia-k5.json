@@ -19,5 +19,6 @@
     "rough": 0.45
    }
   ]
- ]
+ ],
+ "keepMaterials": true
 }

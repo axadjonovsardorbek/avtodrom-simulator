@@ -135,7 +135,7 @@ export class Hud {
     const els = ELEMENTS.map(e => `<button class="elbtn" data-el="${e.id}"><span class="ico">${iconFor(e.id)}</span><span class="nm">${e.name}</span><i>${e.mapNo}</i></button>`).join("");
     // segmented control: [value, label] pairs
     const seg = (id, opts) => `<div class="seg" id="${id}">${opts.map(([v, t]) => `<button data-v="${v}">${t}</button>`).join("")}</div>`;
-    const COLORS = [["white", "#f3f4f2", "Oq"], ["blue", "#1b2b63", "To'q ko'k"], ["graphite", "#3a3d41", "Grafit"]];
+    const COLORS = [["original", "conic-gradient(#d33, #f3f4f2, #1b2b63, #3a3d41, #d33)", "Asl rangi"], ["white", "#f3f4f2", "Oq"], ["blue", "#1b2b63", "To'q ko'k"], ["graphite", "#3a3d41", "Grafit"]];
     m.innerHTML = `
       <div class="menu-grid">
         <section class="panel menu-main">
