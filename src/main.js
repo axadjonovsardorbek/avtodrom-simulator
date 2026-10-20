@@ -20,7 +20,7 @@ import PHRASES from "./audio/phrases.json";
 import { Instructor, lineIds } from "./instructor/instructor.js";
 import { buildInstructor } from "./render/instructorFigure.js";
 import { KidShow } from "./render/singerKid.js";
-import { Garage } from "./render/garage.js";
+import { Garage, warmUp } from "./render/garage.js";
 import { CARS, setDisabledCars } from "./cars/index.js";
 import { recordAttempt, keyFor, mergeHistory } from "./sim/history.js";
 import { Tutorial } from "./ui/tutorial.js";
@@ -174,8 +174,10 @@ let garage = null, garageComposer = null, inGarage = false, garageDrag = null;
 function openGarage() {
   if (!garage) {
     garage = new Garage(CARS, view.renderer);
-    // one car at a time, with a pause between them, so the picture does not stall while they decode
-    CARS.reduce((p, car, i) => p.then(() => prepareCar(car).then(cv => garage.setModel(i, cv)).catch(() => {})).then(() => new Promise(r => setTimeout(r, 250))), Promise.resolve());
+    // one car at a time, with a pause between them, so the picture does not stall while they decode;
+    // the middle copies (textures at 1024 px: the full Monza alone sends 50 megapixels to the GPU,
+    // which no frame can hide, and on the turntables the difference does not show)
+    CARS.reduce((p, car, i) => p.then(() => prepareCar(car, undefined, "-mid").then(cv => garage.setModel(i, cv)).catch(() => {})).then(() => new Promise(r => setTimeout(r, 250))), Promise.resolve());
   }
   garage.index = Math.max(0, CARS.findIndex(c => c.id === carById(settings.car).id));
   garage.camX = garage.index * 7.5;
@@ -390,8 +392,8 @@ let carModelId = null;
 // the full model on "Yuqori"; "O'rta" (where phones start) and "Yengil" get the -mid copy
 // (tools/make-lite.mjs mid): about a third fewer triangles, the textures at 1024 px, which fit a phone's memory
 const modelVariant = () => settings.quality === "high" ? "" : "-mid";
-function prepareCar(car, onProgress) {
-  return loadCarModel(car.model.replace(/\.glb$/, modelVariant() + ".glb"), onProgress).then(cv => {
+function prepareCar(car, onProgress, variant = modelVariant()) {
+  return loadCarModel(car.model.replace(/\.glb$/, variant + ".glb"), onProgress).then(cv => {
     if (car.id === "cobalt") dressCobalt(cv); else addPaint(cv);
     addScreenAd(cv, car.screen, car.id);
     // the Cobalt file has no plates of its own: put them on the plate holders
@@ -434,7 +436,7 @@ function useCar(id) {
   const first = !boot.isDone();
   const slow = first ? 0 : setTimeout(() => hud.toast(`${car.name} yuklanmoqda…`), 600);
   if (first) boot.step(`${car.name} yuklanmoqda…`, 0.15);
-  prepareCar(car, first ? f => boot.step(`${car.name} yuklanmoqda… ${Math.round(f * 100)}%`, 0.15 + f * 0.8) : undefined).then(cv => {
+  prepareCar(car, first ? f => boot.step(`${car.name} yuklanmoqda… ${Math.round(f * 100)}%`, 0.15 + f * 0.8) : undefined).then(cv => warmUp(view.renderer, cv.root, view.cam, view.scene).then(() => cv)).then(cv => {
     clearTimeout(slow);
     if (carModelId !== key) return;                  // another car was picked meanwhile
     audio.setProfile(car.sound);

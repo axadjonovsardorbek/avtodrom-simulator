@@ -6,6 +6,22 @@ import { RoomEnvironment } from "three/examples/jsm/environments/RoomEnvironment
 
 const BAY = 7.5;                         // distance between bays, m
 
+// Gets a loaded model ready to show without a stall: its shaders built (in parallel where the
+// browser can) and its textures sent to the GPU one per frame; both done on first sight took a
+// frame or several.
+export async function warmUp(renderer, root, cam, scene) {
+  // never held up for long: a browser that cannot report the compile status still gets the car
+  const late = ms => new Promise(r => setTimeout(() => r("late"), ms));
+  if (renderer.compileAsync) {
+    const r = await Promise.race([renderer.compileAsync(root, cam, scene).catch(e => console.warn("compile", e)), late(2000)]);
+    if (r === "late") console.warn("warmUp: shaders still compiling after 2 s");
+  }
+  const seen = new Set();
+  root.traverse(o => { if (o.isMesh) for (const m of [].concat(o.material)) for (const k in m) { const t = m[k]; if (t && t.isTexture && !t.isVideoTexture && !t.isRenderTargetTexture) seen.add(t); } });
+  const end = performance.now() + 3000;
+  for (const t of seen) { renderer.initTexture(t); if (performance.now() > end) break; await Promise.race([new Promise(r => requestAnimationFrame(r)), late(50)]); }
+}
+
 function tiles() {
   const c = document.createElement("canvas"); c.width = c.height = 512;
   const g = c.getContext("2d");
@@ -30,7 +46,7 @@ function sign(text) {
 
 export class Garage {
   constructor(cars, renderer) {
-    this.cars = cars; this.index = 0; this.t = 0;
+    this.cars = cars; this.index = 0; this.t = 0; this.renderer = renderer;
     const s = this.scene = new THREE.Scene();
     s.background = new THREE.Color(0x0b0c0e);
     s.fog = new THREE.Fog(0x0b0c0e, 22, 45);
@@ -47,12 +63,19 @@ export class Garage {
     const ceil = new THREE.Mesh(new THREE.PlaneGeometry(W, 16), wallMat); ceil.rotation.x = Math.PI / 2; ceil.position.set(floor.position.x, 6, 0); s.add(ceil);
     // wall slats and an amber strip, for depth
     const slat = new THREE.MeshStandardMaterial({ color: 0x2a2e35, roughness: 0.6, metalness: 0.3 });
-    for (let x = -W / 2; x < W / 2; x += 0.9) { const b = new THREE.Mesh(new THREE.BoxGeometry(0.08, 6.6, 0.12), slat); b.position.set(floor.position.x + x, 3.3, -4.94); s.add(b); }
+    for (let x = -W / 2; x < W / 2; x += 0.9) { const b = new THREE.Mesh(new THREE.BoxGeometry(0.08, 6.6, 0.12), slat); b.position.set(floor.position.x + x, 3.3, -4.93); s.add(b); }   // clear of the wall (flush with it they flickered)
     const strip = new THREE.Mesh(new THREE.BoxGeometry(W, 0.05, 0.04), new THREE.MeshBasicMaterial({ color: new THREE.Color(2.4, 1.6, 0.4) }));
-    strip.position.set(floor.position.x, 0.6, -4.9); s.add(strip);
+    strip.position.set(floor.position.x, 0.6, -4.84); s.add(strip);
     s.add(new THREE.HemisphereLight(0xcfd8e6, 0x2a2c30, 1.1));
     const fill = new THREE.DirectionalLight(0xffffff, 0.8); fill.position.set(4, 8, 6); s.add(fill);
 
+    // the lamp over the bay the camera is at, the only one with a shadow: it takes over from that bay's
+    // own spot (which fades out under it), so each car still has one lamp and its shadow
+    const key = this.key = new THREE.SpotLight(0xfff4e6, 55, 20, 0.7, 0.6, 1.6);
+    key.castShadow = true; key.shadow.mapSize.set(1024, 1024);
+    key.shadow.bias = -0.0004; key.shadow.normalBias = 0.03;   // no shadow acne shimmering on the turning car
+    key.shadow.camera.near = 2; key.shadow.camera.far = 14;
+    key.position.set(0, 5.6, 2.5); s.add(key, key.target);
     this.bays = cars.map((car, i) => {
       const x = i * BAY;
       const g = new THREE.Group(); g.position.set(x, 0, 0); s.add(g);
@@ -64,14 +87,16 @@ export class Garage {
       // light panel above and a spot light from the front
       const panel = new THREE.Mesh(new THREE.BoxGeometry(5.5, 0.06, 2.4), new THREE.MeshBasicMaterial({ color: new THREE.Color(2.2, 2.2, 2.3) }));
       panel.position.set(0, 5.9, 0); g.add(panel);
+      // its light only: one shadow-casting lamp follows the camera (six shadow maps redrawn every
+      // frame, each with every car in it, made the garage stutter)
       const spot = new THREE.SpotLight(0xfff4e6, 55, 20, 0.7, 0.6, 1.6);
-      spot.position.set(0, 5.6, 2.5); spot.target.position.set(0, 0.5, 0); spot.castShadow = true; spot.shadow.mapSize.set(1024, 1024);
+      spot.position.set(0, 5.6, 2.5); spot.target.position.set(0, 0.5, 0);
       g.add(spot, spot.target);
       // name board on the wall
       const board = new THREE.Mesh(new THREE.PlaneGeometry(4, 0.62), new THREE.MeshBasicMaterial({ map: sign(car.name.toUpperCase()) }));
       board.position.set(0, 4.3, -4.85); g.add(board);
       const turn = new THREE.Group(); turn.position.y = 0.08; g.add(turn);
-      return { car, g, turn, disc, cv: null };
+      return { car, g, turn, disc, spot, cv: null };
     });
   }
 
@@ -85,7 +110,8 @@ export class Garage {
     cv.root.position.set(-mid, 0, 0); cv.root.rotation.set(0, 0, 0);
     cv.root.traverse(o => { if (o.isMesh && !o.name.startsWith("shadow")) o.castShadow = true; });
     cv.setCockpit && cv.setCockpit(false);
-    bay.turn.add(cv.root);
+    const show = () => { if (bay.cv === cv) bay.turn.add(cv.root); };
+    if (this.renderer) warmUp(this.renderer, cv.root, this.cam, this.scene).then(show, show); else show();
   }
 
   resize(w, h) { this.cam.aspect = w / h; this.cam.updateProjectionMatrix(); }
@@ -100,6 +126,8 @@ export class Garage {
       else b.turn.rotation.y += ((-0.7) - b.turn.rotation.y) * Math.min(1, dt * 2);
       if (b.cv) b.cv.update({ steer: 0, wheelSpin: 0, sw: 0, engineOn: true, brake: 0, gear: "P", hazard: false, sig: 0 }, performance.now());
     }
+    this.key.position.set(this.camX, 5.6, 2.5); this.key.target.position.set(this.camX, 0.5, 0); this.key.target.updateMatrixWorld();
+    for (const [i, b] of this.bays.entries()) b.spot.intensity = 55 * Math.min(1, Math.abs(this.camX - i * BAY) / BAY);
     const bob = Math.sin(this.t * 0.4) * 0.15;
     // looking a little below the car keeps it clear of the bar at the bottom of the screen
     this.cam.position.set(this.camX + 1.2 + bob, 2.3, 9.2);

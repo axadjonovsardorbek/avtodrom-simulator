@@ -73,6 +73,9 @@ export class View {
     r.toneMappingExposure = 0.72;            // the physical sky is bright; the lights below are raised to match
     r.outputColorSpace = THREE.SRGBColorSpace;
     r.localClippingEnabled = true;            // the driver figure is cut away near the camera
+    // reading back each shader's log waits for it to finish compiling: off in the built game, so the
+    // browser can compile in parallel (compileAsync) instead of stalling the frame
+    r.debug.checkShaderErrors = !!import.meta.env.DEV;
 
     const s = this.scene = new THREE.Scene();
     s.fog = new THREE.Fog(0xb7cbe0, 180, 600);

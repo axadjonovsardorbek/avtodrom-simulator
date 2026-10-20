@@ -2,6 +2,7 @@
 // paint colour choice, smoked headlamp housings, the MyLink touchscreen on the centre
 // stack. Applied at load time because it needs canvas textures.
 import * as THREE from "three";
+import { castRays } from "./fastRay.js";
 
 export const COLORS = {
   white: { name: "Oq", color: 0xf3f4f2, metalness: 0.15, roughness: 0.28 },
@@ -71,12 +72,9 @@ export function dressCobalt(cv) {
   car.updateMatrixWorld(true);
   const dash = []; car.traverse(o => { if (o.isMesh && o.visible && /^painel/.test(o.name)) dash.push(o); });
   const onDash = (y0, y1, z, yc, fallback) => {
-    const rc = new THREE.Raycaster(), pts = [];
-    for (let y = y0; y <= y1 + 1e-6; y += 0.02) {
-      rc.set(car.localToWorld(new THREE.Vector3(1.5, y, z)), new THREE.Vector3(1, 0, 0).transformDirection(car.matrixWorld));
-      const h = rc.intersectObjects(dash, false)[0];
-      if (h) pts.push(car.worldToLocal(h.point.clone()));
-    }
+    const pts = [], fwd = new THREE.Vector3(1, 0, 0).transformDirection(car.matrixWorld), rays = [];
+    for (let y = y0; y <= y1 + 1e-6; y += 0.02) rays.push({ origin: car.localToWorld(new THREE.Vector3(1.5, y, z)), dir: fwd });
+    for (const h of castRays(dash, rays)) if (h) pts.push(car.worldToLocal(h.point.clone()));
     if (pts.length < 3) return face(...fallback);
     // least squares x = a + b y, then use the front-most (cabin-side) offset so nothing pokes through
     const n = pts.length, my = pts.reduce((t, p) => t + p.y, 0) / n, mx = pts.reduce((t, p) => t + p.x, 0) / n;

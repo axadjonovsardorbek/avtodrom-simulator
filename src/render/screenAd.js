@@ -7,6 +7,7 @@
 // with the same list, so a video is decoded once however many cars the garage holds. The picture
 // fills its surface and is cropped at its edges where its shape differs.
 import * as THREE from "three";
+import { castRays } from "./fastRay.js";
 
 let ready = null;
 const isVideo = src => /\.(mp4|webm|mov|m4v)(\?|$)/i.test(src);
@@ -142,17 +143,20 @@ function rearWindow(root) {
   if (!glass.length) return null;
   const toRoot = root.matrixWorld.clone().invert(), box = new THREE.Box3();
   for (const o of glass) box.union(new THREE.Box3().setFromObject(o).applyMatrix4(toRoot));
-  const NZ = 30, NY = 26, ray = new THREE.Raycaster(), dir = new THREE.Vector3(1, 0, 0).transformDirection(root.matrixWorld);
-  const midX = (box.min.x + box.max.x) / 2, nrm = new THREE.Matrix3();
-  const hit = [], ok = [];
+  const NZ = 30, NY = 26, dir = new THREE.Vector3(1, 0, 0).transformDirection(root.matrixWorld);
+  const midX = (box.min.x + box.max.x) / 2;
+  const hit = [], ok = [], rays = [];
   let host = null;
   for (let j = 0; j < NY; j++) for (let i = 0; i < NZ; i++) {
     const y = box.min.y + (box.max.y - box.min.y) * (j + 0.5) / NY, z = box.min.z + (box.max.z - box.min.z) * (i + 0.5) / NZ;
-    ray.set(new THREE.Vector3(box.min.x - 1, y, z).applyMatrix4(root.matrixWorld), dir);
-    const h = ray.intersectObjects(glass, false).find(h => GLASSY(Array.isArray(h.object.material) ? h.object.material[h.face.materialIndex] : h.object.material));
+    rays.push({ origin: new THREE.Vector3(box.min.x - 1, y, z).applyMatrix4(root.matrixWorld), dir });
+  }
+  const hits = castRays(glass, rays, GLASSY);
+  for (let j = 0; j < NY; j++) for (let i = 0; i < NZ; i++) {
+    const h = hits[j * NZ + i];
     let good = false;
-    if (h && h.face) {
-      const n = h.face.normal.clone().applyMatrix3(nrm.getNormalMatrix(h.object.matrixWorld)).transformDirection(toRoot);
+    if (h) {
+      const n = h.normal.clone().transformDirection(toRoot);
       const p = h.point.clone().applyMatrix4(toRoot);
       // facing back at all: the Malibus' rear window leans back to about 17° from flat
       if (p.x < midX && n.x < -0.15) { good = true; hit[j * NZ + i] = { p, n }; host = host || h.object.parent; }
@@ -213,10 +217,11 @@ export function addScreenAd(cv, spec, carId) {
       }
       if (s) { const p = playerFor(screen, "screen"); p.adopt(s, aspect); cv.ads.push({ player: p, place: "screen", seen: null }); }
     }
-    if (rear.length) {
+    // finding the rear window casts a few hundred rays: done when the browser is idle, not mid-frame
+    if (rear.length) (window.requestIdleCallback || (f => setTimeout(f, 200)))(() => {
       const w = rearWindow(cv.root);
       if (w) { const p = playerFor(rear, "rear"); p.adopt(w.mesh, w.aspect); cv.ads.push({ player: p, place: "rear", seen: null }); }
-    }
+    }, { timeout: 2000 });
   });
 }
 

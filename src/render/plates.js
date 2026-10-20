@@ -3,6 +3,7 @@
 // holder behind. The characters are embossed (bump map). Each plate is laid flush on the
 // bumper: rays find the surface and its slope. The text ("01 A 070 BJ") is set in the menu.
 import * as THREE from "three";
+import { castRays } from "./fastRay.js";
 
 export const DEFAULT_PLATE = "01 A 070 BJ";
 const FONT = "'Barlow Condensed', 'Arial Narrow', sans-serif";
@@ -99,16 +100,14 @@ export function makePlate(mat) {
 
 // Lay a plate flush on the body around the approximate point `pos` (car frame).
 function settle(car, meshes, pos, back) {
-  const dir = new THREE.Vector3(back ? 1 : -1, 0, 0), rc = new THREE.Raycaster();
-  const toCar = new THREE.Matrix4().copy(car.matrixWorld).invert();
+  const dir = new THREE.Vector3(back ? 1 : -1, 0, 0);
+  const toCar = new THREE.Matrix4().copy(car.matrixWorld).invert(), wdir = dir.clone().transformDirection(car.matrixWorld);
   const pts = [], normals = [];
-  for (const [dy, dz] of [[0, 0], [0.035, -0.2], [0.035, 0.2], [-0.035, -0.2], [-0.035, 0.2]]) {
-    const o = new THREE.Vector3(pos[0] - dir.x * 1.2, pos[1] + dy, pos[2] + dz).applyMatrix4(car.matrixWorld);
-    rc.set(o, dir.clone().transformDirection(car.matrixWorld)); rc.far = 2.4;
-    const h = rc.intersectObjects(meshes, false)[0];
-    if (!h) continue;
+  const rays = [[0, 0], [0.035, -0.2], [0.035, 0.2], [-0.035, -0.2], [-0.035, 0.2]].map(([dy, dz]) => ({ origin: new THREE.Vector3(pos[0] - dir.x * 1.2, pos[1] + dy, pos[2] + dz).applyMatrix4(car.matrixWorld), dir: wdir }));
+  for (const h of castRays(meshes, rays)) {
+    if (!h || h.point.distanceTo(rays[0].origin) > 2.4) continue;
     pts.push(h.point.clone().applyMatrix4(toCar));
-    if (h.face) normals.push(h.face.normal.clone().transformDirection(h.object.matrixWorld).transformDirection(toCar));
+    normals.push(h.normal.clone().transformDirection(toCar));
   }
   if (!pts.length) return { p: new THREE.Vector3(...pos), n: new THREE.Vector3(back ? -1 : 1, 0, 0) };
   // the outermost hit is the bumper face (grille bars and recesses sit behind it)
