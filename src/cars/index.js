@@ -8,6 +8,9 @@ import MALIBU19 from "./malibu-2019-dims.json";
 import MONZA from "./monza-dims.json";
 import MATIZ from "./matiz-dims.json";
 import DAMAS from "./damas-dims.json";
+import K5 from "./kia-k5-dims.json";
+import PASSAT22 from "./passat-2022-dims.json";
+import PASSATPRO from "./passat-pro-dims.json";
 
 // Monza 1.5 (113 hp): a little more torque than the Cobalt's
 // 0.8 litre engines of the Matiz and the Damas
@@ -16,6 +19,8 @@ const NA08_DAMAS = [[0, 28], [1000, 52], [2000, 60], [3000, 62], [3800, 62], [48
 const NA15 = [[0, 55], [1000, 112], [2000, 132], [3000, 140], [4000, 146], [5000, 140], [6000, 118], [6600, 0]];
 // 1.5 turbo of the Malibu: flat torque from low revs
 const TURBO = [[0, 60], [1000, 150], [1500, 235], [2500, 250], [4000, 250], [5000, 228], [5600, 200], [6200, 0]];
+// 2.0 turbo of the Passat Pro 380TSI
+const TURBO20 = [[0, 80], [1000, 220], [1500, 350], [4000, 350], [5000, 320], [6000, 270], [6500, 0]];
 // engine sound: Cobalt 1.5 (naturally aspirated, buzzy) vs Malibu 1.5T (deeper, smoother, turbo whistle)
 const NA = { harm: [0.55, 0.35, 0.3], drive: 2.6, filter: [700, 2600], gain: 1, turbo: 0 };
 const TURBO_SOUND = { harm: [0.5, 0.2, 0.45], drive: 1.8, filter: [480, 1700], gain: 0.9, turbo: 1 };
@@ -77,6 +82,30 @@ export const CARS = [
     spec: { mass: 900, wb: DAMAS.wheelbase, rOh: DAMAS.rOh, fOh: DAMAS.fOh, width: 1.5, track: DAMAS.track, wheelR: DAMAS.wheelR, torque: NA08_DAMAS, clutchCap: 110, autoForce: 2300, maxRpm: 5800 },
     sound: { ...NA, filter: [800, 2800] },
     voice: { url: "damas.mp3", from: 33, dur: 4.3 }
+  },
+  {
+    id: "kia-k5", name: "Kia K5", model: "models/kia-k5.glb", info: "1.6 Turbo · 180 o.k. · 4,91 m",
+    credit: "3D model: \"Kia K5 2025\" (Sketchfab), modified", creditUrl: "",
+    dims: K5, eye: [1.2, 1.12, -0.386], seat: [1.33, 0.44, 0.386],
+    mirrors: { center: [1.75, 1.24, 0], left: [2.15, 1.02, -0.98], right: [2.15, 1.02, 0.98] },
+    spec: { mass: 1450, wb: K5.wheelbase, rOh: K5.rOh, fOh: K5.fOh, width: 1.86, track: K5.track, wheelR: K5.wheelR, torque: TURBO, clutchCap: 400, autoForce: 5800 },
+    sound: TURBO_SOUND
+  },
+  {
+    id: "passat-2022", name: "Volkswagen Passat 2022", model: "models/passat-2022.glb", info: "1.4 TSI · 150 o.k. · 4,78 m",
+    credit: "3D model: \"Volkswagen Passat 2022\" (Sketchfab), modified", creditUrl: "",
+    dims: PASSAT22, eye: [1.19, 1.16, -0.374], seat: [1.32, 0.46, 0.374],
+    mirrors: { center: [1.74, 1.29, 0], left: [2.14, 1.06, -0.94], right: [2.14, 1.06, 0.94] },
+    spec: { mass: 1480, wb: PASSAT22.wheelbase, rOh: PASSAT22.rOh, fOh: PASSAT22.fOh, width: 1.83, track: PASSAT22.track, wheelR: PASSAT22.wheelR, torque: TURBO, clutchCap: 400, autoForce: 5600 },
+    sound: TURBO_SOUND
+  },
+  {
+    id: "passat-pro", name: "Volkswagen Passat Pro", model: "models/passat-pro.glb", info: "2.0 TSI · 220 o.k. · 5,01 m",
+    credit: "3D model: \"2025 Volkswagen Passat Pro 380TSI\" (Sketchfab), modified", creditUrl: "",
+    dims: PASSATPRO, eye: [1.3, 1.22, -0.36], seat: [1.43, 0.5, 0.36],
+    mirrors: { center: [1.85, 1.34, 0], left: [2.25, 1.12, -1.0], right: [2.25, 1.12, 1.0] },
+    spec: { mass: 1580, wb: PASSATPRO.wheelbase, rOh: PASSATPRO.rOh, fOh: PASSATPRO.fOh, width: 1.84, track: PASSATPRO.track, wheelR: PASSATPRO.wheelR, torque: TURBO20, clutchCap: 500, autoForce: 6800 },
+    sound: TURBO_SOUND
   }
 ];
 // "malibu" was the Malibu XL model, now replaced by the Premier

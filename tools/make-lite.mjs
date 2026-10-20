@@ -15,7 +15,7 @@ import { statSync } from "node:fs";
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 const KIND = ["lite", "mid"].includes(process.argv[2]) ? process.argv[2] : "lite";
 const args = process.argv.slice(["lite", "mid"].includes(process.argv[2]) ? 3 : 2);
-const ids = args.length ? args : ["cobalt", "malibu-premier", "malibu-2019", "monza", "matiz", "damas"];
+const ids = args.length ? args : ["cobalt", "malibu-premier", "malibu-2019", "monza", "matiz", "damas", "kia-k5", "passat-2022", "passat-pro"];
 const SET = { lite: { ratio: 0.45, error: 0.0006, tex: 512, q: 78 }, mid: { ratio: 0.6, error: 0.0004, tex: 1024, q: 82 } }[KIND];
 await MeshoptSimplifier.ready; await MeshoptEncoder.ready; await MeshoptDecoder.ready;
 const io = new NodeIO().registerExtensions(ALL_EXTENSIONS).registerDependencies({ "meshopt.encoder": MeshoptEncoder, "meshopt.decoder": MeshoptDecoder });

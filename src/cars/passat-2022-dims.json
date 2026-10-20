@@ -1,0 +1,16 @@
+{
+ "length": 4.775,
+ "width": 2.013,
+ "height": 1.46,
+ "wheelbase": 2.719,
+ "track": 1.516,
+ "wheelR": 0.323,
+ "rOh": 1.116,
+ "fOh": 0.94,
+ "steeringWheel": [
+  1.846,
+  0.894,
+  -0.374
+ ],
+ "roofY": 1.46
+}

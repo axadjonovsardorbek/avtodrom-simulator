@@ -1,0 +1,5 @@
+{
+ "id": "passat-2022", "src": "/Users/sardorbek/Downloads/volkswagen-passat-2022/source/passat_2022_reconstructed_lights_on.glb", "length": 4.775, "forward": "-z",
+ "tyre": "^Tires", "paint": "^Pyrite Silver Metallic", "head": "^Glow DRL", "tail": "^Glow Red", "keepQuality": true,
+ "credit": "3D model: \"Volkswagen Passat 2022\" (Sketchfab), modified", "source": "", "license": ""
+}

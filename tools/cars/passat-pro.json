@@ -1,0 +1,6 @@
+{
+ "id": "passat-pro", "src": "/private/tmp/claude-501/-Users-sardorbek-avtodrom-simulator/6c6f41ae-8df5-4e8a-a27d-ed60705c37ba/scratchpad/cars/passat25/passat25.glb", "length": 5.006, "forward": "+z",
+ "wheelNodesRe": "_wheel_|_hub_", "wheelParts": "tire_Map|breaks_map|chrome|grey_plastic|plastic_H1", "tyre": "^tire_Map$",
+ "paint": "^CarPaint_AO$", "keepQuality": true,
+ "credit": "3D model: \"2025 Volkswagen Passat Pro 380TSI\" (Sketchfab), modified", "source": "", "license": ""
+}

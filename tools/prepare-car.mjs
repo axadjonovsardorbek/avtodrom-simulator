@@ -47,8 +47,9 @@ const RIGHT = new THREE.Vector3(0, 0, 1).applyMatrix4(new THREE.Matrix4().copy(R
   const cx = (sb.min[0] + sb.max[0]) / 2, cz = (sb.min[2] + sb.max[2]) / 2;
   let split = 0;
   const only = CFG.wheelNodes ? new Set(CFG.wheelNodes) : null;       // explicit node names when materials are shared with the body
+  const onlyRe = CFG.wheelNodesRe ? new RegExp(CFG.wheelNodesRe, "i") : null;
   for (const n of [...root.listNodes()]) {
-    if (!n.getMesh() || (only ? !only.has(n.getName()) : !n.getMesh().listPrimitives().some(p => wre.test(p.getMaterial()?.getName() || "")))) continue;
+    if (!n.getMesh() || (onlyRe ? !onlyRe.test(n.getName()) : only ? !only.has(n.getName()) : !n.getMesh().listPrimitives().some(p => wre.test(p.getMaterial()?.getName() || "")))) continue;
     const b = getBounds(n), h = b.max[1] - b.min[1];
     if (b.max[0] - b.min[0] < 2.2 * h && b.max[2] - b.min[2] < 2.2 * h) continue;      // already one wheel
     const m = new THREE.Matrix4().fromArray(n.getWorldMatrix());
@@ -77,12 +78,14 @@ const RIGHT = new THREE.Vector3(0, 0, 1).applyMatrix4(new THREE.Matrix4().copy(R
 }
 // the wheels: every tyre, plus every part whose centre lies inside the tyre's box
 const tyreRe = new RegExp(CFG.tyre || "tyre|tire", "i");
-const tyres = root.listNodes().filter(n => n.getMesh() && n.getMesh().listPrimitives().some(p => tyreRe.test(p.getMaterial()?.getName() || "")));
+// "tyreNodes": a regex on node names, for models whose tyre material is shared with the body
+const tyreNodeRe = CFG.tyreNodes ? new RegExp(CFG.tyreNodes, "i") : null;
+const tyres = root.listNodes().filter(n => n.getMesh() && (tyreNodeRe ? tyreNodeRe.test(n.getName()) : n.getMesh().listPrimitives().some(p => tyreRe.test(p.getMaterial()?.getName() || ""))));
 const tyreBoxes = tyres.map(t => box(t)).map(b => ({ b, c: b.min.clone().add(b.max).multiplyScalar(0.5) }));
 // a tyre may be split over several nodes: merge boxes that overlap
 const merged = [];
 for (const t of tyreBoxes) { const m = merged.find(m => m.c.distanceTo(t.c) < (m.b.max.y - m.b.min.y) * 0.5); if (m) { m.b.min.min(t.b.min); m.b.max.max(t.b.max); m.c = m.b.min.clone().add(m.b.max).multiplyScalar(0.5); } else merged.push({ b: { min: t.b.min.clone(), max: t.b.max.clone() }, c: t.c.clone() }); }
-if (merged.length !== 4) { console.error("expected 4 tyres, found", merged.length); process.exit(1); }
+if (merged.length !== 4) { console.error("expected 4 tyres, found", merged.length, tyres.map(t => t.getName()), tyreBoxes.map(t => t.c.toArray().map(v => v.toFixed(2)))); process.exit(1); }
 const midF = merged.reduce((s, m) => s + m.c.dot(FWD), 0) / 4, midS = merged.reduce((s, m) => s + m.c.dot(RIGHT), 0) / 4;
 const scnRoot = scene.listChildren()[0];
 const W = {};
@@ -310,6 +313,7 @@ for (const mesh of root.listMeshes()) for (const prim of mesh.listPrimitives()) 
   const col = prim.getAttribute("COLOR_0"); if (!col) continue;
   const a = col.getArray(), max = col.getNormalized() ? (a instanceof Uint8Array ? 255 : 65535) : 1;
   let white = true; for (let i = 0; i < a.length && white; i++) if (a[i] < 0.98 * max) white = false;
+  if (CFG.dropVertexColors) white = true;                      // baked game lighting (dark on the body), not colour
   if (white) { prim.setAttribute("COLOR_0", null); dropped++; }
 }
 console.log("white vertex colours dropped on", dropped, "primitives");
@@ -318,14 +322,15 @@ console.log("white vertex colours dropped on", dropped, "primitives");
 await doc.transform(weld({ tolerance: 0 }));
 const wheelNodes = new Set();
 for (const k of Object.keys(W)) byName("wheel_spin_" + k).traverse(n => wheelNodes.add(n));
-for (const n of root.listNodes()) {
+// "keepQuality": the model as it came, no simplification and the textures at their own size and format
+if (!CFG.keepQuality) for (const n of root.listNodes()) {
   if (!n.getMesh() || wheelNodes.has(n)) continue;
   // the painted body is kept as modelled; the rest is simplified with its borders locked
   for (const prim of n.getMesh().listPrimitives()) if (prim.getMaterial()?.getName() !== "paint") simplifyPrimitive(prim, { simplifier: MeshoptSimplifier, ratio: 0.85, error: 0.0005, lockBorder: true });
 }
 await doc.transform(
   prune(), dedup(),
-  textureCompress({ encoder: sharp, targetFormat: "webp", resize: [2048, 2048], quality: 88 }),
+  ...(CFG.keepQuality ? [] : [textureCompress({ encoder: sharp, targetFormat: "webp", resize: [2048, 2048], quality: 88 })]),
   meshopt({ encoder: MeshoptEncoder, level: "high" })
 );
 const out = join(ROOT, `public/models/${CFG.id}.glb`);
