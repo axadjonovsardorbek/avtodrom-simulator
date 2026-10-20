@@ -9,7 +9,7 @@ import { CarAudio } from "./render/audio.js";
 import { Controls } from "./ui/input.js";
 import { Hud } from "./ui/hud.js";
 import { carById } from "./cars/index.js";
-import { loadCarModel, loadTrafficModel } from "./render/carLoader.js";
+import { loadCarModel, loadTrafficModel, setTextureRenderer } from "./render/carLoader.js";
 import { dressCobalt, addPaint } from "./render/carDress.js";
 import { addScreenAd, setAdSource, watchAds, takeAdViews } from "./render/screenAd.js";
 import { gripFor } from "./render/atmosphere.js";
@@ -52,6 +52,7 @@ const hud = new Hud(app, { settings, account: u => onAccount(u), atmosphere: () 
   setPlate: t => { settings.plate = t; if (view.carView.setPlate) view.carView.setPlate(t); saveSettings(); },
   setColor: id => { settings.color = id; if (view.carView.setPaint) view.carView.setPaint(id); saveSettings(); } });
 const view = new View(hud.canvas);
+setTextureRenderer(view.renderer);
 if (!qualityChosen) { settings.quality = pickQuality(view.renderer); saveSettings(); }
 // weather and time of day (settings): the picture, and how well the tyres hold
 function applyAtmosphere() {
@@ -60,6 +61,10 @@ function applyAtmosphere() {
 }
 applyAtmosphere();
 const audio = new CarAudio();
+// the sound system made while the loading screen shows: creating it opens the audio device, which holds the page
+// for up to a second (measured in Chrome on a Mac); made on the first click instead, that click froze the game.
+// Made before any click it stays paused, and the first click only resumes it.
+setTimeout(() => { try { audio.start(); audio.setMuted(settings.muted); } catch (e) { console.warn("audio", e); } }, 0);
 const instructor = new Instructor(audio);
 instructor.mood = settings.instructor;
 let instructorFig = buildInstructor();

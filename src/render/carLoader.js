@@ -2,9 +2,18 @@
 // the same bytes base64-wrapped in "<name>.glb.json" (see tools/pack-models.mjs).
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import { MeshoptDecoder } from "three/examples/jsm/libs/meshopt_decoder.module.js";
+import { KTX2Loader } from "three/examples/jsm/loaders/KTX2Loader.js";
 import * as THREE from "three";
 import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js";
 import { rigCar } from "./carModel.js";
+
+// the car textures are KTX2 (tools/ktx2.mjs): they reach the GPU still compressed, in whatever block format it
+// takes; the transcoder (public/basis) runs in a worker. Set once the renderer exists (it tells the formats).
+let ktx2 = null;
+export function setTextureRenderer(renderer) {
+  ktx2 = new KTX2Loader().setTranscoderPath(import.meta.env.BASE_URL + "basis/").setWorkerLimit(2).detectSupport(renderer);
+}
+const gltfLoader = () => { const l = new GLTFLoader().setMeshoptDecoder(MeshoptDecoder); if (ktx2) l.setKTX2Loader(ktx2); return l; };
 
 function addShadowProxy(root) {
   const car = root.name === "car" ? root : root.getObjectByName("car") || root;
@@ -48,7 +57,7 @@ async function fetchModel(url, onProgress) {
 
 export async function loadCarModel(url, onProgress) {
   const data = await fetchModel(url, onProgress);
-  const gltf = await new GLTFLoader().setMeshoptDecoder(MeshoptDecoder).parseAsync(data, "");
+  const gltf = await gltfLoader().parseAsync(data, "");
   const root = gltf.scene;
   // the detailed model does not cast shadows itself (hundreds of thousands of triangles drawn
   // again into the shadow map); a few invisible boxes of the car's shape do it instead
@@ -62,7 +71,7 @@ export async function loadCarModel(url, onProgress) {
 // a light copy of a car for the traffic: no rigging, nothing but the shape
 export async function loadTrafficModel(url) {
   const data = await fetchModel(url);
-  const gltf = await new GLTFLoader().setMeshoptDecoder(MeshoptDecoder).parseAsync(data, "");
+  const gltf = await gltfLoader().parseAsync(data, "");
   const root = gltf.scene;
   mergeByMaterial(root);
   root.traverse(o => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = false; } });
