@@ -175,9 +175,8 @@ function openGarage() {
   if (!garage) {
     garage = new Garage(CARS, view.renderer);
     // one car at a time, with a pause between them, so the picture does not stall while they decode;
-    // the middle copies (textures at 1024 px: the full Monza alone sends 50 megapixels to the GPU,
-    // which no frame can hide, and on the turntables the difference does not show)
-    CARS.reduce((p, car, i) => p.then(() => prepareCar(car, undefined, "-mid").then(cv => garage.setModel(i, cv)).catch(() => {})).then(() => new Promise(r => setTimeout(r, 250))), Promise.resolve());
+    // the same copy as on the road (the full model on "Yuqori"): the garage shows the cars as they are
+    CARS.reduce((p, car, i) => p.then(() => prepareCar(car).then(cv => garage.setModel(i, cv)).catch(() => {})).then(() => new Promise(r => setTimeout(r, 250))), Promise.resolve());
   }
   garage.index = Math.max(0, CARS.findIndex(c => c.id === carById(settings.car).id));
   garage.camX = garage.index * 7.5;
