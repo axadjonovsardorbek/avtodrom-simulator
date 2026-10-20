@@ -127,7 +127,25 @@ const TITLES = { exam: "To'liq avtodrom · Imtihon", training: "To'liq avtodrom 
 let greeted = false, bumpT = 0, tutorial = null, replay = null, lastResult = null;
 const rec = new Recorder();
 
+// Building the ground (roads, buildings, trees, signs) and making its shaders ready takes seconds on a slow phone;
+// the screen stayed black meanwhile. A "getting ready" card shows first, the work starts once it is on screen, and
+// the picture is drawn only when the ground's shaders and textures are ready.
+let preparing = false;
+function prepCard(on) {
+  let c = document.getElementById("prep");
+  if (!c) { c = document.createElement("div"); c.id = "prep"; c.innerHTML = '<div class="prep-spin"></div><div>Tayyorlanmoqda…</div>'; app.appendChild(c); }
+  c.classList.toggle("on", on);
+}
 function start(m, el) {
+  if (preparing) return;
+  preparing = true; prepCard(true); hud.hideMenu();
+  requestAnimationFrame(() => requestAnimationFrame(() => {
+    try { startNow(m, el); } catch (e) { preparing = false; prepCard(false); throw e; }
+    const done = () => { preparing = false; prepCard(false); };
+    warmUp(view.renderer, view.worldGroup, view.cam, view.scene).then(done, done);
+  }));
+}
+function startNow(m, el) {
   if (inShowroom) { inShowroom = false; hud.showShowroom(false); }
   audio.start(); audio.setMuted(settings.muted); audio.voiceOn = settings.voice;
   saveSettings();
@@ -217,6 +235,15 @@ function garageSharpen() {
     }).catch(() => { if (garage.full && garage.full.i === i) garage.full = null; });
   }, 600);
 }
+// phones: the garage's nine cars are let go when the player leaves it (built again on the next visit); kept, they
+// held the phone's memory through the whole drive
+function freeGarage() {
+  clearTimeout(garageSharpen.t);
+  const keep = carModelCache.get(carById(settings.car).id + modelVariant());
+  const all = new Set([...garage.bays.map(b => b.cv), ...garage.mids, garage.full && garage.full.cv].filter(Boolean));
+  for (const cv of all) if (cv !== keep) freeModel(cv);
+  garage = null; garageComposer = null;
+}
 function freeModel(cv) {
   cv.root.traverse(o => {
     if (o.geometry) o.geometry.dispose();
@@ -235,9 +262,12 @@ function garageAction(a, v) {
     if (view.carView.setPaint) view.carView.setPaint(v);
     hud.showGarage(true, garageAction, CARS[garage.index], v);
   } else if (a === "pick" || a === "back") {
+    // the picked car's light copy is already loaded and on the GPU: on a phone (which drives that copy) it goes straight to the road
+    if (a === "pick" && modelVariant() === "-mid" && garage.mids[garage.index]) { const cv = garage.mids[garage.index]; cv.root.removeFromParent(); garage.bays[garage.index].cv = null; carModelCache.set(CARS[garage.index].id + "-mid", cv); }
     if (a === "pick") { settings.car = CARS[garage.index].id; saveSettings(); selectCar(settings.car); hud.toast(`${CARS[garage.index].name} tanlandi`, "good"); }
     inGarage = false; app.classList.remove("garage-open");
     hud.showGarage(false); hud.showMenu({ canResume: false });
+    if (touchUi) freeGarage();
   }
 }
 function openShowroom() {
@@ -425,6 +455,7 @@ const SIZES = { wide: 1.5, mid: 1.25, real: 1 };
 function carDims(exam) { const d = carById(settings.car).dims; return { length: d.length, rOh: d.rOh, k: exam ? 1 : SIZES[settings.size] || 1 }; }
 // car model: generated Cobalt right away, then the .glb file once it has loaded
 let carModelId = null;
+const carModelCache = new Map();          // car id + variant -> a model loaded elsewhere (the garage), used once
 // load a car model and dress it (paint, plates, Cobalt facelift parts)
 // the full model on "Yuqori"; "O'rta" (where phones start) and "Yengil" get the -mid copy
 // (tools/make-lite.mjs mid): about a third fewer triangles, the textures at 1024 px, which fit a phone's memory
@@ -473,7 +504,9 @@ function useCar(id) {
   const first = !boot.isDone();
   const slow = first ? 0 : setTimeout(() => hud.toast(`${car.name} yuklanmoqda…`), 600);
   if (first) boot.step(`${car.name} yuklanmoqda…`, 0.15);
-  prepareCar(car, first ? f => boot.step(`${car.name} yuklanmoqda… ${Math.round(f * 100)}%`, 0.15 + f * 0.8) : undefined).then(cv => warmUp(view.renderer, cv.root, view.cam, view.scene).then(() => cv)).then(cv => {
+  const ready = carModelCache.get(key); carModelCache.delete(key);
+  if (ready) { ready.root.position.set(0, 0, 0); ready.root.traverse(o => { if (o.isMesh) o.castShadow = o.name === "shadow_proxy"; }); }   // on the road its proxy casts the shadow, as at load
+  (ready ? Promise.resolve(ready) : prepareCar(car, first ? f => boot.step(`${car.name} yuklanmoqda… ${Math.round(f * 100)}%`, 0.15 + f * 0.8) : undefined)).then(cv => warmUp(view.renderer, cv.root, view.cam, view.scene).then(() => cv)).then(cv => {
     clearTimeout(slow);
     if (carModelId !== key) return;                  // another car was picked meanwhile
     audio.setProfile(car.sound);
@@ -617,6 +650,7 @@ function frame(now) {
   if (now - lastDraw < frameGap()) { requestAnimationFrame(frame); return; }
   lastDraw = now;
   const dt = Math.max(0, Math.min(0.1, (now - last) / 1000)); last = now;   // the first frame can be stamped before `last`
+  if (preparing) { requestAnimationFrame(frame); return; }
   if (inGarage) {
     garage.update(dt, garageDrag);
     if (garage.ready) { if (garageComposer) garageComposer.render(); else garage.render(view.renderer); }

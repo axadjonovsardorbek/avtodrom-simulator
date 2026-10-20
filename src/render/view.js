@@ -70,11 +70,17 @@ const MIRRORS = [
 // phones: with no full-screen passes there is room for more pixels, and small text and the far road
 // lines stay sharp (the frame-time watch below still lowers it on a device that cannot keep up)
 const MAXRATIO = COARSE ? { low: 1.5, mid: 1.75, high: 2 } : { low: 1.25, mid: 1.75, high: 1.75 };
+// entry-level phone GPUs (Adreno 610/619 of the Redmi Note 12 and its kind, the smaller Malis, PowerVR): a 1080p
+// screen drawn at 1.75x is more than they can fill at 60 frames, so they get fewer pixels on every setting
+const WEAK_GPU = /Adreno \(TM\) ?([1-5]\d\d|6[0-3]\d)\b|Mali-(T|G(31|51|52|57|68|71|72|76)\b)|PowerVR/i;
+const MAXRATIO_WEAK = { low: 1, mid: 1.3, high: 1.5 };
 const TIER = { low: { mirror: 0.5, shadow: 1024, aa: 0, bloom: false }, mid: { mirror: 0.65, shadow: 1024, aa: 4, bloom: false }, high: { mirror: 1, shadow: 2048, aa: 4, bloom: true } };
 
 export class View {
   constructor(canvas) {
     const r = this.renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: "high-performance" });
+    { const gl = r.getContext(), ext = gl.getExtension("WEBGL_debug_renderer_info"); this.gpu = ext ? gl.getParameter(ext.UNMASKED_RENDERER_WEBGL) : ""; }
+    this.weak = COARSE && WEAK_GPU.test(this.gpu);
     this.maxRatio = Math.min(window.devicePixelRatio || 1, 1.75);
     this.ratio = this.maxRatio; r.setPixelRatio(this.ratio);
     this.frame = 0; this.ft = 16;          // smoothed frame time, ms
@@ -281,8 +287,13 @@ export class View {
 
   setWorld(W, quality = "high") {
     if (this.worldGroup) {
+      // all of it freed, materials and textures too: they were kept and filled a phone's memory a little more each run
       this.scene.remove(this.worldGroup);
-      this.worldGroup.traverse(o => { if (o.geometry) o.geometry.dispose(); });
+      const seen = new Set();
+      this.worldGroup.traverse(o => {
+        if (o.geometry) o.geometry.dispose();
+        for (const m of o.material ? [].concat(o.material) : []) { if (seen.has(m)) continue; seen.add(m); for (const k in m) if (m[k] && m[k].isTexture) m[k].dispose(); m.dispose(); }
+      });
     }
     const { group, dyn } = buildWorldMeshes(W, quality);
     this.W = W; this.dyn = dyn; this.worldGroup = group; this.applyTrafficMode(); if (this.trainTpl) fillTrains(dyn, this.trainTpl);
@@ -299,7 +310,7 @@ export class View {
     for (const m of this.mirrors) m.rt.setSize(Math.round(m.w * T.mirror), Math.round(m.h * T.mirror));
     this.sun.shadow.mapSize.set(T.shadow, T.shadow);
     if (this.sun.shadow.map) { this.sun.shadow.map.dispose(); this.sun.shadow.map = null; }
-    this.ratio = this.maxRatio = Math.min(window.devicePixelRatio || 1, MAXRATIO[quality] || 1.75); this.tooSlow = 0;
+    this.ratio = this.maxRatio = Math.min(window.devicePixelRatio || 1, (this.weak ? MAXRATIO_WEAK : MAXRATIO)[quality] || 1.75); this.tooSlow = 0;
     this.renderer.setPixelRatio(this.ratio); if (this.w) this.renderer.setSize(this.w, this.h, false);
     if (this.postQ !== quality) { if (this.composer) this.composer.dispose(); this.composer = null; this.postQ = quality; }
     this.setupPost(quality);

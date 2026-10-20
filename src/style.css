@@ -594,3 +594,9 @@ table.lb em { color: var(--amber); font-style: normal; }
 .tg-wait { max-width: 320px; text-align: center; font-size: 14px; color: var(--muted); }
 .tg-wait p { margin: 4px 0; }
 .tg-wait a, .tg-wait .linkish { color: #2aabee; background: none; border: 0; font: inherit; cursor: pointer; padding: 0; text-decoration: underline; }
+
+/* "getting ready" card while a drive is set up (main.js start) */
+#prep { position: absolute; inset: 0; z-index: 60; display: none; flex-direction: column; align-items: center; justify-content: center; gap: 14px; background: #0e1013; color: #eef0f2; font: 600 18px/1.3 "Barlow Condensed", system-ui, sans-serif; letter-spacing: .02em; }
+#prep.on { display: flex; }
+.prep-spin { width: 34px; height: 34px; border-radius: 50%; border: 3px solid rgba(255, 255, 255, .15); border-top-color: var(--amber, #f2b632); animation: prepSpin .8s linear infinite; }
+@keyframes prepSpin { to { transform: rotate(360deg); } }

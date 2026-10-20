@@ -183,10 +183,17 @@ function arrow(W, x, y, deg, len = 56, kind = "S") {
     ISLANDS.some(({ kerb: g }) => inPoly(g, q[0], q[1]) || g.some((u, i) => segD(q, u, g[(i + 1) % g.length]) < 0.5)) ||
     W.lines.some(ln => !ln.hidden && ln.pts.some((u, i) => i + 1 < ln.pts.length && (segD(q, u, ln.pts[i + 1]) < 0.25 || segD(u, ...sh.slice(0, 2)) < 0 || crosses(sh, u, ln.pts[i + 1])))) ||
     W.paint.some(pt => pt.poly.length <= 5 && inPoly(pt.poly, q[0], q[1]))));
-  let best = make(0, 0);
-  search: for (let r = 0; r <= 80; r += 5) for (const du of r ? [-r, r] : [0]) for (const dv of [0, -4, 4, -8, 8]) { const sh = make(du, dv); if (!clash(sh)) { best = sh; break search; } }
-  for (const sh of best) W.addPaint(sh);
+  // the search is the same every time the ground is built (seconds on a phone at every start): its answer is kept
+  const key = [x, y, deg, len, kind, W.lines.length, W.paint.length].join();
+  let at = ARROW_AT.get(key);
+  if (!at) {
+    at = [0, 0];
+    search: for (let r = 0; r <= 80; r += 5) for (const du of r ? [-r, r] : [0]) for (const dv of [0, -4, 4, -8, 8]) if (!clash(make(du, dv))) { at = [du, dv]; break search; }
+    ARROW_AT.set(key, at);
+  }
+  for (const sh of make(...at)) W.addPaint(sh);
 }
+const ARROW_AT = new Map();
 // a rounded rectangle of the plan (px), as metres
 const rrect = (x0, y0, x1, y1, r) => [...arc(x1 - r, y0 + r, r, -Math.PI / 2, 0, 6), ...arc(x1 - r, y1 - r, r, 0, Math.PI / 2, 6), ...arc(x0 + r, y1 - r, r, Math.PI / 2, Math.PI, 6), ...arc(x0 + r, y0 + r, r, Math.PI, Math.PI * 1.5, 6)].map(p => P(...p));
 const polyline = pts => pts.map(p => P(...p));
