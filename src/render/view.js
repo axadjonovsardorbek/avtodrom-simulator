@@ -32,6 +32,17 @@ function gradedOutput() {
     }`;
   return p;
 }
+// Bloom that cannot turn black: a single broken pixel (NaN or Inf in the half-float picture, e.g. a sun
+// glint on chrome at a grazing angle, which comes and goes as the car moves) was blurred by the bloom's
+// mip chain into large black squares flashing on the screen. Such pixels are dropped and the rest capped
+// before the blur.
+function safeBloom(b) {
+  const m = b.materialHighPassFilter;
+  m.fragmentShader = m.fragmentShader.replace("vec4 texel = texture2D( tDiffuse, vUv );",
+    "vec4 texel = texture2D( tDiffuse, vUv );\n\t\t\tif (any(isnan(texel)) || any(isinf(texel))) texel = vec4(0.0);\n\t\t\ttexel.rgb = min(texel.rgb, vec3(64.0));");
+  m.needsUpdate = true;
+  return b;
+}
 // Phones draw straight to the screen (no full-screen passes: on a phone the render target in half
 // floats with 4x MSAA and the pass that copies it out cost more than the pixels themselves); the
 // same tone mapping and grade then happen in every material's own shader, as a custom tone mapping.
@@ -717,7 +728,7 @@ export class View {
     const T = TIER[this.quality] || TIER.high, size = this.renderer.getDrawingBufferSize(new THREE.Vector2());
     const c = new EffectComposer(this.renderer, new THREE.WebGLRenderTarget(size.x || 2, size.y || 2, { type: THREE.HalfFloatType, samples: T.aa }));
     c.addPass(new RenderPass(scene, cam));
-    if (T.bloom) c.addPass(new UnrealBloomPass(new THREE.Vector2(256, 256), 0.3, 0.5, 1.8));
+    if (T.bloom) c.addPass(safeBloom(new UnrealBloomPass(new THREE.Vector2(256, 256), 0.3, 0.5, 1.8)));
     c.addPass(gradedOutput()); if (!T.aa) c.addPass(new SMAAPass(1, 1));
     c.setPixelRatio(this.ratio); c.setSize(this.w, this.h);
     return c;
@@ -735,7 +746,7 @@ export class View {
     const c = this.composer = new EffectComposer(this.renderer, target);
     c.addPass(new RenderPass(this.scene, this.cam));
     if (T.bloom) {
-      this.bloom = new UnrealBloomPass(new THREE.Vector2(256, 256), 0.22, 0.5, 1.5);   // only really bright things glow
+      this.bloom = safeBloom(new UnrealBloomPass(new THREE.Vector2(256, 256), 0.22, 0.5, 1.5));   // only really bright things glow
       c.addPass(this.bloom);
     }
     c.addPass(gradedOutput());                 // tone mapping + sRGB, then the grade on the final (display) colours
