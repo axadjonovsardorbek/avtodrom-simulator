@@ -470,6 +470,7 @@ export class View {
     this.keepWheelsDown(ground);
     car.lightsOn = !!(this.atmos && this.atmos.lights);      // headlamps lit in the evening, rain and fog
     this.carView.update(car, now);
+    this.levelWheels();
     if (this.driver) this.driver.update(dt, this.driver.wheel, car);
     this.cabinLight.visible = this.mode === "cockpit" || this.mode === "interiorRear";
     if (this.cabinLight.visible) this.cabinLight.position.copy(root.localToWorld(new THREE.Vector3(1.2, 1.12, 0)));
@@ -656,7 +657,10 @@ export class View {
     this.sky.position.copy(cam.position);
   }
 
-  // the wheels go back to where the body's rocking moved them from (only their place: the tilt is a degree or two)
+  // The wheels go back to where the body's rocking on its springs moved them from, and stand as
+  // the road does, not as the body leans: tilted with the body in a turn, they looked like wheels
+  // with a broken camber. keepWheelsDown places them and resets their turn to the rest one
+  // (the car then sets steering and spin); levelWheels then takes the body's lean off them.
   keepWheelsDown(ground) {
     const cv = this.carView, root = cv.root;
     if (!cv.wheels || !cv.wheels.length) return;
@@ -665,14 +669,22 @@ export class View {
       const inv = root.matrixWorld.clone().invert();
       cv.wheelRest = cv.wheels.map(w => {
         const inParent = inv.clone().multiply(w.parent.matrixWorld);
-        return { w, pos: w.position.clone(), inParent, toParent: inParent.clone().invert() };
+        return { w, pos: w.position.clone(), rot: w.rotation.clone(), inParent, toParent: inParent.clone().invert(), level: new THREE.Quaternion() };
       });
     }
     const d = (this._md = this._md || new THREE.Matrix4()).copy(root.matrixWorld).invert().multiply(ground), q = this._wq || (this._wq = new THREE.Vector3());
+    const m = this._wm || (this._wm = new THREE.Matrix4());
     for (const r of cv.wheelRest) {
       r.w.position.copy(q.copy(r.pos).applyMatrix4(r.inParent).applyMatrix4(d).applyMatrix4(r.toParent));
-      r.w.updateMatrixWorld(true);
+      r.w.rotation.copy(r.rot);
+      // the same correction as a turn in the wheel's parent frame (the body's lean, undone)
+      r.level.setFromRotationMatrix(m.copy(r.toParent).multiply(d).multiply(r.inParent));
     }
+  }
+  levelWheels() {
+    const cv = this.carView;
+    if (!cv.wheelRest) return;
+    for (const r of cv.wheelRest) { r.w.quaternion.premultiply(r.level); r.w.updateMatrixWorld(true); }
   }
 
   // Keeps the frame rate up on any device: the render resolution follows the measured frame time
