@@ -278,7 +278,7 @@ export function realWalker(instructorGltf, kidGltf) {
     Pants: { tint: 0x4a4b4f }, Shoes: { tint: 0x3a2c22 }
   });
   const walk = P.actions[clip.name], pin = pinHips(P), standT = standingFrame(P, walk, clip), arms = armsDown(P);
-  return { root: P.root, update(dt, walking) { walk.timeScale = walking ? 0.9 : 0; if (!walking) walk.time = standT; P.mixer.update(dt); pin(); arms(); } };
+  return { root: P.root, update(dt, walking) { walk.timeScale = walking ? 0.9 : 0; if (!walking) walk.time = standT; P.mixer.update(dt); pin(); arms(); }, sit: seatMotion(P, walk, standT, pin, arms) };
 }
 
 // The walking clip is the boy's: on the grown-ups its arm tracks leave the arms up in the bind pose. After every update
@@ -310,13 +310,48 @@ function armsDown(P) {
   };
 }
 
+// Sitting down in a car seat, or (k run from 1 to 0) getting up out of it. The standing pose blends bone by bone
+// into the pose of the seated figure (same model, so the bones share names), while the hips are carried from
+// beside the door onto the seat. He turns his back to the seat, lowers himself onto it facing out of the door,
+// then swings his legs in and turns to face the road. At k = 1 he is exactly the seated figure, so the two can be
+// swapped without a jump. `at`: his feet at the door (in the car's frame); side: +1 at a door on the right
+// (he walked in facing -z), -1 on the left; `out`: getting out, so he stays facing away from the car once up.
+function seatMotion(P, walk, standT, pin, arms) {
+  const mine = []; P.scene.traverse(o => { if (o.isBone) mine.push(o); });
+  const sm = x => { x = Math.max(0, Math.min(1, x)); return x * x * (3 - 2 * x); };
+  let srcFor = null, src = [], srcHips = null;
+  const hw = V(), H0 = V(), S = V();
+  return (seated, k, at, side, out = false) => {
+    if (srcFor !== seated) {
+      const by = {}; seated.traverse(o => { if (o.isBone) by[o.name] = o; });
+      src = mine.map(b => by[b.name] || null); srcHips = by[P.hips.name] || null; srcFor = seated;
+    }
+    const root = P.root, host = root.parent;
+    if (!host) return;
+    walk.timeScale = 0; walk.time = standT; P.mixer.update(0); pin(); arms();
+    const a = sm(k / 0.3), b = sm((k - 0.25) / 0.4), c = sm((k - 0.6) / 0.4), m = sm((k - 0.2) / 0.45);
+    root.position.set(0, 0, 0); root.rotation.set(0, 0, 0); root.updateMatrixWorld(true);
+    const hy = host.worldToLocal(P.hips.getWorldPosition(hw)).y - host.worldToLocal(root.getWorldPosition(V())).y;   // standing hip height
+    // knees bend as he turns, the rest of the seated pose comes as he lowers himself
+    const w = 0.3 * a + 0.7 * b;
+    mine.forEach((bn, i) => { const s = src[i]; if (!s) return; bn.quaternion.slerp(s.quaternion, w); if (bn === P.hips) bn.position.lerp(s.position, w); });
+    root.rotation.y = out ? side * (1.5 * Math.PI + 0.5 * Math.PI * c) : side * (0.5 * Math.PI + Math.PI * a + 0.5 * Math.PI * c);
+    root.updateMatrixWorld(true);
+    const off = host.worldToLocal(P.hips.getWorldPosition(hw)).sub(host.worldToLocal(root.getWorldPosition(V())));
+    H0.copy(at); H0.y += hy;
+    if (srcHips) { seated.updateWorldMatrix(true, true); host.worldToLocal(srcHips.getWorldPosition(S)); } else S.copy(seated.position);
+    root.position.copy(H0.lerp(S, m)).sub(off);
+    root.updateMatrixWorld(true);
+  };
+}
+
 // The learner on his feet (his own model with the boy's walking clip): he walks up to the driver's door.
 export function realDriverWalker(driverGltf, kidGltf) {
   const clip = kidGltf.animations[0];
   const P = rigPerson({ scene: driverGltf.scene, animations: [clip] }, { torso: 0.6, seated: false });
   dress(P.scene, { Tops: { tint: 0x26334f }, Bottoms: { tint: 0x2b3446 } });
   const walk = P.actions[clip.name], pin = pinHips(P), standT = standingFrame(P, walk, clip), arms = armsDown(P);
-  return { root: P.root, update(dt, walking) { walk.timeScale = walking ? 0.9 : 0; if (!walking) walk.time = standT; P.mixer.update(dt); pin(); arms(); } };
+  return { root: P.root, update(dt, walking) { walk.timeScale = walking ? 0.9 : 0; if (!walking) walk.time = standT; P.mixer.update(dt); pin(); arms(); }, sit: seatMotion(P, walk, standT, pin, arms) };
 }
 
 // Pedestrian at the crossing: the same Mixamo walker at adult size in a dark jacket and jeans.
