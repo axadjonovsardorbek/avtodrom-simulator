@@ -189,7 +189,7 @@ async function users(v, q = "", offset = 0, acc = []) {
   const out = await api(`/api/admin/users?q=${encodeURIComponent(q)}&offset=${offset}&limit=50`);
   const list = acc.concat(out.items);
   v.innerHTML = `
-    <div class="toolbar"><input type="search" id="q" placeholder="Ism, @username yoki email" value="${esc(q)}"><span class="tag">${out.total} ta</span></div>
+    <div class="toolbar"><input type="search" id="q" placeholder="Ism, @username, email yoki telefon" value="${esc(q)}"><span class="tag">${out.total} ta</span></div>
     <div class="box" style="padding:6px 8px">
       ${list.length ? `<div class="tblwrap"><table><thead><tr><th>Foydalanuvchi</th><th>Kirish</th><th>Ro'yxatdan o'tgan</th><th>Oxirgi faollik</th><th class="num">Urinish</th><th class="num">Eng yaxshi imtihon</th><th></th></tr></thead><tbody>
         ${list.map(({ user: u, attempts, bestExam }) => `<tr class="click" data-u="${u.id}">
@@ -222,6 +222,7 @@ async function openUser(id, changed) {
       <dt>Kirish</dt><dd>${provider(u.provider)}</dd>
       ${u.username ? `<dt>Telegram</dt><dd>@${esc(u.username)}</dd>` : ""}
       ${u.email ? `<dt>Email</dt><dd>${esc(u.email)}</dd>` : ""}
+      ${u.phone ? `<dt>Telefon</dt><dd><a href="tel:${esc(u.phone)}">${esc(u.phone)}</a></dd>` : ""}
       <dt>Ro'yxatdan o'tgan</dt><dd>${when(u.created)}</dd>
       <dt>Oxirgi faollik</dt><dd>${when(u.seen)}</dd>
       <dt>Urinishlar</dt><dd>${attempts.length} ta, ${passed} tasi o'tgan</dd>

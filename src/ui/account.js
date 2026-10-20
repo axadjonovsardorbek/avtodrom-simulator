@@ -1,6 +1,6 @@
 // Accounts in the simulator: the login (Google or Telegram), the user's chip in the menu and the
 // leaderboard. Shown only when the build has a server (src/net/api.js).
-import { apiOn, config, getUser, loginWith, logout, leaderboard, loadScript } from "../net/api.js";
+import { apiOn, config, getUser, loginWith, logout, leaderboard, loadScript, telegramBotLogin } from "../net/api.js";
 import { ELEMENTS } from "../world/tracks.js";
 
 export const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
@@ -9,18 +9,20 @@ export const avatar = (u, cls = "av") => u && u.photo && /^https:\/\//.test(u.ph
   ? `<img class="${cls}" src="${esc(u.photo)}" alt="" referrerpolicy="no-referrer">` : `<span class="${cls}">${initials(u && u.name)}</span>`;
 
 // the login buttons into `el`; onDone(user) after a login
+const TG_ICON = `<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M21.9 4.3 18.8 19c-.2 1-.8 1.3-1.7.8l-4.6-3.4-2.2 2.1c-.3.3-.5.5-1 .5l.3-4.7 8.6-7.8c.4-.3-.1-.5-.6-.2L6.9 13l-4.5-1.4c-1-.3-1-1 .2-1.5L20.6 3c.8-.3 1.6.2 1.3 1.3Z"/></svg>`;
+
 export async function renderLogin(el, onDone) {
   el.innerHTML = `<p class="login-wait">Yuklanmoqda…</p>`;
   const cfg = await config();
   if (!cfg) { el.innerHTML = `<p class="login-err">Server bilan aloqa yo'q. Keyinroq urinib ko'ring.</p>`; return; }
   el.innerHTML = `<div class="login-btns">
       ${cfg.googleClientId ? `<div class="g-btn" id="gBtn"></div>` : ""}
-      ${cfg.telegramBot ? `<div class="tg-btn" id="tgBtn"></div>` : ""}
+      ${cfg.telegramBot ? `<button type="button" class="tg-login" id="tgBtn">${TG_ICON}Telegram orqali kirish</button>` : ""}
       ${cfg.devLogin ? `<form class="dev-login" id="devLogin"><input name="n" placeholder="Ism (sinov uchun)" maxlength="60" required><button class="btn">Kirish</button></form>` : ""}
       ${!cfg.googleClientId && !cfg.telegramBot && !cfg.devLogin ? `<p class="login-err">Kirish hali sozlanmagan.</p>` : ""}
     </div><p class="login-err" id="loginErr" hidden></p>`;
   const err = el.querySelector("#loginErr");
-  const done = p => p.then(u => onDone && onDone(u)).catch(e => { err.hidden = false; err.textContent = e.status === 403 ? "Bu hisob bloklangan." : "Kirib bo'lmadi: " + e.message; });
+  const done = p => p.then(u => onDone && onDone(u)).catch(e => { if (e.quiet) return; err.hidden = false; err.textContent = e.status === 403 ? "Bu hisob bloklangan." : "Kirib bo'lmadi: " + e.message; });
   if (cfg.googleClientId) {
     loadScript("https://accounts.google.com/gsi/client").then(() => {
       const g = window.google && window.google.accounts && window.google.accounts.id;
@@ -29,13 +31,21 @@ export async function renderLogin(el, onDone) {
       const b = el.querySelector("#gBtn"); if (b) g.renderButton(b, { theme: "filled_black", size: "large", shape: "pill", text: "signin_with", locale: "uz", width: 260 });
     }).catch(() => {});
   }
+  // Telegram: the bot confirms the login (the user sends their own number there); this page waits for it
   if (cfg.telegramBot) {
-    window.__avtodromTelegram = u => done(loginWith("telegram", u));
-    const s = document.createElement("script");
-    s.async = true; s.src = "https://telegram.org/js/telegram-widget.js?22";
-    s.setAttribute("data-telegram-login", cfg.telegramBot); s.setAttribute("data-size", "large");
-    s.setAttribute("data-radius", "20"); s.setAttribute("data-request-access", "write"); s.setAttribute("data-onauth", "__avtodromTelegram(user)");
-    el.querySelector("#tgBtn").appendChild(s);
+    const b = el.querySelector("#tgBtn");
+    b.onclick = () => {
+      const tab = window.open("", "_blank");             // opened right away: a window opened after an await is blocked
+      b.disabled = true; err.hidden = true;
+      const wait = document.createElement("div"); wait.className = "tg-wait"; b.after(wait);
+      const reset = () => { b.disabled = false; wait.remove(); };
+      done(telegramBotLogin((link, stop) => {
+        if (tab) tab.location.href = link;
+        wait.innerHTML = `<p>Telegram'da botga <b>Start</b> bosing va <b>raqamingizni yuboring</b>. Shundan keyin bu sahifa o'zi kiradi.</p>
+          <p><a href="${esc(link)}" target="_blank" rel="noopener">Telegram ochilmadimi? Shu yerni bosing</a> · <button type="button" class="linkish">Bekor qilish</button></p>`;
+        wait.querySelector("button").onclick = () => { stop(); reset(); };
+      }).then(u => { reset(); if (!u) throw Object.assign(new Error("bekor qilindi"), { quiet: true }); return u; }, e => { if (tab && !tab.closed && tab.location.href === "about:blank") tab.close(); reset(); throw e; }));
+    };
   }
   const dev = el.querySelector("#devLogin");
   if (dev) dev.onsubmit = e => { e.preventDefault(); done(loginWith("dev", { name: dev.n.value })); };

@@ -266,3 +266,53 @@ func TestAPI(t *testing.T) {
 		t.Fatal("CORS for another site")
 	}
 }
+
+// the bot login: start, the user's own number confirms it (someone else's does not), the poll logs in once
+func TestTelegramBotLogin(t *testing.T) {
+	a := newApp(Config{TelegramToken: "x", TelegramBot: "testbot"}, nil)
+	var said []string
+	a.tgOut = func(_ int64, text string) { said = append(said, text) }
+	rec := httptest.NewRecorder()
+	a.handleTgStart(rec, httptest.NewRequest("POST", "/api/auth/tg-start", nil))
+	var st struct{ Nonce, Link string }
+	json.NewDecoder(rec.Body).Decode(&st)
+	if !nonceRe.MatchString(st.Nonce) || st.Link != "https://t.me/testbot?start="+st.Nonce {
+		t.Fatalf("start: %+v", st)
+	}
+	poll := func() int {
+		rec := httptest.NewRecorder()
+		a.handleTgPoll(rec, httptest.NewRequest("POST", "/api/auth/tg-poll", strings.NewReader(`{"nonce":"`+st.Nonce+`"}`)))
+		return rec.Code
+	}
+	if c := poll(); c != 202 {
+		t.Fatalf("poll before: %d", c)
+	}
+	msg := func(text string, contactOf int64) tgUpdate {
+		var u tgUpdate
+		raw := `{"message":{"from":{"id":42,"first_name":"Ali"},"chat":{"id":42,"type":"private"},"text":` + strconv.Quote(text)
+		if contactOf != 0 {
+			raw += `,"contact":{"phone_number":"998901234567","user_id":` + strconv.FormatInt(contactOf, 10) + `}`
+		}
+		json.Unmarshal([]byte(raw+`}}`), &u)
+		return u
+	}
+	ctx := context.Background()
+	a.tgHandle(ctx, msg("/start "+st.Nonce, 0))
+	a.tgHandle(ctx, msg("", 7)) // someone else's card
+	if c := poll(); c != 202 {
+		t.Fatalf("someone else's number confirmed it: %d", c)
+	}
+	a.tgHandle(ctx, msg("", 42))
+	p := a.tg.pending[st.Nonce]
+	if p == nil || p.id == nil || p.id.PID != "42" || p.id.Phone != "+998901234567" || p.id.Name != "Ali" {
+		t.Fatalf("confirmed identity: %+v", p)
+	}
+	if len(said) != 3 || !strings.Contains(said[1], "o'zingizning") || !strings.Contains(said[2], "Tasdiqlandi") {
+		t.Fatalf("bot said: %q", said)
+	}
+	// a start with an unknown nonce only greets
+	a.tgHandle(ctx, msg("/start deadbeef", 0))
+	if !strings.Contains(said[3], "Salom") {
+		t.Fatalf("unknown start: %q", said[3])
+	}
+}

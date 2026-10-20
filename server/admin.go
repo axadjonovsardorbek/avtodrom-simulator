@@ -131,7 +131,7 @@ func (a *App) handleUsers(w http.ResponseWriter, r *http.Request) {
 		(SELECT count(*) FROM attempts x WHERE x.user_id = u.id),
 		(SELECT min(total) FROM attempts x WHERE x.user_id = u.id AND x.key = 'exam' AND x.passed),
 		count(*) OVER ()
-		FROM users u WHERE $1 = '' OR u.name ILIKE $2 OR u.username ILIKE $2 OR u.email ILIKE $2 OR u.pid = $1
+		FROM users u WHERE $1 = '' OR u.name ILIKE $2 OR u.username ILIKE $2 OR u.email ILIKE $2 OR u.phone ILIKE $2 OR u.pid = $1
 		ORDER BY u.seen DESC LIMIT $3 OFFSET $4`, q, like, limit, offset)
 	if err != nil {
 		serverError(w, r, err)
@@ -143,7 +143,7 @@ func (a *App) handleUsers(w http.ResponseWriter, r *http.Request) {
 		u := &User{}
 		var n int
 		var best *int
-		if err := rows.Scan(&u.ID, &u.Provider, &u.Name, &u.Username, &u.Email, &u.Photo, &u.Created, &u.Seen, &u.Blocked, &u.Admin, &n, &best, &total); err != nil {
+		if err := rows.Scan(&u.ID, &u.Provider, &u.Name, &u.Username, &u.Email, &u.Photo, &u.Created, &u.Seen, &u.Blocked, &u.Admin, &u.Phone, &n, &best, &total); err != nil {
 			serverError(w, r, err)
 			return
 		}

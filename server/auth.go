@@ -23,6 +23,7 @@ import (
 // Identity is who a provider says the person is
 type Identity struct {
 	Provider, PID, Name, Username, Email, Photo string
+	Phone                                       string // from the Telegram bot (the user's own contact)
 }
 
 const maxAuthAge = 24 * time.Hour

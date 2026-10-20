@@ -209,3 +209,11 @@ td.when { color: var(--muted); white-space: nowrap; font-variant-numeric: tabula
   .toolbar .hint { display: none; }
 }
 td:has(> .dot) { white-space: nowrap; }
+
+.tg-login { display: inline-flex; align-items: center; gap: 10px; min-width: 260px; justify-content: center; padding: 11px 18px; border: 0; border-radius: 99px; background: #2aabee; color: #fff; font: inherit; font-weight: 600; cursor: pointer; }
+.tg-login svg { width: 20px; height: 20px; }
+.tg-login:disabled { opacity: .6; cursor: default; }
+.tg-login:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
+.tg-wait { max-width: 320px; text-align: center; font-size: 14px; color: var(--muted); }
+.tg-wait p { margin: 4px 0; }
+.tg-wait a, .tg-wait .linkish { color: #2aabee; background: none; border: 0; font: inherit; cursor: pointer; padding: 0; text-decoration: underline; }

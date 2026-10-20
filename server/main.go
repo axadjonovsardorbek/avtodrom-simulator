@@ -60,6 +60,8 @@ type App struct {
 	db      *DB
 	tz      *time.Location
 	limiter *limiter
+	tg      *tgLogins
+	tgOut   func(chat int64, text string) // tests: catches what the bot would send
 }
 
 func main() {
@@ -81,6 +83,7 @@ func main() {
 		log.Print("WARNING: DEV_LOGIN=1: anyone can log in by name (local testing only)")
 	}
 	app := newApp(cfg, db)
+	go app.runTelegramBot(ctx)
 	srv := &http.Server{Addr: cfg.Addr, Handler: app.routes(), ReadHeaderTimeout: 10 * time.Second, IdleTimeout: 120 * time.Second}
 	go func() {
 		<-ctx.Done()
@@ -99,7 +102,7 @@ func newApp(cfg Config, db *DB) *App {
 	if err != nil {
 		tz = time.FixedZone("UZT", 5*3600)
 	}
-	return &App{cfg: cfg, db: db, tz: tz, limiter: newLimiter(40, time.Minute)}
+	return &App{cfg: cfg, db: db, tz: tz, limiter: newLimiter(40, time.Minute), tg: newTgLogins()}
 }
 
 func (a *App) routes() http.Handler {
@@ -109,6 +112,8 @@ func (a *App) routes() http.Handler {
 	mux.HandleFunc("POST /api/auth/google", a.limited(a.handleGoogle))
 	mux.HandleFunc("POST /api/auth/telegram", a.limited(a.handleTelegram))
 	mux.HandleFunc("POST /api/auth/telegram-webapp", a.limited(a.handleTelegramWebApp))
+	mux.HandleFunc("POST /api/auth/tg-start", a.limited(a.handleTgStart))
+	mux.HandleFunc("POST /api/auth/tg-poll", a.handleTgPoll) // every 2 s while the bot is open; the nonce is unguessable
 	mux.HandleFunc("POST /api/auth/dev", a.limited(a.handleDevLogin))
 	mux.HandleFunc("GET /api/me", a.authed(a.handleMe))
 	mux.HandleFunc("POST /api/logout", a.handleLogout)

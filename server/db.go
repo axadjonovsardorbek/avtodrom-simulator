@@ -49,6 +49,7 @@ CREATE TABLE IF NOT EXISTS attempts (
 CREATE INDEX IF NOT EXISTS attempts_user ON attempts (user_id, at);
 CREATE INDEX IF NOT EXISTS attempts_key ON attempts (key, passed, total, t);
 CREATE INDEX IF NOT EXISTS attempts_at ON attempts (at);
+ALTER TABLE users ADD COLUMN IF NOT EXISTS phone TEXT NOT NULL DEFAULT '';  -- from the Telegram bot login
 CREATE TABLE IF NOT EXISTS settings (k TEXT PRIMARY KEY, v JSONB NOT NULL);
 -- what is played, per day (Tashkent), device and car: runs started and seconds driven; logged in or not
 CREATE TABLE IF NOT EXISTS plays (
@@ -120,13 +121,14 @@ type User struct {
 	Seen     int64  `json:"seen"`
 	Blocked  bool   `json:"blocked"`
 	Admin    bool   `json:"admin"`
+	Phone    string `json:"phone"`
 }
 
-const userCols = "id, provider, name, username, email, photo, created, seen, blocked, admin"
+const userCols = "id, provider, name, username, email, photo, created, seen, blocked, admin, phone"
 
 func scanUser(row pgx.Row) (*User, error) {
 	u := &User{}
-	err := row.Scan(&u.ID, &u.Provider, &u.Name, &u.Username, &u.Email, &u.Photo, &u.Created, &u.Seen, &u.Blocked, &u.Admin)
+	err := row.Scan(&u.ID, &u.Provider, &u.Name, &u.Username, &u.Email, &u.Photo, &u.Created, &u.Seen, &u.Blocked, &u.Admin, &u.Phone)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, nil
 	}

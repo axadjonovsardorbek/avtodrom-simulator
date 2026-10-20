@@ -89,12 +89,13 @@ func (a *App) login(w http.ResponseWriter, r *http.Request, id *Identity) {
 		adminKey = "dev:" + strings.ToLower(id.PID)
 	}
 	makeAdmin := a.cfg.Admins[adminKey] && (id.Provider != "google" || id.Email != "")
-	u, err := scanUser(a.db.QueryRow(ctx, `INSERT INTO users (provider, pid, name, username, email, photo, created, seen, admin)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $7, $8)
+	u, err := scanUser(a.db.QueryRow(ctx, `INSERT INTO users (provider, pid, name, username, email, photo, created, seen, admin, phone)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $7, $8, $9)
 		ON CONFLICT (provider, pid) DO UPDATE SET name = excluded.name, username = excluded.username,
 			email = CASE WHEN excluded.email <> '' THEN excluded.email ELSE users.email END,
-			photo = excluded.photo, seen = excluded.seen, admin = users.admin OR excluded.admin
-		RETURNING `+userCols, id.Provider, id.PID, trim(id.Name, 100), trim(id.Username, 64), trim(id.Email, 200), trim(id.Photo, 500), now, makeAdmin))
+			photo = CASE WHEN excluded.photo <> '' THEN excluded.photo ELSE users.photo END, seen = excluded.seen, admin = users.admin OR excluded.admin,
+			phone = CASE WHEN excluded.phone <> '' THEN excluded.phone ELSE users.phone END
+		RETURNING `+userCols, id.Provider, id.PID, trim(id.Name, 100), trim(id.Username, 64), trim(id.Email, 200), trim(id.Photo, 500), now, makeAdmin, trim(id.Phone, 20)))
 	if err != nil {
 		serverError(w, r, err)
 		return

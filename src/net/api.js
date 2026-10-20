@@ -106,6 +106,26 @@ export async function flushAttempts(extra = []) {
   finally { flushing = false; }
 }
 
+// Telegram through the bot (any address, no /setdomain needed): the server gives a one-time link,
+// the user presses Start in the bot and sends their own number; meanwhile this asks every two
+// seconds until the bot has confirmed it. onLink(link) gets the link to open; stop() gives up.
+export async function telegramBotLogin(onLink) {
+  const s = await api("/api/auth/tg-start", { method: "POST", body: {} });
+  let stopped = false;
+  onLink(s.link, () => { stopped = true; });
+  const end = Date.now() + (s.ttl || 300) * 1000;
+  while (!stopped && Date.now() < end) {
+    await new Promise(r => setTimeout(r, 2000));
+    if (stopped) break;
+    let out;
+    try { out = await api("/api/auth/tg-poll", { method: "POST", body: { nonce: s.nonce } }); }
+    catch (e) { if (e.status === 410) break; if (e.status) throw e; continue; }   // no network for a moment: ask again
+    if (out.token) { setSession(out.token, out.user); return out.user; }
+  }
+  if (stopped) return null;
+  throw new ApiError(410, "vaqt tugadi, qayta urinib ko'ring");
+}
+
 export const myAttempts = () => api("/api/me/attempts").then(o => o.items || []);
 export const leaderboard = key => api("/api/leaderboard?key=" + encodeURIComponent(key || "exam")).then(o => o.items || []);
 
