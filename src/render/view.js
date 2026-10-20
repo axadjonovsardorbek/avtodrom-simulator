@@ -32,6 +32,22 @@ function gradedOutput() {
     }`;
   return p;
 }
+// Phones draw straight to the screen (no full-screen passes: on a phone the render target in half
+// floats with 4x MSAA and the pass that copies it out cost more than the pixels themselves); the
+// same tone mapping and grade then happen in every material's own shader, as a custom tone mapping.
+// The grade works on display colours, as in the pass; only the vignette is left out.
+THREE.ShaderChunk.tonemapping_pars_fragment = THREE.ShaderChunk.tonemapping_pars_fragment.replace(
+  "vec3 CustomToneMapping( vec3 color ) { return color; }", `vec3 CustomToneMapping( vec3 color ) {
+	vec3 c = pow( clamp( ACESFilmicToneMapping( color ), 0.0, 1.0 ), vec3( 1.0 / 2.2 ) );
+	float l = dot( c, vec3( 0.2126, 0.7152, 0.0722 ) );
+	c = mix( vec3( l ), c, ${GRADE.saturation.toFixed(3)} );
+	c = ( c - 0.5 ) * ${GRADE.contrast.toFixed(3)} + 0.5;
+	c += vec3( ${GRADE.warm.toFixed(4)}, ${(GRADE.warm * 0.4).toFixed(4)}, ${(-GRADE.warm).toFixed(4)} );
+	return pow( clamp( c, 0.0, 1.0 ), vec3( 2.2 ) );
+}`);
+const COARSE = matchMedia("(pointer: coarse)").matches;
+// straight to the screen: phones below "high", and the light setting everywhere
+const direct = quality => quality === "low" || (COARSE && quality !== "high");
 import { buildCar } from "./carModel.js";
 const MIRRORS = [
   { key: "center", pos: [1.62, 1.33, 0], yaw: 0, fov: 34, w: 640, h: 180 },
@@ -40,8 +56,9 @@ const MIRRORS = [
 ];
 
 // per quality tier: highest render scale, mirror texture scale, shadow map size, MSAA samples, bloom
-// phones: their pixels are tiny, 1.5 looks the same as 1.75 with a quarter fewer pixels to draw
-const MAXRATIO = matchMedia("(pointer: coarse)").matches ? { low: 1.25, mid: 1.5, high: 1.75 } : { low: 1.25, mid: 1.75, high: 1.75 };
+// phones: with no full-screen passes there is room for more pixels, and small text and the far road
+// lines stay sharp (the frame-time watch below still lowers it on a device that cannot keep up)
+const MAXRATIO = COARSE ? { low: 1.5, mid: 1.75, high: 2 } : { low: 1.25, mid: 1.75, high: 1.75 };
 const TIER = { low: { mirror: 0.5, shadow: 1024, aa: 0, bloom: false }, mid: { mirror: 0.65, shadow: 1024, aa: 4, bloom: false }, high: { mirror: 1, shadow: 2048, aa: 4, bloom: true } };
 
 export class View {
@@ -260,6 +277,8 @@ export class View {
     this.buildGuides(W);
     this.scene.add(group);
     this.renderer.shadowMap.enabled = quality !== "low";
+    // soft shadow edges take 4x the shadow lookups: phones below "high" keep the plain filtered ones
+    this.renderer.shadowMap.type = COARSE && quality !== "high" ? THREE.PCFShadowMap : THREE.PCFSoftShadowMap;
     this.quality = quality;
     // lighter mirrors and shadows on the light setting
     const T = TIER[quality] || TIER.high;
@@ -676,7 +695,7 @@ export class View {
 
   // a composer with the same bloom and grade for another scene (the garage)
   composerFor(scene, cam) {
-    if (this.quality === "low") return null;
+    if (direct(this.quality)) return null;
     const T = TIER[this.quality] || TIER.high, size = this.renderer.getDrawingBufferSize(new THREE.Vector2());
     const c = new EffectComposer(this.renderer, new THREE.WebGLRenderTarget(size.x || 2, size.y || 2, { type: THREE.HalfFloatType, samples: T.aa }));
     c.addPass(new RenderPass(scene, cam));
@@ -690,7 +709,8 @@ export class View {
   // MSAA on the composer's target (the renderer's own antialias does not reach it); bloom on high only
   setupPost(quality) {
     const T = TIER[quality] || TIER.high;
-    if (quality === "low") { this.composer = null; return; }
+    this.renderer.toneMapping = direct(quality) ? THREE.CustomToneMapping : THREE.ACESFilmicToneMapping;
+    if (direct(quality)) { this.composer = null; this.bloom = null; return; }
     if (this.composer) return;
     const size = this.renderer.getDrawingBufferSize(new THREE.Vector2());
     const target = new THREE.WebGLRenderTarget(size.x || 2, size.y || 2, { type: THREE.HalfFloatType, samples: T.aa });
