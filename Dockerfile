@@ -13,7 +13,8 @@ COPY tools tools
 # "/": the API is on the same address as the site
 # hashed file names: the offline cache (sw.js) keeps assets/ forever, so a new build needs new names
 ENV VITE_API_URL=/ HASHED=1
-RUN npm run build
+# readable by the server whatever the files' modes were on the build machine
+RUN npm run build && chmod -R a+rX dist
 
 # 2. The server
 FROM golang:1.22-alpine AS api
