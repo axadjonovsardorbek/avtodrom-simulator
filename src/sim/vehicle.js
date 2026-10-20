@@ -121,13 +121,30 @@ export class Vehicle {
     // terrain under the four wheels: the car rests on them (pitch along, roll across)
     const c = Math.cos(this.th), n = Math.sin(this.th), t2 = s.track / 2;
     const at = (a, b) => heightAt(this.x + c * a - n * b, this.y + n * a + c * b);
-    const hRL = at(0, -t2), hRR = at(0, t2), hFL = at(s.wb, -t2), hFR = at(s.wb, t2);
+    // each tyre rolls up a step (a kerb) over a short distance instead of jumping onto it, and drops off it
+    // under gravity: the car tips over the kerb as a real one does, not in one frame
+    const wantH = [at(0, -t2), at(0, t2), at(s.wb, -t2), at(s.wb, t2)];
+    if (!this.wh) { this.wh = wantH.slice(); this.whV = [0, 0, 0, 0]; }
+    const up = Math.max(Math.abs(this.v), 0.4) * 1.4 * dt;
+    for (let i = 0; i < 4; i++) {
+      const d = wantH[i] - this.wh[i];
+      if (d >= 0) { this.wh[i] += Math.min(d, up + 0.002); this.whV[i] = 0; }
+      else { this.whV[i] = Math.min(this.whV[i] + G * dt, 3); this.wh[i] = Math.max(wantH[i], this.wh[i] - Math.max(this.whV[i] * dt, up)); }
+    }
+    const [hRL, hRR, hFL, hFR] = this.wh;
+    const gp0 = this.pitch, gr0 = this.groundRoll ?? 0;
     const hR = (hRL + hRR) / 2, hF = (hFL + hFR) / 2;
     this.h = hR;                                     // rear axle centre: the model's origin
     this.pitch = Math.atan2(hF - hR, s.wb);
     // left side higher -> roof leans right (+); a wheel off the overpass edge tips the car
     this.groundRoll = clamp(Math.atan2((hRL + hFL) / 2 - (hRR + hFR) / 2, s.track), -0.6, 0.6);
     this.grade = Math.sin(this.pitch);
+    // the body does not follow a sudden tip of the wheels at once: it lags on its springs and then rocks back
+    if (dt > 0 && this.started_) {
+      this.pitchV -= clamp((this.pitch - gp0) / dt * 0.35, -1, 1);
+      this.rollV -= clamp((this.groundRoll - gr0) / dt * 0.35, -1, 1);
+    }
+    this.started_ = true;
     const Fload = s.mass * G * this.grade + s.aero * s.mass * this.v * Math.abs(this.v);
 
     let a;
@@ -156,8 +173,13 @@ export class Vehicle {
     const W2 = 62, C = 6.3;                         // about 1.25 Hz, damping ratio 0.4
     this.pitchV += (W2 * (tPitch - this.bodyPitch) - C * this.pitchV) * dt;
     this.rollV += (W2 * (tRoll - this.bodyRoll) - C * this.rollV) * dt;
-    this.bodyPitch = clamp(this.bodyPitch + this.pitchV * dt, -0.035, 0.03);
-    this.bodyRoll = clamp(this.bodyRoll + this.rollV * dt, -0.045, 0.045);
+    this.bodyPitch = clamp(this.bodyPitch + this.pitchV * dt, -0.07, 0.06);
+    this.bodyRoll = clamp(this.bodyRoll + this.rollV * dt, -0.07, 0.07);
+  }
+
+  // a knock on the body (a crash, a kerb): rad/s added to its pitch and roll on the springs
+  jolt(pitch, roll) {
+    this.pitchV += clamp(pitch, -0.8, 0.8); this.rollV += clamp(roll, -0.8, 0.8);
   }
 
   manualStep(dt, Fload) {

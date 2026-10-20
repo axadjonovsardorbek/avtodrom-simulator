@@ -175,7 +175,11 @@ export class Session {
       const p = T.worldPose(c), dx = this.car.x - p.x, dy = this.car.y - p.y, d = Math.hypot(dx, dy) || 1;
       this.car.x += dx / d * 0.04; this.car.y += dy / d * 0.04;
       const closing = Math.abs(this.car.v);
-      if (closing > 0.3) { this.car.v *= -0.1; this.emit("bump", { strength: Math.min(1, closing / 8), what: "car" }); }
+      if (closing > 0.3) {
+        const lx = (-dx * Math.cos(this.car.th) - dy * Math.sin(this.car.th)) / d, ly = (dx * Math.sin(this.car.th) - dy * Math.cos(this.car.th)) / d;   // towards the other car, in the car's frame
+        this.car.jolt(-lx * closing * 0.09, ly * closing * 0.09);
+        this.car.v *= -0.1; this.emit("bump", { strength: Math.min(1, closing / 8), what: "car" });
+      }
       if (!c.hit) { c.hit = true; this.pen("crash"); }
     }
   }
@@ -225,7 +229,13 @@ export class Session {
       } else if (ln.touch && this.clock - ln.lastT > 0.3) ln.touch = false;
     });
     this.prevTyres = P;
-    for (const c of W.cones) if (!c.hit && polyNearPoint(car.corners(), [c.x, c.y], 0.22)) { c.hit = true; this.pen("crash"); }
+    for (const c of W.cones) if (!c.hit && polyNearPoint(car.corners(), [c.x, c.y], 0.22)) {
+      // knocked over: it is thrown along the car's way and away from its middle (src/render/worldMesh.js)
+      const v = Math.abs(car.v) + 0.6, ox = c.x - car.x - Math.cos(car.th) * car.spec.wb / 2, oy = c.y - car.y - Math.sin(car.th) * car.spec.wb / 2, od = Math.hypot(ox, oy) || 1;
+      c.hit = true; c.push = [Math.sign(car.v || 1) * Math.cos(car.th) * v * 1.1 + ox / od * 0.8, Math.sign(car.v || 1) * Math.sin(car.th) * v * 1.1 + oy / od * 0.8];
+      this.emit("bump", { strength: 0.1, what: "cone" });
+      this.pen("crash");
+    }
   }
 
   activate(task) {

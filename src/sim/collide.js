@@ -40,10 +40,12 @@ export function collideCar(car, solids, grid) {
           car.v -= (1.15) * vn * along;                                        // lose the normal part, bounce a little
           const rx = px - (F + R) / 2, torque = -rx * nly + py * nlx;          // which way the contact point turns the car
           car.th += Math.sign(torque) * Math.min(0.06, vn * 0.012);
+          if (car.jolt) car.jolt(-nlx * vn * 0.09, nly * vn * 0.09);              // the nose dips into a head-on hit, the roof leans into a side one
           if (!worst || vn > worst.speed) worst = { index: i, speed: vn };
         } else if (vn < 0 && car.v < 0) {                                      // reversing into it
           const vb = -vn;
           car.v += 1.15 * vb * Math.abs(along);
+          if (car.jolt) car.jolt(-nlx * vb * 0.09, nly * vb * 0.09);
           if (!worst || vb > worst.speed) worst = { index: i, speed: vb };
         }
       }

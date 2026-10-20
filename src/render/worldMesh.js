@@ -766,7 +766,23 @@ export function updateWorldMeshes(W, dyn, clock, now) {
   }
   // flags flutter
   if (dyn.flags) for (const f of dyn.flags) { const p = f.geometry.attributes.position; for (let i = 0; i < p.count; i++) { const x = p.getX(i); p.setZ(i, Math.sin(x * 2.2 - now / 260) * 0.12 * (x / 2.4)); } p.needsUpdate = true; }
-  for (const { c, m } of dyn.cones) if (c.hit && m.rotation.z === 0) { m.rotation.z = 1.4; m.position.y = 0.15; }
+  // a knocked cone tips over the way it was pushed, slides on and rolls a little until it lies still
+  const cdt = Math.min(0.1, Math.max(0, clock - (dyn.coneClock ?? clock))); dyn.coneClock = clock;
+  for (const k of dyn.cones) {
+    const { c, m } = k;
+    if (!c.hit) { if (k.f) { k.f = null; m.position.set(c.x, 0.275, c.y); m.quaternion.identity(); } continue; }
+    if (!k.f) {
+      const [vx, vy] = c.push || [1, 0], sp = Math.hypot(vx, vy) || 1;
+      k.f = { x: c.x, y: c.y, vx, vy, a: 0, av: 3 + sp * 1.5, axis: new THREE.Vector3(vy / sp, 0, -vx / sp), spin: 0, sv: (Math.random() - 0.5) * sp * 2 };
+    }
+    const f = k.f, sp = Math.hypot(f.vx, f.vy);
+    if (sp > 0.01) { const k2 = Math.max(0, sp - 5 * cdt) / sp; f.vx *= k2; f.vy *= k2; f.x += f.vx * cdt; f.y += f.vy * cdt; }
+    const lie = Math.PI / 2 - 0.3;                                    // on its side, resting on the rim and the tip
+    if (f.a < lie) { f.av += 18 * Math.sin(f.a + 0.3) * cdt; f.a = Math.min(lie, f.a + f.av * cdt); }
+    f.sv *= Math.max(0, 1 - 2 * cdt); f.spin += f.sv * cdt;
+    m.quaternion.setFromAxisAngle(f.axis, f.a).premultiply(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), f.spin));
+    m.position.set(f.x, 0.275 * Math.cos(f.a) + 0.17 * Math.sin(f.a) * 0.85, f.y);
+  }
   // a touched line glows red only around the contact (about 6 m), not along its whole length
   for (const L of dyn.lines) {
     const { ln } = L, hot = clock - ln.flash < 0.8 && ln.hit;
