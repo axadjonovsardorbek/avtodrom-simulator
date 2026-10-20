@@ -108,3 +108,32 @@ export async function flushAttempts(extra = []) {
 
 export const myAttempts = () => api("/api/me/attempts").then(o => o.items || []);
 export const leaderboard = key => api("/api/leaderboard?key=" + encodeURIComponent(key || "exam")).then(o => o.items || []);
+
+// What is played, for the admin's analytics (no login needed): per car the runs started and the
+// seconds driven, and what the adverts were seen for (render/screenAd.js), sent once a minute and
+// when the page is hidden. A random id kept in the browser tells one device from another.
+const DEVICE = "avtodrom.device";
+function deviceId() {
+  let d = store.get(DEVICE);
+  if (!d || !/^[a-z0-9]{8,40}$/.test(d)) { d = Array.from(crypto.getRandomValues(new Uint8Array(12)), b => b.toString(16).padStart(2, "0")).join(""); store.set(DEVICE, d); }
+  return d;
+}
+const plays = new Map();
+const playOf = car => { let p = plays.get(car); if (!p) plays.set(car, p = { car, runs: 0, secs: 0 }); return p; };
+export function countRun(car) { if (apiOn && car) playOf(car).runs++; }
+export function countDrive(car, dt) { if (apiOn && car) playOf(car).secs += dt; }
+let adViews = () => [];
+export function trackAdsFrom(fn) { adViews = fn; }
+export function flushTrack() {
+  if (!apiOn) return;
+  const list = [...plays.values()].filter(p => p.runs || p.secs >= 1).map(p => ({ car: p.car, runs: p.runs, secs: Math.round(p.secs) }));
+  for (const p of list) plays.delete(p.car);
+  const ads = adViews();
+  if (!list.length && !ads.length) return;
+  const body = JSON.stringify({ device: deviceId(), plays: list, ads });
+  fetch(BASE + "/api/track", { method: "POST", keepalive: true, headers: { "Content-Type": "application/json", ...authHeader() }, body }).catch(() => {});
+}
+if (apiOn && typeof window !== "undefined") {
+  setInterval(flushTrack, 60000);
+  document.addEventListener("visibilitychange", () => { if (document.visibilityState === "hidden") flushTrack(); });
+}

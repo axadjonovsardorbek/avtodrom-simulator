@@ -11,9 +11,10 @@ import { Hud } from "./ui/hud.js";
 import { carById } from "./cars/index.js";
 import { loadCarModel, loadTrafficModel } from "./render/carLoader.js";
 import { dressCobalt, addPaint } from "./render/carDress.js";
-import { addScreenAd, setAdSource } from "./render/screenAd.js";
+import { addScreenAd, setAdSource, watchAds, takeAdViews } from "./render/screenAd.js";
 import { gripFor } from "./render/atmosphere.js";
-import { apiOn, config, refreshMe, telegramMiniAppLogin, sendAttempt, flushAttempts, myAttempts } from "./net/api.js";
+import { apiOn, config, refreshMe, telegramMiniAppLogin, sendAttempt, flushAttempts, myAttempts, countRun, countDrive, trackAdsFrom } from "./net/api.js";
+trackAdsFrom(takeAdViews);
 import { addPlates, DEFAULT_PLATE } from "./render/plates.js";
 import PHRASES from "./audio/phrases.json";
 import { Instructor, lineIds } from "./instructor/instructor.js";
@@ -141,6 +142,7 @@ function start(m, el) {
   tutorial = m === "learn" ? new Tutorial(settings.transmission) : null;
   if (!tutorial) hud.showTutor(null);
   session = new Session(W, { mode: m === "learn" ? "training" : m, transmission: settings.transmission, spec: carById(settings.car).spec }); session.car.grip = gripFor(settings.weather);
+  countRun(settings.car);
   view.setZonesVisible(m !== "exam");            // the 1 m stop zones are a training aid only
   view.setWorld(W, settings.quality);
   view.setMode(settings.camera || "cockpit");
@@ -391,7 +393,7 @@ const modelVariant = () => settings.quality === "high" ? "" : "-mid";
 function prepareCar(car, onProgress) {
   return loadCarModel(car.model.replace(/\.glb$/, modelVariant() + ".glb"), onProgress).then(cv => {
     if (car.id === "cobalt") dressCobalt(cv); else addPaint(cv);
-    addScreenAd(cv, car.screen);
+    addScreenAd(cv, car.screen, car.id);
     // the Cobalt file has no plates of its own: put them on the plate holders
     addPlates(cv, settings.plate, car.id === "cobalt" ? [{ pos: [3.582, 0.45, 0], back: false }, { pos: [-0.882, 0.47, 0], back: true }] : undefined);
     if (cv.setPaint) cv.setPaint(settings.color);
@@ -595,7 +597,10 @@ function frame(now) {
       if (prevCar !== c) { prevCar = c; prevPose = {}; for (const k of POSE) prevPose[k] = c[k] || 0; }
       while (acc >= H && n < 60) { for (const k of POSE) prevPose[k] = c[k] || 0; session.step(H); acc -= H; n++; }
       rec.sample(session);
+      countDrive(settings.car, dt);
     } else { acc = 0; prevCar = null; }
+    // what the adverts on this car were seen for: the screen from the driver's seat, the rear window from outside
+    if (!replay) watchAds(view.carView, settings.car, dt, { screen: view.mode === "cockpit", rear: view.mode !== "cockpit" });
     // after the end (past the finish line) the car does not freeze: it rolls on, engine off, and comes to rest
     if (ended && !replay && !paused && session.car.v) {
       const c = session.car, v = Math.sign(c.v) * Math.max(0, Math.abs(c.v) - 3 * dt);

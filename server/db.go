@@ -50,6 +50,27 @@ CREATE INDEX IF NOT EXISTS attempts_user ON attempts (user_id, at);
 CREATE INDEX IF NOT EXISTS attempts_key ON attempts (key, passed, total, t);
 CREATE INDEX IF NOT EXISTS attempts_at ON attempts (at);
 CREATE TABLE IF NOT EXISTS settings (k TEXT PRIMARY KEY, v JSONB NOT NULL);
+-- what is played, per day (Tashkent), device and car: runs started and seconds driven; logged in or not
+CREATE TABLE IF NOT EXISTS plays (
+  day DATE NOT NULL,
+  device TEXT NOT NULL,                  -- a random id the browser keeps
+  car TEXT NOT NULL,
+  user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  runs INTEGER NOT NULL DEFAULT 0,
+  secs INTEGER NOT NULL DEFAULT 0,
+  PRIMARY KEY (day, device, car)
+);
+-- how often and how long each advert was in sight, per day, car, place and device
+CREATE TABLE IF NOT EXISTS ad_views (
+  day DATE NOT NULL,
+  ad TEXT NOT NULL,
+  car TEXT NOT NULL,
+  place TEXT NOT NULL,
+  device TEXT NOT NULL,
+  views INTEGER NOT NULL DEFAULT 0,
+  secs INTEGER NOT NULL DEFAULT 0,
+  PRIMARY KEY (day, ad, car, place, device)
+);
 `
 
 type DB struct{ *pgxpool.Pool }

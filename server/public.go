@@ -17,6 +17,31 @@ type Ad struct {
 	Sec  int    `json:"sec"`  // a picture's time on the screen
 	On   bool   `json:"on"`
 	Size int64  `json:"size"`
+	// where it shows: "screen" (the centre-stack screen; also when empty) or "rear" (the rear window)
+	Place string `json:"place,omitempty"`
+	// the cars it shows on; empty: every car
+	Cars []string `json:"cars,omitempty"`
+}
+
+func placeOf(p string) string {
+	if p == "rear" {
+		return "rear"
+	}
+	return "screen"
+}
+
+var carRe = regexp.MustCompile(`^[a-z0-9-]{1,40}$`)
+
+// cleanCars keeps the well-formed car ids, each once
+func cleanCars(in []string) []string {
+	out, seen := []string{}, map[string]bool{}
+	for _, c := range in {
+		if carRe.MatchString(c) && !seen[c] && len(out) < 40 {
+			seen[c] = true
+			out = append(out, c)
+		}
+	}
+	return out
 }
 
 type CarSettings struct {
@@ -37,7 +62,7 @@ func (a *App) handleConfig(w http.ResponseWriter, r *http.Request) {
 		base := a.publicURL(r)
 		for _, ad := range ads {
 			if ad.On {
-				items = append(items, map[string]any{"src": base + "/uploads/ads/" + ad.File, "sec": ad.Sec})
+				items = append(items, map[string]any{"id": ad.ID, "src": base + "/uploads/ads/" + ad.File, "sec": ad.Sec, "place": placeOf(ad.Place), "cars": cleanCars(ad.Cars)})
 			}
 		}
 		out["ads"] = items

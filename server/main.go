@@ -114,6 +114,7 @@ func (a *App) routes() http.Handler {
 	mux.HandleFunc("POST /api/logout", a.handleLogout)
 	mux.HandleFunc("GET /api/me/attempts", a.authed(a.handleMyAttempts))
 	mux.HandleFunc("POST /api/attempts", a.limited(a.authed(a.handlePostAttempts)))
+	mux.HandleFunc("POST /api/track", a.limited(a.handleTrack))
 	mux.HandleFunc("GET /api/leaderboard", a.handleLeaderboard)
 	// admin
 	mux.HandleFunc("GET /api/admin/stats", a.admin(a.handleStats))
@@ -122,6 +123,7 @@ func (a *App) routes() http.Handler {
 	mux.HandleFunc("PATCH /api/admin/users/{id}", a.admin(a.handlePatchUser))
 	mux.HandleFunc("DELETE /api/admin/users/{id}", a.admin(a.handleDeleteUser))
 	mux.HandleFunc("GET /api/admin/attempts", a.admin(a.handleAttempts))
+	mux.HandleFunc("GET /api/admin/analytics", a.admin(a.handleAnalytics))
 	mux.HandleFunc("GET /api/admin/ads", a.admin(a.handleGetAds))
 	mux.HandleFunc("PUT /api/admin/ads", a.admin(a.handlePutAds))
 	mux.HandleFunc("POST /api/admin/ads", a.admin(a.handleUploadAd))

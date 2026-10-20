@@ -284,7 +284,7 @@ func (a *App) adsOut(r *http.Request, ads []Ad) map[string]any {
 	base := a.publicURL(r)
 	items := []map[string]any{}
 	for _, ad := range ads {
-		items = append(items, map[string]any{"id": ad.ID, "name": ad.Name, "sec": ad.Sec, "on": ad.On, "size": ad.Size, "url": base + "/uploads/ads/" + ad.File, "video": isVideo(ad.File)})
+		items = append(items, map[string]any{"id": ad.ID, "name": ad.Name, "sec": ad.Sec, "on": ad.On, "size": ad.Size, "url": base + "/uploads/ads/" + ad.File, "video": isVideo(ad.File), "place": placeOf(ad.Place), "cars": cleanCars(ad.Cars)})
 	}
 	var set []Ad
 	isSet, _ := a.db.getSetting(r.Context(), "ads", &set)
@@ -300,13 +300,15 @@ func (a *App) handleGetAds(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, 200, a.adsOut(r, ads))
 }
 
-// PUT /api/admin/ads: { items: [{ id, sec, on }] } in the order they are shown
+// PUT /api/admin/ads: { items: [{ id, sec, on, place, cars }] } in the order they are shown
 func (a *App) handlePutAds(w http.ResponseWriter, r *http.Request) {
 	var body struct {
 		Items []struct {
-			ID  string `json:"id"`
-			Sec int    `json:"sec"`
-			On  bool   `json:"on"`
+			ID    string   `json:"id"`
+			Sec   int      `json:"sec"`
+			On    bool     `json:"on"`
+			Place string   `json:"place"`
+			Cars  []string `json:"cars"`
 		}
 	}
 	if !readJSON(w, r, &body) {
@@ -330,6 +332,8 @@ func (a *App) handlePutAds(w http.ResponseWriter, r *http.Request) {
 		delete(byID, it.ID)
 		ad.Sec = min(max(it.Sec, 2), 600)
 		ad.On = it.On
+		ad.Place = placeOf(it.Place)
+		ad.Cars = cleanCars(it.Cars)
 		out = append(out, ad)
 	}
 	for _, ad := range ads { // anything the list left out stays, at the end

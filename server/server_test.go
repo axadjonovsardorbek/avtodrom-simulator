@@ -97,7 +97,7 @@ func TestAPI(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer db.Close()
-	db.Exec(ctx, "TRUNCATE users, sessions, attempts, settings RESTART IDENTITY CASCADE")
+	db.Exec(ctx, "TRUNCATE users, sessions, attempts, settings, plays, ad_views RESTART IDENTITY CASCADE")
 	cfg := Config{DevLogin: true, UploadDir: t.TempDir(), Admins: map[string]bool{"dev:boss": true}, Origins: []string{"https://site.example"}, TelegramToken: bot}
 	os.MkdirAll(cfg.UploadDir+"/ads", 0o755)
 	srv := httptest.NewServer(newApp(cfg, db).routes())
@@ -213,6 +213,34 @@ func TestAPI(t *testing.T) {
 		t.Fatalf("uploaded file: %d", res.StatusCode)
 	}
 	res.Body.Close()
+	// on the rear window of the Cobalt only
+	call("PUT", "/api/admin/ads", boss, map[string]any{"items": []map[string]any{{"id": id, "sec": 9, "on": true, "place": "rear", "cars": []string{"cobalt", "cobalt", "BAD!"}}}}, 200)
+	if it := call("GET", "/api/config", "", nil, 200)["ads"].([]any)[0].(map[string]any); it["place"] != "rear" || len(it["cars"].([]any)) != 1 || it["id"] != id {
+		t.Fatalf("ad place and cars: %v", it)
+	}
+	// what is played and seen: twice from one device (added up), once from another, logged in
+	track := func(token, device string, runs, secs int) {
+		call("POST", "/api/track", token, map[string]any{"device": device, "plays": []map[string]any{{"car": "cobalt", "runs": runs, "secs": secs}, {"car": "matiz", "runs": 1, "secs": 30}},
+			"ads": []map[string]any{{"id": id, "car": "cobalt", "place": "rear", "views": 2, "secs": 40}}}, 204)
+	}
+	track("", "dev0000aaaa", 1, 100)
+	track("", "dev0000aaaa", 0, 50)
+	track(boss, "dev0000bbbb", 2, 200)
+	call("POST", "/api/track", "", map[string]any{"device": "x"}, 400)
+	an := call("GET", "/api/admin/analytics?days=7", boss, nil, 200)
+	if tt := an["totals"].(map[string]any); tt["devices"].(float64) != 2 || tt["runs"].(float64) != 6 || tt["secs"].(float64) != 440 || tt["adViews"].(float64) != 6 {
+		t.Fatalf("analytics totals: %v", tt)
+	}
+	if c := an["cars"].([]any)[0].(map[string]any); c["car"] != "cobalt" || c["secs"].(float64) != 350 || c["devices"].(float64) != 2 || c["users"].(float64) != 1 {
+		t.Fatalf("analytics cars: %v", an["cars"])
+	}
+	if ad := an["ads"].([]any)[0].(map[string]any); ad["secs"].(float64) != 120 || ad["devices"].(float64) != 2 {
+		t.Fatalf("analytics ads: %v", an["ads"])
+	}
+	if ps := an["players"].([]any); len(ps) != 1 || ps[0].(map[string]any)["name"] != "Boss" || len(ps[0].(map[string]any)["cars"].([]any)) != 2 {
+		t.Fatalf("analytics players: %v", an["players"])
+	}
+	call("GET", "/api/admin/analytics", "", nil, 401)
 	call("PUT", "/api/admin/ads", boss, map[string]any{"items": []map[string]any{{"id": id, "sec": 12, "on": false}}}, 200)
 	if items := call("GET", "/api/config", "", nil, 200)["ads"].([]any); len(items) != 0 {
 		t.Fatalf("a switched-off ad is shown: %v", items)

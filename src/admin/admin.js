@@ -1,5 +1,6 @@
-// The admin panel (admin.html): the numbers at a glance, users, results, the leaderboard, the
-// advertising on the cars' screens and the cars the simulator offers. Talks to the server (server/).
+// The admin panel (admin.html): the numbers at a glance, the analytics (cars, adverts, players),
+// users, results, the leaderboard, the advertising on the cars (screen, rear window; per car) and
+// the cars the simulator offers. Talks to the server (server/).
 import "./admin.css";
 import { apiOn, apiBase, api, getUser, logout, refreshMe, leaderboard, authHeader } from "../net/api.js";
 import { renderLogin, esc, avatar, keyName } from "../ui/account.js";
@@ -16,6 +17,14 @@ const mmss = t => `${Math.floor(t / 60)}:${pad(t % 60)}`;
 const size = b => b > 1 << 20 ? (b / (1 << 20)).toFixed(1) + " MB" : Math.max(1, Math.round(b / 1024)) + " KB";
 const provider = p => ({ google: "Google", telegram: "Telegram", dev: "Sinov" })[p] || p;
 const pct = (a, b) => b ? Math.round(a / b * 100) + "%" : "—";
+const PLACES = [["screen", "Ekran"], ["rear", "Orqa oyna"]];
+const shortCar = id => { const c = ALL_CARS.find(c => c.id === id); return c ? c.name.replace(/^(Chevrolet|Daewoo) /, "") : id || "—"; };
+// a duration in hours and minutes (or minutes and seconds when short)
+const dur = s => s >= 3600 ? `${Math.floor(s / 3600)} soat ${Math.round(s % 3600 / 60)} daq` : s >= 60 ? `${Math.round(s / 60)} daq` : `${s} s`;
+const num = n => Number(n || 0).toLocaleString("ru-RU");
+// one colour per car, the same everywhere in the panel
+const CAR_COLORS = ["#f2b632", "#2f6fd6", "#3ddc84", "#ff5a3c", "#b07cff", "#2ec4d6", "#e879b9", "#9aa2ac"];
+const carColor = id => { const i = ALL_CARS.findIndex(c => c.id === id); return CAR_COLORS[i < 0 ? CAR_COLORS.length - 1 : i % CAR_COLORS.length]; };
 
 function toast(msg, kind = "") {
   const t = document.createElement("div"); t.className = "toast " + kind; t.textContent = msg; document.body.appendChild(t);
@@ -49,6 +58,7 @@ function gate(html) {
 
 const NAV = [
   ["home", "Umumiy", '<path d="M3 12 12 4l9 8"/><path d="M5 10v10h14V10"/>'],
+  ["analytics", "Analitika", '<path d="M3 3v18h18"/><path d="m7 15 4-5 3 3 5-7"/>'],
   ["users", "Foydalanuvchilar", '<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0"/><path d="M16 4.5a3.5 3.5 0 0 1 0 7M18 14a6 6 0 0 1 3.5 6"/>'],
   ["results", "Natijalar", '<path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/>'],
   ["rating", "Reyting", '<path d="M8 21h8M12 17v4M7 4h10v5a5 5 0 0 1-10 0z"/><path d="M17 5h3v2a3 3 0 0 1-3 3M7 5H4v2a3 3 0 0 0 3 3"/>'],
@@ -84,7 +94,7 @@ function go(id) {
   VIEWS[id](v).catch(e => { if (current === id) v.innerHTML = `<p class="empty">${esc(e.message)}</p>`; if (e.status === 401 || e.status === 403) start(); });
 }
 
-const VIEWS = { home, users, results, rating, ads, cars };
+const VIEWS = { home, analytics, users, results, rating, ads, cars };
 
 // ---- the numbers at a glance
 
@@ -113,6 +123,64 @@ async function home(v) {
           ${s.mistakes.map(m => `<tr><td>${esc(m.n)}. ${esc(m.text)}</td><td class="num">${m.count}×</td><td><div class="mbar"><i style="width:${m.pts / mmax * 100}%"></i><b>${m.pts}</b></div></td></tr>`).join("")}</tbody></table></div>` : `<p class="empty">Xato qayd etilmagan.</p>`}
       </div>
     </div>`;
+}
+
+// ---- analytics: the cars, the adverts, the players
+
+async function analytics(v, days = 30) {
+  const s = await api("/api/admin/analytics?days=" + days);
+  const T = s.totals, cars = s.cars, maxSecs = Math.max(1, ...cars.map(c => c.secs));
+  const dayMax = Math.max(1, ...s.daily.map(d => Object.values(d.cars).reduce((n, c) => n + c.runs, 0)));
+  const seen = [...new Set(s.daily.flatMap(d => Object.keys(d.cars)))];
+  const spreadMax = Math.max(1, ...s.spread.map(x => x.devices));
+  const step = s.daily.length > 31 ? 7 : s.daily.length > 14 ? 3 : 1;
+  v.innerHTML = `
+    <div class="toolbar"><div class="seg" id="period">${[[7, "7 kun"], [30, "30 kun"], [90, "90 kun"]].map(([d, t]) => `<button type="button" data-d="${d}" class="${d === days ? "on" : ""}">${t}</button>`).join("")}</div>
+      <span class="hint" style="margin:0">Kirmagan o'yinchilar ham hisoblanadi (har bir qurilma alohida).</span></div>
+    <div class="cards">
+      <div class="card"><small>O'yinchilar</small><b>${num(T.devices)}</b><span>qurilma · ${num(T.users)} tasi hisob bilan</span></div>
+      <div class="card"><small>Haydash</small><b>${num(T.runs)}</b><span>marta boshlangan</span></div>
+      <div class="card"><small>Haydash vaqti</small><b>${dur(T.secs)}</b><span>${T.devices ? "o'rtacha " + dur(Math.round(T.secs / T.devices)) + " bir o'yinchiga" : "—"}</span></div>
+      <div class="card"><small>Reklama ko'rinishi</small><b>${num(T.adViews)}</b><span>${dur(T.adSecs)} ko'z oldida</span></div>
+    </div>
+    <div class="box"><h2>Mashinalar <small>${days} kun</small></h2>
+      ${cars.length ? `<div class="tblwrap"><table><thead><tr><th>Mashina</th><th>Haydash vaqti</th><th class="num">Boshlangan</th><th class="num">O'yinchi</th><th class="num">Hisob bilan</th><th class="num">Urinish</th><th class="num">O'tgan</th><th class="num">O'rtacha ball</th><th class="num">Reklama</th></tr></thead><tbody>
+        ${cars.map(c => `<tr><td><span class="dot" style="background:${carColor(c.car)}"></span>${esc(shortCar(c.car))}</td>
+          <td><div class="sbar"><i style="width:${c.secs / maxSecs * 100}%;background:${carColor(c.car)}"></i><b>${dur(c.secs)}</b><em>${pct(c.secs, T.secs)}</em></div></td>
+          <td class="num">${num(c.runs)}</td><td class="num">${num(c.devices)}</td><td class="num">${num(c.users)}</td>
+          <td class="num">${num(c.tries)}</td><td class="num">${pct(c.passes, c.tries)}</td><td class="num">${c.tries ? c.avg : "—"}</td><td class="num">${c.adViews ? num(c.adViews) + " · " + dur(c.adSecs) : "—"}</td></tr>`).join("")}
+        </tbody></table></div>` : `<p class="empty">Hali hech kim haydamagan.</p>`}
+    </div>
+    <div class="grid2">
+      <div class="box"><h2>Kunlar bo'yicha <small>boshlangan haydashlar</small></h2>
+        <div class="chart stack">${s.daily.map((d, i) => { const tot = Object.values(d.cars).reduce((n, c) => n + c.runs, 0);
+          return `<div class="col" title="${d.day}: ${tot} ta${Object.entries(d.cars).map(([id, c]) => `\n${shortCar(id)}: ${c.runs}`).join("")}"><div class="bars"><div class="pile" style="height:${tot / dayMax * 100}%">${Object.entries(d.cars).sort().map(([id, c]) => `<i style="flex:${c.runs};background:${carColor(id)}"></i>`).join("")}</div></div><small>${i % step ? "" : d.day.slice(8)}</small></div>`; }).join("")}</div>
+        <div class="legend">${seen.map(id => `<span><i style="background:${carColor(id)}"></i>${esc(shortCar(id))}</span>`).join("")}</div>
+      </div>
+      <div class="box"><h2>Nechta mashinada haydaydi</h2>
+        ${s.spread.length ? `<div class="tblwrap"><table><tbody>${s.spread.map(x => `<tr><td>${x.cars} ta mashina</td><td><div class="sbar"><i style="width:${x.devices / spreadMax * 100}%"></i><b>${num(x.devices)} o'yinchi</b></div></td></tr>`).join("")}</tbody></table></div>` : `<p class="empty">Ma'lumot yo'q.</p>`}
+      </div>
+    </div>
+    <div class="box"><h2>Reklamalar <small>${days} kun</small></h2>
+      ${s.ads.length ? s.ads.map(a => `<div class="adstat">
+        <div class="prev">${a.url ? (a.video ? `<video src="${esc(a.url)}" muted playsinline preload="metadata"></video>` : `<img src="${esc(a.url)}" alt="" loading="lazy">`) : `<small>o'chirilgan</small>`}</div>
+        <div><b>${esc(a.name || a.id)}</b>${a.gone ? ` <span class="tag">o'chirilgan</span>` : ""}
+          <div class="nums"><span><b>${num(a.views)}</b> marta ko'rindi</span><span><b>${dur(a.secs)}</b> ko'z oldida</span><span><b>${num(a.devices)}</b> o'yinchi</span></div>
+          <div class="tblwrap"><table><thead><tr><th>Mashina</th><th>Joyi</th><th class="num">Ko'rindi</th><th class="num">Vaqt</th><th class="num">O'yinchi</th></tr></thead><tbody>
+            ${a.split.map(x => `<tr><td><span class="dot" style="background:${carColor(x.car)}"></span>${esc(shortCar(x.car))}</td><td>${x.place === "rear" ? "Orqa oyna" : "Ekran"}</td><td class="num">${num(x.views)}</td><td class="num">${dur(x.secs)}</td><td class="num">${num(x.devices)}</td></tr>`).join("")}
+          </tbody></table></div></div></div>`).join("") : `<p class="empty">Reklama hali ko'rsatilmagan.</p>`}
+      <p class="hint" style="margin-top:10px">Ekran reklamasi haydovchi o'rindig'idan (kabina ko'rinishida), orqa oyna reklamasi tashqaridan qaralganda hisoblanadi. "Ko'rindi": reklama shu holatda necha marta chiqqani.</p>
+    </div>
+    <div class="box" style="padding:6px 8px"><h2 style="padding:10px 10px 0">Hisob bilan o'ynaganlar <small>kim qaysi mashinada</small></h2>
+      ${s.players.length ? `<div class="tblwrap"><table><thead><tr><th>Foydalanuvchi</th><th>Mashinalar</th><th class="num">Boshlangan</th><th class="num">Vaqt</th></tr></thead><tbody>
+        ${s.players.map(p => `<tr class="click" data-u="${p.id}"><td><div class="who">${avatar(p, "av sm")}<span><b>${esc(p.name || "—")}</b>${p.username ? `<small>@${esc(p.username)}</small>` : ""}</span></div></td>
+          <td><div class="split">${p.cars.map(c => `<i style="flex:${Math.max(c.secs, 1)};background:${carColor(c.car)}" title="${esc(shortCar(c.car))}: ${c.runs} marta, ${dur(c.secs)}"></i>`).join("")}</div>
+            <small class="muted">${p.cars.map(c => `${esc(shortCar(c.car))} ${dur(c.secs)}`).join(" · ")}</small></td>
+          <td class="num">${num(p.runs)}</td><td class="num">${dur(p.secs)}</td></tr>`).join("")}
+        </tbody></table></div>` : `<p class="empty">Hisob bilan hali hech kim haydamagan.</p>`}
+    </div>`;
+  v.querySelectorAll("[data-d]").forEach(b => b.onclick = () => analytics(v, +b.dataset.d).catch(failed));
+  v.querySelectorAll("[data-u]").forEach(tr => tr.onclick = () => openUser(+tr.dataset.u, () => {}));
 }
 
 // ---- users
@@ -223,14 +291,17 @@ async function ads(v) {
   const render = () => {
     const items = state.items;
     v.innerHTML = `
-      <div class="box"><h2>Mashina ekranidagi reklama</h2>
-        <p class="hint">Rasm va videolar mashinaning markaziy ekranida navbat bilan ko'rsatiladi: rasm berilgan soniya turadi, video oxirigacha (ovozsiz) o'ynaydi. ${state.custom ? "Ro'yxat bo'sh bo'lsa, ekranlar o'z rasmini ko'rsatadi." : "Hozir saytning o'zidagi <code>ads/ads.json</code> ishlayapti; birinchi fayl yuklanishi bilan shu ro'yxat ishlay boshlaydi."}</p>
+      <div class="box"><h2>Mashinalardagi reklama</h2>
+        <p class="hint">Har bir reklama uchun joyini tanlang: <b>Ekran</b> (salondagi markaziy ekran) yoki <b>Orqa oyna</b> (tashqaridan ko'rinadi, ichkaridan oyna shaffof qoladi). Mashinalarni belgilasangiz, faqat o'shalarda chiqadi; hech biri belgilanmasa, hammasida. Bir joyda bir nechta reklama bo'lsa, navbat bilan ko'rsatiladi: rasm berilgan soniya turadi, video oxirigacha (ovozsiz) o'ynaydi. Ekranli mashinalar: Cobalt, Malibu 2 Premier. ${state.custom ? "Ro'yxat bo'sh bo'lsa, ekranlar o'z rasmini ko'rsatadi." : "Hozir saytning o'zidagi <code>ads/ads.json</code> ishlayapti; birinchi fayl yuklanishi bilan shu ro'yxat ishlay boshlaydi."}</p>
         <label class="drop" id="drop"><input type="file" id="file" accept="image/jpeg,image/png,image/webp,image/gif,video/mp4,video/webm,video/quicktime" multiple hidden>
-          <b>Fayl tanlang</b> yoki shu yerga tashlang<br><small>JPG, PNG, WEBP, GIF yoki MP4, WEBM. 200 MB gacha. Eng yaxshisi 2:1 nisbatda (masalan, 1280×640).</small></label>
+          <b>Fayl tanlang</b> yoki shu yerga tashlang<br><small>JPG, PNG, WEBP, GIF yoki MP4, WEBM. 200 MB gacha. Ekran uchun 2:1 (1280×640), orqa oyna uchun 5:2 (1500×600) nisbat yaxshi.</small></label>
         <div class="progress" id="prog" hidden><i></i></div>
         ${items.length ? items.map((a, i) => `<div class="ad${a.on ? "" : " off"}" data-i="${i}">
           <div class="prev">${a.video ? `<video src="${esc(a.url)}" muted loop playsinline preload="metadata"></video>` : `<img src="${esc(a.url)}" alt="" loading="lazy">`}</div>
-          <div class="meta"><b>${esc(a.name || "fayl")}</b><small>${a.video ? "Video" : "Rasm"} · ${size(a.size)}</small></div>
+          <div class="meta"><b>${esc(a.name || "fayl")}</b><small>${a.video ? "Video" : "Rasm"} · ${size(a.size)}</small>
+            <div class="seg" role="group" aria-label="Joyi">${PLACES.map(([p, t]) => `<button type="button" data-place="${p}" class="${(a.place || "screen") === p ? "on" : ""}">${t}</button>`).join("")}</div>
+            <div class="chips" role="group" aria-label="Mashinalar"><button type="button" data-all class="${a.cars && a.cars.length ? "" : "on"}">Hammasi</button>${ALL_CARS.map(c => `<button type="button" data-car="${c.id}" class="${a.cars && a.cars.includes(c.id) ? "on" : ""}">${esc(shortCar(c.id))}</button>`).join("")}</div>
+          </div>
           <div class="ctl">
             ${a.video ? `<small class="tag">oxirigacha</small>` : `<input class="field" type="number" min="2" max="600" value="${a.sec}" data-sec title="Necha soniya"> <small>soniya</small>`}
             <label class="sw" title="Ko'rsatish"><input type="checkbox" data-on${a.on ? " checked" : ""}><span></span></label>
@@ -245,6 +316,12 @@ async function ads(v) {
       const i = +row.dataset.i, a = items[i];
       const sec = row.querySelector("[data-sec]"); if (sec) sec.onchange = () => { a.sec = Math.max(2, Math.min(600, +sec.value || 8)); changed(); };
       row.querySelector("[data-on]").onchange = e => { a.on = e.target.checked; changed(); };
+      row.querySelectorAll("[data-place]").forEach(b => b.onclick = () => { a.place = b.dataset.place; changed(); });
+      row.querySelector("[data-all]").onclick = () => { a.cars = []; changed(); };
+      row.querySelectorAll("[data-car]").forEach(b => b.onclick = () => {
+        const set = new Set(a.cars || []); set.has(b.dataset.car) ? set.delete(b.dataset.car) : set.add(b.dataset.car);
+        a.cars = ALL_CARS.map(c => c.id).filter(id => set.has(id)); if (a.cars.length === ALL_CARS.length) a.cars = []; changed();
+      });
       row.querySelector("[data-up]").onclick = () => { items.splice(i - 1, 0, items.splice(i, 1)[0]); changed(); };
       row.querySelector("[data-down]").onclick = () => { items.splice(i + 1, 0, items.splice(i, 1)[0]); changed(); };
       row.querySelector("[data-del]").onclick = async () => {
@@ -255,7 +332,7 @@ async function ads(v) {
     });
     const save = $("#save", v);
     if (save) save.onclick = async () => {
-      try { state = await api("/api/admin/ads", { method: "PUT", body: { items: items.map(a => ({ id: a.id, sec: a.sec, on: a.on })) } }); dirty = false; toast("Saqlandi. O'yinchilar sahifani yangilaganda ko'rinadi.", "good"); render(); } catch (e) { failed(e); }
+      try { state = await api("/api/admin/ads", { method: "PUT", body: { items: items.map(a => ({ id: a.id, sec: a.sec, on: a.on, place: a.place || "screen", cars: a.cars || [] })) } }); dirty = false; toast("Saqlandi. O'yinchilar sahifani yangilaganda ko'rinadi.", "good"); render(); } catch (e) { failed(e); }
     };
     const drop = $("#drop", v), file = $("#file", v);
     file.onchange = () => upload([...file.files]);
