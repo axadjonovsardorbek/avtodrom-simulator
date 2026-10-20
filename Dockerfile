@@ -11,7 +11,8 @@ COPY src src
 COPY public public
 COPY tools tools
 # "/": the API is on the same address as the site
-ENV VITE_API_URL=/
+# hashed file names: the offline cache (sw.js) keeps assets/ forever, so a new build needs new names
+ENV VITE_API_URL=/ HASHED=1
 RUN npm run build
 
 # 2. The server
