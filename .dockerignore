@@ -1,0 +1,11 @@
+node_modules
+dist
+artifact
+.git
+.venv
+public/_tmp
+server/uploads
+server/avtodrom-server
+server/.env
+.env
+**/.DS_Store

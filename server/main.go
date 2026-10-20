@@ -133,7 +133,7 @@ func (a *App) routes() http.Handler {
 	mux.Handle("GET /uploads/", http.StripPrefix("/uploads/", noList(http.FileServer(http.Dir(a.cfg.UploadDir)))))
 	// the simulator itself, when this server hosts it too
 	if a.cfg.StaticDir != "" {
-		mux.Handle("GET /", http.FileServer(http.Dir(a.cfg.StaticDir)))
+		mux.Handle("/", http.FileServer(http.Dir(a.cfg.StaticDir))) // no method: "GET /" would clash with "/api/"
 	}
 	return a.recoverer(a.cors(mux))
 }
