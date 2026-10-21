@@ -9,8 +9,8 @@ import { loadHistory } from "../sim/history.js";
 import { ACHIEVEMENTS, loadAchievements } from "../sim/achievements.js";
 import { ELEMENTS } from "../world/tracks.js";
 import { CARS } from "../cars/index.js";
-import { apiOn, getUser } from "../net/api.js";
-import { carLocked, moodLocked, carItem } from "../net/shop.js";
+import { apiOn, getUser, updateUser } from "../net/api.js";
+import { carLocked, moodLocked, carItem, productsFor, shopInfo, quote, buy } from "../net/shop.js";
 import { renderAccount, showLeaderboard } from "./account.js";
 
 const $ = (sel, root = document) => root.querySelector(sel);
@@ -164,6 +164,7 @@ export class Hud {
           <div class="cars">${CARS.map(c => `<button class="carbtn${carLocked(c) ? " locked" : ""}" data-car="${c.id}">${carLocked(c) ? '<i class="lock" aria-label="Pullik">🔒</i>' : ""}<b>${c.name.replace("Chevrolet ", "")}</b><small>${c.info ? c.info.split(" · ")[0] : "Chevrolet"}</small></button>`).join("")}</div>
           <div class="row"><span class="lbl">Rangi</span><div class="swatches">${COLORS.map(([v, hex, t]) => `<button class="sw" data-color="${v}" title="${t}" style="--c:${hex}"></button>`).join("")}</div></div>
           <label class="row"><span class="lbl">Davlat raqami</span><input id="optPlate" maxlength="14" spellcheck="false" autocomplete="off"></label>
+          ${(() => { const all = shopInfo().products.find(p => p.items.includes("all")); return all && apiOn && shopInfo().enabled && !(getUser() && ((getUser().owns || []).includes("all") || getUser().admin)) ? `<button class="garagebtn tariff" id="tariffBtn"><svg viewBox="0 0 24 24"><path d="m12 3 2.7 5.6 6.1.9-4.4 4.3 1 6.1-5.4-2.9-5.4 2.9 1-6.1-4.4-4.3 6.1-.9z"/></svg><span><b>${all.name}</b><small>Barcha mashinalar va 18+ · ${all.days ? all.days + " kun" : "doimiy"}</small></span><i>›</i></button>` : ""; })()}
           <button class="garagebtn" id="garageBtn"><svg viewBox="0 0 24 24"><path d="M3 21V9l9-5 9 5v12"/><path d="M7 21v-7h10v7M7 17h10"/></svg><span><b>Garaj</b><small>Mashinani ko'rib tanlang</small></span><i>›</i></button>
           <button class="ghost" id="statsBtn">${icon('<path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/>')} Natijalar va xatolar tahlili</button>
           ${apiOn ? `<button class="ghost" id="rankBtn">${icon('<path d="M8 21h8M12 17v4M7 4h10v5a5 5 0 0 1-10 0z"/><path d="M17 5h3v2a3 3 0 0 1-3 3M7 5H4v2a3 3 0 0 0 3 3"/>')} Reyting</button>` : ""}
@@ -220,6 +221,7 @@ export class Hud {
     renderAccount($("#acct", m), { res: $("#result", this.root), onChange: u => this.h.account && this.h.account(u) });
     $("#showroomBtn", m).onclick = () => this.h.showroom();
     $("#garageBtn", m).onclick = () => this.h.garage && this.h.garage();
+    const tariff = $("#tariffBtn", m); if (tariff) tariff.onclick = () => this.showBuy("all", tariff.querySelector("b").textContent);
     this.menuOpen = true; this.root.classList.add("menu-open");
   }
 
@@ -298,19 +300,47 @@ export class Hud {
     this.session = session;
   }
 
-  // a paid item: what it is and how to get it (the payment through Inpay comes next; until then the admin grants it)
+  // a paid item: the products that open it (its own, the bundle), a promo code, and the payment through inPAY
   showBuy(item, name) {
     let el = $("#buy", this.root);
     if (!el) { el = document.createElement("div"); el.id = "buy"; el.className = "buy-card"; this.root.appendChild(el); }
-    const u = getUser();
+    const u = getUser(), list = productsFor(item), S = shopInfo();
+    const som = n => n.toLocaleString("ru-RU").replace(/,/g, " ") + " so'm";
+    const term = d => d ? `${d} kun` : "doimiy";
+    const what = item === "all" ? "Barcha pullik mashinalar va 18+ instruktor bitta tarifda." : item.startsWith("car:") ? "Bu mashina pullik. Cobalt, Matiz, Damas va Monza bepul." : "18+ instruktor pullik. Jahldor va yumshoq instruktor bepul.";
+    let pick = list[0] ? list[0].id : null;
     el.innerHTML = `<div class="buy-box" role="dialog" aria-label="${name}">
-      <span class="eyebrow">Pullik</span><h2>🔒 ${name}</h2>
-      <p>${item.startsWith("car:") ? "Bu mashina pullik. Cobalt, Matiz, Damas va Monza bepul." : "18+ instruktor pullik. Jahldor va yumshoq instruktor bepul."}</p>
-      <p class="buy-note">${u ? "Onlayn to'lov tez orada qo'shiladi." : "Sotib olish uchun avval menyuda hisobingizga kiring (Google yoki Telegram)."}</p>
-      <div class="acts"><button class="btn primary" data-b="pay" disabled>Sotib olish · tez orada</button><button class="btn" data-b="close">Yopish</button></div></div>`;
+      <span class="eyebrow">Pullik</span><h2>🔒 ${name}</h2><p>${what}</p>
+      ${!u ? `<p class="buy-note">Sotib olish uchun avval menyuda hisobingizga kiring (Google yoki Telegram).</p>`
+        : !list.length ? `<p class="buy-note">Hozircha sotuvda yo'q.</p>`
+        : `<div class="buy-list">${list.map(p => `<label class="buy-opt"><input type="radio" name="bp" value="${p.id}"${p.id === pick ? " checked" : ""}><span><b>${p.name}</b><small>${term(p.days)}</small></span><em data-price="${p.id}">${som(p.price)}</em></label>`).join("")}</div>
+           <div class="buy-promo"><input id="buyPromo" placeholder="Promokod" maxlength="32" autocomplete="off"><button class="btn" data-b="promo">Qo'llash</button></div>
+           <p class="buy-msg" id="buyMsg"></p>`}
+      <div class="acts">${u && list.length ? `<button class="btn primary" data-b="pay"${S.payments ? "" : ""}>To'lash</button>` : ""}<button class="btn" data-b="close">Yopish</button></div></div>`;
     el.hidden = false;
-    el.querySelector('[data-b="close"]').onclick = () => { el.hidden = true; };
-    el.onclick = e => { if (e.target === el) el.hidden = true; };
+    const close = () => { el.hidden = true; };
+    el.querySelector('[data-b="close"]').onclick = close;
+    el.onclick = e => { if (e.target === el) close(); };
+    if (!u || !list.length) return;
+    const msg = (t, bad) => { const m = $("#buyMsg", el); m.textContent = t; m.classList.toggle("bad", !!bad); };
+    const promo = () => $("#buyPromo", el).value.trim();
+    const payBtn = el.querySelector('[data-b="pay"]');
+    const show = async () => {
+      if (!promo()) { msg(""); payBtn.textContent = "To'lash"; return; }
+      try { const q = await quote(pick, promo()); msg(`Chegirma ${som(q.discount)} · to'lanadi ${som(q.total)}`); payBtn.textContent = q.total ? `To'lash · ${som(q.total)}` : "Bepul olish"; }
+      catch (e) { msg(e.message, true); payBtn.textContent = "To'lash"; }
+    };
+    el.querySelectorAll('input[name="bp"]').forEach(r => r.onchange = () => { pick = r.value; show(); });
+    el.querySelector('[data-b="promo"]').onclick = show;
+    payBtn.onclick = async () => {
+      payBtn.disabled = true; msg("Kuting…");
+      try {
+        const out = await buy(pick, promo());
+        if (out.done) { updateUser(out.user); msg(""); close(); this.toast("Ochildi!", "good"); return; }
+        msg("To'lov sahifasiga o'tilmoqda…");
+        location.href = out.payUrl;                          // inPAY; it sends the buyer back to /?order=<id>
+      } catch (e) { msg(e.message, true); payBtn.disabled = false; }
+    };
   }
 
   toast(msg, kind = "") {

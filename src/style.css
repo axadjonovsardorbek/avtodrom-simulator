@@ -618,3 +618,14 @@ table.lb em { color: var(--amber); font-style: normal; }
 .buy-box .buy-note { color: #f2b632; }
 .buy-box .acts { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 14px; }
 .buy-box .btn[disabled] { opacity: .55; cursor: default; }
+.buy-list { display: grid; gap: 8px; margin: 6px 0 12px; }
+.buy-opt { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border: 1px solid rgba(255, 255, 255, .12); border-radius: 10px; cursor: pointer; }
+.buy-opt:has(input:checked) { border-color: #f2b632; background: rgba(242, 182, 50, .08); }
+.buy-opt span { flex: 1; display: grid; }
+.buy-opt small { color: #9aa1aa; }
+.buy-opt em { font-style: normal; font-weight: 700; color: #f2b632; white-space: nowrap; }
+.buy-promo { display: flex; gap: 8px; }
+.buy-promo input { flex: 1; min-width: 0; padding: 9px 12px; border-radius: 9px; border: 1px solid rgba(255, 255, 255, .16); background: #0e1013; color: #eef0f2; font: inherit; text-transform: uppercase; }
+.buy-msg { min-height: 1.3em; margin: 8px 0 0; color: #3ddc84; font-size: 14px; }
+.buy-msg.bad { color: #ff6b5e; }
+.garagebtn.tariff { border-color: rgba(242, 182, 50, .55); background: linear-gradient(135deg, rgba(242, 182, 50, .16), rgba(242, 182, 50, .04)); }

@@ -63,6 +63,7 @@ const NAV = [
   ["results", "Natijalar", '<path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/>'],
   ["rating", "Reyting", '<path d="M8 21h8M12 17v4M7 4h10v5a5 5 0 0 1-10 0z"/><path d="M17 5h3v2a3 3 0 0 1-3 3M7 5H4v2a3 3 0 0 0 3 3"/>'],
   ["ads", "Reklama", '<rect x="3" y="5" width="18" height="12" rx="2"/><path d="M8 21h8M12 17v4"/>'],
+  ["shop", "Do'kon", '<path d="M4 7h16l-1.5 11a2 2 0 0 1-2 1.8h-9a2 2 0 0 1-2-1.8z"/><path d="M9 10V6a3 3 0 0 1 6 0v4"/>'],
   ["cars", "Mashinalar", '<path d="M5 17h14v-5l-2-5H7l-2 5z"/><circle cx="8" cy="17" r="2"/><circle cx="16" cy="17" r="2"/>']
 ];
 
@@ -94,7 +95,7 @@ function go(id) {
   VIEWS[id](v).catch(e => { if (current === id) v.innerHTML = `<p class="empty">${esc(e.message)}</p>`; if (e.status === 401 || e.status === 403) start(); });
 }
 
-const VIEWS = { home, analytics, users, results, rating, ads, cars };
+const VIEWS = { home, analytics, users, results, rating, ads, cars, shop };
 
 // ---- the numbers at a glance
 
@@ -236,7 +237,7 @@ async function openUser(id, changed) {
     <h3>Pullik narsalar</h3>
     ${(() => {
       // every paid item, with what this user has of it; given by hand here until the online payment is in
-      const items = [...ALL_CARS.filter(c => c.paid).map(c => ["car:" + c.id, c.name]), ["instructor:rude", "18+ instruktor"]];
+      const items = [["all", "Hammasi (tarif)"], ...ALL_CARS.map(c => ["car:" + c.id, c.name]), ["instructor:rude", "18+ instruktor"]];
       const now = Date.now(), have = new Map(purchases.map(p => [p.item, p]));
       return `<div class="tblwrap"><table><thead><tr><th>Narsa</th><th>Holati</th><th></th></tr></thead><tbody>${items.map(([item, name]) => {
         const p = have.get(item), on = p && (p.until == null || p.until > now);
@@ -404,6 +405,88 @@ async function cars(v) {
       try { ({ disabled } = await api("/api/admin/cars", { method: "PUT", body: { disabled: next } })); toast(i.checked ? "Yoqildi" : "O'chirildi", "good"); } catch (e) { failed(e); }
       render();
     });
+  };
+  render();
+}
+
+// ---- shop: selling on/off, what is paid and its price, the tariffs, promo codes, payments
+const som = n => (+n || 0).toLocaleString("ru-RU").replace(/,/g, " ") + " so'm";
+const DAYS = [[0, "Doimiy"], [7, "7 kun"], [30, "30 kun"], [90, "90 kun"], [365, "1 yil"]];
+const daySel = (d, attr) => `<select ${attr}>${DAYS.map(([v, t]) => `<option value="${v}"${v === d ? " selected" : ""}>${t}</option>`).join("")}</select>`;
+async function shop(v) {
+  let { shop: S, payments } = await api("/api/admin/shop");
+  const items = [...ALL_CARS.map(c => ["car:" + c.id, c.name]), ["instructor:rude", "18+ instruktor"]];
+  const prod = id => S.products.find(p => p.id === id);
+  const [promos, orders] = await Promise.all([api("/api/admin/promos"), api("/api/admin/orders")]);
+  const render = () => {
+    const bundles = S.products.filter(p => p.items.includes("all"));
+    v.innerHTML = `
+    <div class="box"><h2>Do'kon</h2>
+      <label class="carrow big"><span><b>To'lovlar yoqilgan</b><small>${S.enabled ? "Pullik deb belgilangan narsalar sotiladi" : "O'chiq: hamma narsa hammaga bepul"}</small></span>
+        <span class="sw"><input type="checkbox" id="shopOn"${S.enabled ? " checked" : ""}><span></span></span></label>
+      <p class="hint">${payments ? "✅ Inpay ulangan." : "⚠️ Inpay ulanmagan: serverning .env fayliga INPAY_MERCHANT_ID va INPAY_MERCHANT_TOKEN yozilishi kerak. Ungacha faqat bepul promokod va qo'lda berish ishlaydi."}</p></div>
+    <div class="box"><h2>Narsalar va narxlar</h2>
+      <p class="hint">Pullik bo'lmagan narsa hammaga bepul. Narx kamida 1 000 so'm; narxsiz narsa sotuvga chiqmaydi.</p>
+      <div class="tblwrap"><table class="shop"><thead><tr><th>Narsa</th><th>Pullik</th><th>Narx, so'm</th><th>Muddat</th><th>Sotuvda</th></tr></thead><tbody>
+      ${items.map(([it, name]) => { const p = prod(it) || { price: 0, days: 0, on: true }; return `<tr><td>${esc(name)}</td>
+        <td><span class="sw"><input type="checkbox" data-paid="${it}"${S.paid.includes(it) ? " checked" : ""}><span></span></span></td>
+        <td><input type="number" min="0" step="1000" data-price="${it}" value="${p.price || ""}" placeholder="—"></td>
+        <td>${daySel(p.days, `data-days="${it}"`)}</td>
+        <td><span class="sw"><input type="checkbox" data-on="${it}"${p.on ? " checked" : ""}><span></span></span></td></tr>`; }).join("")}
+      </tbody></table></div></div>
+    <div class="box"><h2>Tariflar</h2>
+      <p class="hint">Tarif barcha pullik narsalarni bir to'lovda ochadi (keyin qo'shiladiganlarini ham).</p>
+      <div class="tblwrap"><table class="shop"><thead><tr><th>Nomi</th><th>Narx, so'm</th><th>Muddat</th><th>Sotuvda</th><th></th></tr></thead><tbody>
+      ${bundles.map(b => `<tr><td><input data-bname="${b.id}" value="${esc(b.name)}" maxlength="80"></td>
+        <td><input type="number" min="0" step="1000" data-bprice="${b.id}" value="${b.price || ""}" placeholder="—"></td>
+        <td>${daySel(b.days, `data-bdays="${b.id}"`)}</td>
+        <td><span class="sw"><input type="checkbox" data-bon="${b.id}"${b.on ? " checked" : ""}><span></span></span></td>
+        <td><button class="btn small danger" data-bdel="${b.id}">O'chirish</button></td></tr>`).join("")}
+      </tbody></table></div>
+      <div class="acts"><button class="btn" id="addTariff">+ Tarif qo'shish</button><button class="btn primary" id="shopSave">Saqlash</button></div></div>
+    <div class="box"><h2>Promokodlar</h2>
+      <div class="promoform">
+        <input id="pCode" placeholder="KOD" maxlength="32">
+        <select id="pKind"><option value="percent">Foiz (%)</option><option value="amount">Summa (so'm)</option><option value="free">Bepul</option></select>
+        <input id="pValue" type="number" min="1" placeholder="Qiymat">
+        <select id="pProd"><option value="">Hamma mahsulot</option>${S.products.map(p => `<option value="${p.id}">${esc(p.name)}</option>`).join("")}</select>
+        <input id="pMax" type="number" min="0" placeholder="Necha marta (0 = cheksiz)">
+        <input id="pUntil" type="date" title="Amal qilish muddati">
+        <button class="btn primary" id="pAdd">Qo'shish</button>
+      </div>
+      ${promos.items.length ? `<div class="tblwrap"><table><thead><tr><th>Kod</th><th>Chegirma</th><th>Mahsulot</th><th class="num">Ishlatilgan</th><th>Muddat</th><th>Faol</th><th></th></tr></thead><tbody>
+        ${promos.items.map(p => `<tr><td><b>${esc(p.code)}</b></td><td>${p.kind === "free" ? "Bepul" : p.kind === "percent" ? p.value + "%" : som(p.value)}</td>
+          <td>${p.products.length ? p.products.map(id => esc((prod(id) || { name: id }).name)).join(", ") : "Hammasi"}</td>
+          <td class="num">${p.used}${p.maxUses ? " / " + p.maxUses : ""}</td><td>${p.until ? when(p.until) : "—"}</td>
+          <td><span class="sw"><input type="checkbox" data-pact="${esc(p.code)}"${p.active ? " checked" : ""}><span></span></span></td>
+          <td><button class="btn small danger" data-pdel="${esc(p.code)}">O'chirish</button></td></tr>`).join("")}</tbody></table></div>` : `<p class="empty">Promokod yo'q.</p>`}
+    </div>
+    <div class="box"><h2>To'lovlar</h2>
+      <div class="cards"><div class="card"><small>Tushum</small><b>${som(orders.paidTotal)}</b></div><div class="card"><small>To'langan xaridlar</small><b>${orders.paidCount}</b></div></div>
+      ${orders.items.length ? `<div class="tblwrap"><table><thead><tr><th>#</th><th>Vaqt</th><th>Kim</th><th>Nima</th><th class="num">Summa</th><th>Promokod</th><th>Holat</th></tr></thead><tbody>
+        ${orders.items.map(o => `<tr><td>${o.id}</td><td class="when">${when(o.created)}</td><td>${esc(o.userName)}</td><td>${esc(o.name)}</td><td class="num">${som(o.amount)}</td><td>${esc(o.promo || "—")}</td>
+          <td><span class="tag ${o.status === "paid" ? "ok" : o.status === "pending" ? "" : "bad"}">${{ paid: "To'langan", pending: "Kutilmoqda", failed: "Xato", cancelled: "Bekor" }[o.status] || o.status}</span></td></tr>`).join("")}</tbody></table></div>` : `<p class="empty">Hali to'lov yo'q.</p>`}
+    </div>`;
+    const read = () => {
+      // the form back into the settings: one product per item (its price, term, on sale), then the tariffs
+      const paid = [...v.querySelectorAll("[data-paid]")].filter(i => i.checked).map(i => i.dataset.paid);
+      const products = items.map(([it, name]) => ({ id: it, name, items: [it], price: +v.querySelector(`[data-price="${it}"]`).value || 0, days: +v.querySelector(`[data-days="${it}"]`).value, on: v.querySelector(`[data-on="${it}"]`).checked }));
+      for (const b of bundles) products.push({ id: b.id, name: v.querySelector(`[data-bname="${b.id}"]`).value.trim() || "Hammasi", items: ["all"], price: +v.querySelector(`[data-bprice="${b.id}"]`).value || 0, days: +v.querySelector(`[data-bdays="${b.id}"]`).value, on: v.querySelector(`[data-bon="${b.id}"]`).checked });
+      return { enabled: v.querySelector("#shopOn").checked, paid, products };
+    };
+    const save = async (next, msg) => { try { ({ shop: S, payments } = await api("/api/admin/shop", { method: "PUT", body: next })); toast(msg, "good"); render(); } catch (e) { failed(e); } };
+    v.querySelector("#shopOn").onchange = e => { if (!e.target.checked && !confirm("To'lovlar o'chirilsinmi? Hamma narsa hammaga bepul bo'ladi.")) { e.target.checked = true; return; } save(read(), e.target.checked ? "To'lovlar yoqildi" : "To'lovlar o'chirildi: hammasi bepul"); };
+    v.querySelector("#shopSave").onclick = () => save(read(), "Saqlandi");
+    v.querySelector("#addTariff").onclick = () => { const r = read(); let n = 1; while (r.products.some(p => p.id === (n === 1 ? "all" : "all-" + n))) n++; r.products.push({ id: n === 1 ? "all" : "all-" + n, name: "Hammasi", items: ["all"], price: 0, days: 30, on: false }); S = r; render(); };
+    v.querySelectorAll("[data-bdel]").forEach(b => b.onclick = () => { const r = read(); r.products = r.products.filter(p => p.id !== b.dataset.bdel); save(r, "Tarif o'chirildi"); });
+    const promoSave = async body => { try { const out = await api("/api/admin/promos", { method: "POST", body }); promos.items = out.items; toast("Saqlandi", "good"); render(); } catch (e) { failed(e); } };
+    v.querySelector("#pKind").onchange = e => { v.querySelector("#pValue").disabled = e.target.value === "free"; };
+    v.querySelector("#pAdd").onclick = () => {
+      const kind = v.querySelector("#pKind").value, until = v.querySelector("#pUntil").value, prodId = v.querySelector("#pProd").value;
+      promoSave({ code: v.querySelector("#pCode").value.trim(), kind, value: kind === "free" ? 0 : +v.querySelector("#pValue").value, products: prodId ? [prodId] : [], maxUses: +v.querySelector("#pMax").value || 0, until: until ? new Date(until + "T23:59:59").getTime() : null, active: true });
+    };
+    v.querySelectorAll("[data-pact]").forEach(i => i.onchange = () => { const p = promos.items.find(x => x.code === i.dataset.pact); promoSave({ ...p, active: i.checked }); });
+    v.querySelectorAll("[data-pdel]").forEach(b => b.onclick = async () => { if (!confirm(b.dataset.pdel + " o'chirilsinmi?")) return; try { promos.items = (await api("/api/admin/promos/" + encodeURIComponent(b.dataset.pdel), { method: "DELETE" })).items; render(); } catch (e) { failed(e); } });
   };
   render();
 }

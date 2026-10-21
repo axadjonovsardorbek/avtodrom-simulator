@@ -1,4 +1,4 @@
-// paid: only for those who bought it (src/net/shop.js); the Cobalt, Matiz, Damas and Monza are free.
+// paid: sold from the start (the admin's shop settings decide in the end, src/net/shop.js)
 // Available cars. To add one: drop its .glb into public/models/ (parts named as
 // described in src/render/carModel.js -> rigCar) and add an entry here.
 // eye: driver's eye point; seat: passenger hip point (instructor); mirrors: rear-view mirror camera points (car frame, meters).

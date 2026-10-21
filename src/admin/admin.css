@@ -128,7 +128,7 @@ td.when { color: var(--muted); white-space: nowrap; font-variant-numeric: tabula
 .ad .ctl { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
 .ad .ctl input[type=number] { width: 70px; }
 .ad.off .prev { opacity: .4; }
-.sw { position: relative; width: 42px; height: 24px; flex: none; }
+.sw { position: relative; display: inline-block; vertical-align: middle; width: 42px; height: 24px; flex: none; }
 .sw input { position: absolute; opacity: 0; width: 100%; height: 100%; margin: 0; cursor: pointer; z-index: 1; }
 .sw span { position: absolute; inset: 0; border-radius: 99px; background: #3a414b; transition: background .15s; }
 .sw span::after { content: ""; position: absolute; top: 3px; left: 3px; width: 18px; height: 18px; border-radius: 50%; background: #fff; transition: transform .15s; }
@@ -217,3 +217,12 @@ td:has(> .dot) { white-space: nowrap; }
 .tg-wait { max-width: 320px; text-align: center; font-size: 14px; color: var(--muted); }
 .tg-wait p { margin: 4px 0; }
 .tg-wait a, .tg-wait .linkish { color: #2aabee; background: none; border: 0; font: inherit; cursor: pointer; padding: 0; text-decoration: underline; }
+
+/* shop */
+.carrow.big { padding: 14px 16px; }
+table.shop input[type=number], table.shop input:not([type]) { width: 120px; padding: 6px 8px; border-radius: 8px; border: 1px solid var(--line, #2a2e35); background: transparent; color: inherit; font: inherit; }
+table.shop select, .promoform select, .promoform input { padding: 7px 9px; border-radius: 8px; border: 1px solid var(--line, #2a2e35); background: transparent; color: inherit; font: inherit; }
+.promoform { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
+.promoform #pCode { text-transform: uppercase; width: 130px; }
+.promoform #pMax { width: 190px; }
+@media (max-width: 640px) { table.shop input[type=number] { width: 90px; } }

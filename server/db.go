@@ -61,6 +61,42 @@ CREATE TABLE IF NOT EXISTS purchases (
   created BIGINT NOT NULL,
   PRIMARY KEY (user_id, item)
 );
+-- promo codes: "percent" (value 1..100), "amount" (so'm off) or "free"; products empty = any; max_uses 0 = no limit
+CREATE TABLE IF NOT EXISTS promos (
+  code TEXT PRIMARY KEY,
+  kind TEXT NOT NULL,
+  value INTEGER NOT NULL DEFAULT 0,
+  products TEXT[] NOT NULL DEFAULT '{}',
+  max_uses INTEGER NOT NULL DEFAULT 0,
+  used INTEGER NOT NULL DEFAULT 0,
+  until BIGINT,
+  active BOOLEAN NOT NULL DEFAULT TRUE,
+  created BIGINT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS promo_uses (
+  code TEXT NOT NULL,
+  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  at BIGINT NOT NULL,
+  PRIMARY KEY (code, user_id)
+);
+-- a purchase on its way: made when the buyer is sent to Inpay, "paid" once Inpay itself says so
+CREATE TABLE IF NOT EXISTS orders (
+  id SERIAL PRIMARY KEY,
+  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  product TEXT NOT NULL,
+  name TEXT NOT NULL,
+  items TEXT[] NOT NULL,
+  days INTEGER NOT NULL,
+  price INTEGER NOT NULL,                -- so'm, before the promo
+  amount INTEGER NOT NULL,               -- so'm, charged
+  promo TEXT NOT NULL DEFAULT '',
+  status TEXT NOT NULL,                  -- pending, paid, failed, cancelled
+  inpay_order TEXT UNIQUE,
+  pay_url TEXT NOT NULL DEFAULT '',
+  created BIGINT NOT NULL,
+  paid_at BIGINT
+);
+CREATE INDEX IF NOT EXISTS orders_created ON orders (created);
 -- what is played, per day (Tashkent), device and car: runs started and seconds driven; logged in or not
 CREATE TABLE IF NOT EXISTS plays (
   day DATE NOT NULL,

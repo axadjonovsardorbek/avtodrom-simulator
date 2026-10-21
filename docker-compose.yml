@@ -31,6 +31,8 @@ services:
       PUBLIC_URL: ${PUBLIC_URL:-}
       TRUST_PROXY: ${TRUST_PROXY:-}
       DEV_LOGIN: ${DEV_LOGIN:-}
+      INPAY_MERCHANT_ID: ${INPAY_MERCHANT_ID:-}
+      INPAY_MERCHANT_TOKEN: ${INPAY_MERCHANT_TOKEN:-}
     ports:
       - "${PORT:-8080}:8080"
     volumes:

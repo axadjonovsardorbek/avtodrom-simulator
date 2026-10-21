@@ -59,6 +59,8 @@ export async function loginWith(provider, payload) {
   setSession(out.token, out.user);
   return out.user;
 }
+// the logged-in user changed on the server (a purchase): the new copy, listeners told
+export function updateUser(u) { if (token && u) setSession(token, u); }
 export async function logout() {
   if (token) api("/api/logout", { method: "POST" }).catch(() => {});
   setSession(null, null);

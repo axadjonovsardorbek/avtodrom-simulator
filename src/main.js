@@ -13,8 +13,8 @@ import { loadCarModel, loadTrafficModel, setTextureRenderer } from "./render/car
 import { dressCobalt, addPaint } from "./render/carDress.js";
 import { addScreenAd, setAdSource, watchAds, takeAdViews } from "./render/screenAd.js";
 import { gripFor } from "./render/atmosphere.js";
-import { carLocked, moodLocked, carItem } from "./net/shop.js";
-import { apiOn, onUser, config, refreshMe, telegramMiniAppLogin, sendAttempt, flushAttempts, myAttempts, countRun, countDrive, trackAdsFrom } from "./net/api.js";
+import { carLocked, moodLocked, carItem, loadShop, orderStatus } from "./net/shop.js";
+import { apiOn, onUser, updateUser, config, refreshMe, telegramMiniAppLogin, sendAttempt, flushAttempts, myAttempts, countRun, countDrive, trackAdsFrom } from "./net/api.js";
 trackAdsFrom(takeAdViews);
 import { addPlates, DEFAULT_PLATE } from "./render/plates.js";
 import PHRASES from "./audio/phrases.json";
@@ -502,7 +502,7 @@ function playCarVoice(id) {
 function selectCar(id) { useCar(id); playCarVoice(id); }
 function useCar(id) {
   let car = carById(id);
-  if (carLocked(car)) car = CARS.find(c => !c.paid) || CARS[0];       // a paid car only for its owner
+  if (carLocked(car)) car = CARS.find(c => !carLocked(c)) || CARS[0];       // a paid car only for its owner
   const key = car.id + modelVariant();
   if (carModelId === key) return;
   carModelId = key;
@@ -539,14 +539,31 @@ if (apiOn) {
     if (!CARS.some(x => x.id === picked)) { settings.car = CARS[0].id; saveSettings(); useCar(settings.car); }
     hud.refreshMenu();
   });
-  refreshMe().then(u => { if (u) syncHistory(); keepToOwned(); hud.refreshMenu(); });
+  Promise.all([refreshMe(), loadShop()]).then(([u]) => { if (u) syncHistory(); keepToOwned(); hud.refreshMenu(); afterPayment(); });
   telegramMiniAppLogin().then(u => { if (u) onAccount(u); });
 }
 // logged in or out: the menu shows it; a login sends this browser's attempts and brings the others' back
+// back from inPAY's payment page (/?order=<id>): the order is asked about until it is paid (inPAY's callback may
+// come a little later), and what was bought opens
+async function afterPayment() {
+  const id = new URLSearchParams(location.search).get("order");
+  if (!id) return;
+  history.replaceState(null, "", location.pathname + location.hash);
+  hud.toast("To'lov tekshirilmoqda…");
+  for (let i = 0; i < 20; i++) {
+    try {
+      const o = await orderStatus(id);
+      if (o.status === "paid") { updateUser(o.user); hud.toast(`${o.name}: to'lov qabul qilindi, ochildi!`, "good"); return; }
+      if (o.status === "failed" || o.status === "cancelled") { hud.toast("To'lov amalga oshmadi", "bad"); return; }
+    } catch (e) { if (e.status === 404 || e.status === 401) return; }
+    await new Promise(r => setTimeout(r, 3000));
+  }
+  hud.toast("To'lov hali tasdiqlanmadi. Bir ozdan keyin sahifani yangilang.", "bad");
+}
 // what was picked but is not owned (logged out, or a purchase ran out) goes back to a free choice
 function keepToOwned() {
   let changed = false;
-  if (carLocked(carById(settings.car))) { settings.car = (CARS.find(c => !c.paid) || CARS[0]).id; useCar(settings.car); changed = true; }
+  if (carLocked(carById(settings.car))) { settings.car = (CARS.find(c => !carLocked(c)) || CARS[0]).id; useCar(settings.car); changed = true; }
   if (moodLocked(settings.instructor)) { settings.instructor = "angry"; instructor.mood = "angry"; changed = true; }
   if (changed) saveSettings();
 }

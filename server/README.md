@@ -154,3 +154,17 @@ Sayt ham shu VPS'da tursin desangiz:
 | `/api/admin/*` | admin | statistika, foydalanuvchilar, natijalar, reklama, mashinalar |
 
 So'rovlarda token `Authorization: Bearer <token>` sarlavhasida yuboriladi.
+
+
+## To'lovlar (inPAY)
+
+1. inpay.uz kabinetida kassa oching; merchant ID va merchant token'ni serverdagi `.env` ga yozing:
+   `INPAY_MERCHANT_ID=...`, `INPAY_MERCHANT_TOKEN=...` (chatga yozmang).
+2. `PUBLIC_URL` saytning https manzili bo'lishi shart: inPAY to'lov natijasini `PUBLIC_URL/api/shop/inpay` ga yuboradi,
+   xaridor `PUBLIC_URL/?order=<id>` ga qaytadi. Kassa sozlamalarida shu domenni ruxsat etilganlarga qo'shing.
+3. Admin panel → Do'kon: to'lovlarni yoqish/o'chirish, qaysi narsa pullik, narxlar va muddatlar, tariflar, promokodlar,
+   to'lovlar ro'yxati va tushum.
+
+inPAY'ning callback'i imzolanmagan, shuning uchun server unga ishonmaydi: har bir buyurtma faqat inPAY'ning
+`GET /transactions/` javobi bo'yicha (holat `success` va summa to'liq) to'langan deb belgilanadi.
+inPAY'da sinov (sandbox) rejimi yo'q: birinchi sinovni eng kichik summa (1 000 so'm) bilan qiling.

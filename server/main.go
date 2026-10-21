@@ -22,6 +22,7 @@ import (
 
 type Config struct {
 	Addr, DatabaseURL, GoogleClientID, TelegramToken, TelegramBot, UploadDir, StaticDir, PublicURL string
+	InpayURL, InpayMerchant, InpayToken                                                             string // payments (shop.go)
 	Admins                                                                                         map[string]bool // "tg:<id>", "google:<email>"
 	Origins                                                                                        []string        // allowed CORS origins; "*" any
 	DevLogin, TrustProxy                                                                           bool
@@ -40,6 +41,7 @@ func loadConfig() Config {
 		GoogleClientID: env("GOOGLE_CLIENT_ID", ""), TelegramToken: env("TELEGRAM_BOT_TOKEN", ""), TelegramBot: strings.TrimPrefix(env("TELEGRAM_BOT_NAME", ""), "@"),
 		UploadDir: env("UPLOAD_DIR", "uploads"), StaticDir: env("STATIC_DIR", ""), PublicURL: strings.TrimRight(env("PUBLIC_URL", ""), "/"),
 		DevLogin: env("DEV_LOGIN", "") == "1", TrustProxy: env("TRUST_PROXY", "") == "1",
+		InpayURL: strings.TrimRight(env("INPAY_URL", "https://inpay.uz/api/v1"), "/"), InpayMerchant: env("INPAY_MERCHANT_ID", ""), InpayToken: env("INPAY_MERCHANT_TOKEN", ""),
 		Admins: map[string]bool{},
 	}
 	for _, a := range strings.Split(env("ADMINS", ""), ",") {
@@ -62,6 +64,7 @@ type App struct {
 	limiter *limiter
 	tg      *tgLogins
 	tgOut   func(chat int64, text string) // tests: catches what the bot would send
+	inpay   *inpayClient
 }
 
 func main() {
@@ -102,7 +105,7 @@ func newApp(cfg Config, db *DB) *App {
 	if err != nil {
 		tz = time.FixedZone("UZT", 5*3600)
 	}
-	return &App{cfg: cfg, db: db, tz: tz, limiter: newLimiter(40, time.Minute), tg: newTgLogins()}
+	return &App{cfg: cfg, db: db, tz: tz, limiter: newLimiter(40, time.Minute), tg: newTgLogins(), inpay: newInpay(cfg)}
 }
 
 func (a *App) routes() http.Handler {
@@ -127,6 +130,17 @@ func (a *App) routes() http.Handler {
 	mux.HandleFunc("GET /api/admin/users/{id}", a.admin(a.handleUser))
 	mux.HandleFunc("PATCH /api/admin/users/{id}", a.admin(a.handlePatchUser))
 	mux.HandleFunc("DELETE /api/admin/users/{id}", a.admin(a.handleDeleteUser))
+	mux.HandleFunc("GET /api/shop", a.handleShop)
+	mux.HandleFunc("POST /api/shop/quote", a.limited(a.authed(a.handleQuote)))
+	mux.HandleFunc("POST /api/shop/buy", a.limited(a.authed(a.handleBuy)))
+	mux.HandleFunc("GET /api/shop/orders/{id}", a.authed(a.handleOrder))
+	mux.HandleFunc("POST /api/shop/inpay", a.handleInpayWebhook) // inPAY: checked against inPAY's own record, not trusted
+	mux.HandleFunc("GET /api/admin/shop", a.admin(a.handleGetShop))
+	mux.HandleFunc("PUT /api/admin/shop", a.admin(a.handlePutShop))
+	mux.HandleFunc("GET /api/admin/promos", a.admin(a.handleGetPromos))
+	mux.HandleFunc("POST /api/admin/promos", a.admin(a.handlePutPromo))
+	mux.HandleFunc("DELETE /api/admin/promos/{code}", a.admin(a.handleDeletePromo))
+	mux.HandleFunc("GET /api/admin/orders", a.admin(a.handleOrders))
 	mux.HandleFunc("POST /api/admin/users/{id}/grant", a.admin(a.handleGrant))
 	mux.HandleFunc("DELETE /api/admin/users/{id}/grant/{item}", a.admin(a.handleRevoke))
 	mux.HandleFunc("GET /api/admin/attempts", a.admin(a.handleAttempts))

@@ -97,7 +97,7 @@ func TestAPI(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer db.Close()
-	db.Exec(ctx, "TRUNCATE users, sessions, attempts, settings, plays, ad_views, purchases RESTART IDENTITY CASCADE")
+	db.Exec(ctx, "TRUNCATE users, sessions, attempts, settings, plays, ad_views, purchases, promos, promo_uses, orders RESTART IDENTITY CASCADE")
 	cfg := Config{DevLogin: true, UploadDir: t.TempDir(), Admins: map[string]bool{"dev:boss": true}, Origins: []string{"https://site.example"}, TelegramToken: bot}
 	os.MkdirAll(cfg.UploadDir+"/ads", 0o755)
 	srv := httptest.NewServer(newApp(cfg, db).routes())
@@ -340,4 +340,171 @@ func TestTelegramBotLogin(t *testing.T) {
 	if !strings.Contains(said[3], "Salom") {
 		t.Fatalf("unknown start: %q", said[3])
 	}
+}
+
+// the shop: prices and the switch set by the admin, promo codes, a payment through a stand-in for inPAY whose
+// callback is not believed until inPAY's own record says paid, a free code, the bundle
+func TestShop(t *testing.T) {
+	dbURL := os.Getenv("TEST_DATABASE_URL")
+	if dbURL == "" {
+		t.Skip("TEST_DATABASE_URL not set")
+	}
+	ctx := context.Background()
+	db, err := openDB(ctx, dbURL)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	db.Exec(ctx, "TRUNCATE users, sessions, attempts, settings, plays, ad_views, purchases, promos, promo_uses, orders RESTART IDENTITY CASCADE")
+
+	// inPAY stand-in
+	var payState = map[string]string{}
+	var created []map[string]any
+	fake := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		switch {
+		case r.URL.Path == "/authorization/":
+			if r.URL.Query().Get("merchant_token") != "secret" {
+				w.WriteHeader(401)
+				w.Write([]byte(`{"success":false}`))
+				return
+			}
+			w.Write([]byte(`{"success":true,"token":"tok123"}`))
+		case r.URL.Path == "/create/":
+			if r.Header.Get("Authorization") != "Bearer tok123" {
+				w.WriteHeader(401)
+				return
+			}
+			var b map[string]any
+			json.NewDecoder(r.Body).Decode(&b)
+			created = append(created, b)
+			id := strconv.Itoa(1000 + len(created))
+			payState[id] = "pending"
+			w.Write([]byte(`{"success":true,"order_id":` + id + `,"pay_url":"https://inpay.uz/pay/` + id + `"}`))
+		case r.URL.Path == "/transactions/":
+			id := r.URL.Query().Get("order_id")
+			amt := "0"
+			for i, b := range created {
+				if strconv.Itoa(1001+i) == id {
+					amt = strconv.FormatFloat(b["amount"].(float64), 'f', 2, 64)
+				}
+			}
+			w.Write([]byte(`{"success":true,"data":{"order_id":"` + id + `","status":"` + payState[id] + `","amount":"` + amt + `"}}`))
+		default:
+			w.WriteHeader(404)
+		}
+	}))
+	defer fake.Close()
+
+	cfg := Config{DevLogin: true, UploadDir: t.TempDir(), Admins: map[string]bool{"dev:boss": true}, InpayURL: fake.URL, InpayMerchant: "m1", InpayToken: "secret", PublicURL: "https://site.example"}
+	srv := httptest.NewServer(newApp(cfg, db).routes())
+	defer srv.Close()
+	call := func(method, path, token string, body any, want int) map[string]any {
+		t.Helper()
+		raw, _ := json.Marshal(body)
+		req, _ := http.NewRequest(method, srv.URL+path, bytes.NewReader(raw))
+		if token != "" {
+			req.Header.Set("Authorization", "Bearer "+token)
+		}
+		res, err := http.DefaultClient.Do(req)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer res.Body.Close()
+		out := map[string]any{}
+		json.NewDecoder(res.Body).Decode(&out)
+		if res.StatusCode != want {
+			t.Fatalf("%s %s: status %d, want %d (%v)", method, path, res.StatusCode, want, out)
+		}
+		return out
+	}
+	login := func(name string) string {
+		return call("POST", "/api/auth/dev", "", map[string]string{"name": name}, 200)["token"].(string)
+	}
+	boss, ali := login("Boss"), login("Ali")
+	owns := func() []any { return call("GET", "/api/me", ali, nil, 200)["user"].(map[string]any)["owns"].([]any) }
+
+	// at first: selling on, six paid items, nothing priced so nothing offered
+	sh := call("GET", "/api/shop", "", nil, 200)
+	if sh["enabled"] != true || len(sh["paid"].([]any)) != 6 || len(sh["products"].([]any)) != 0 || sh["payments"] != true {
+		t.Fatalf("default shop: %v", sh)
+	}
+	// the admin prices the K5 (for good) and the bundle (30 days)
+	shop := map[string]any{"enabled": true, "paid": []string{"car:kia-k5", "instructor:rude"}, "products": []map[string]any{
+		{"id": "car:kia-k5", "name": "Kia K5", "items": []string{"car:kia-k5"}, "price": 20000, "days": 0, "on": true},
+		{"id": "all", "name": "Hammasi", "items": []string{"all"}, "price": 50000, "days": 30, "on": true},
+	}}
+	call("PUT", "/api/admin/shop", ali, shop, 403)
+	call("PUT", "/api/admin/shop", boss, map[string]any{"enabled": true, "products": []map[string]any{{"id": "x", "name": "X", "items": []string{"car:x"}, "price": 500, "on": true}}}, 400)
+	call("PUT", "/api/admin/shop", boss, shop, 200)
+	if n := len(call("GET", "/api/shop", "", nil, 200)["products"].([]any)); n != 2 {
+		t.Fatalf("products on sale: %d", n)
+	}
+
+	// promo codes: 25% on the K5 only, limited to one use; a free one
+	call("POST", "/api/admin/promos", boss, map[string]any{"code": "k25", "kind": "percent", "value": 25, "products": []string{"car:kia-k5"}, "maxUses": 1, "active": true}, 200)
+	call("POST", "/api/admin/promos", boss, map[string]any{"code": "GIFT", "kind": "free", "active": true}, 200)
+	call("POST", "/api/admin/promos", boss, map[string]any{"code": "BAD", "kind": "percent", "value": 150, "active": true}, 400)
+	q := call("POST", "/api/shop/quote", ali, map[string]any{"product": "car:kia-k5", "promo": "k25"}, 200)
+	if q["total"].(float64) != 15000 || q["discount"].(float64) != 5000 {
+		t.Fatalf("quote: %v", q)
+	}
+	call("POST", "/api/shop/quote", ali, map[string]any{"product": "all", "promo": "K25"}, 400)  // not for this product
+	call("POST", "/api/shop/quote", ali, map[string]any{"product": "all", "promo": "NOPE"}, 400) // no such code
+
+	// buying: an order and inPAY's page for 15 000
+	b := call("POST", "/api/shop/buy", ali, map[string]any{"product": "car:kia-k5", "promo": "K25"}, 200)
+	if b["payUrl"] != "https://inpay.uz/pay/1001" || created[0]["amount"].(float64) != 15000 || created[0]["callback_url"] != "https://site.example/api/shop/inpay" {
+		t.Fatalf("buy: %v %v", b, created)
+	}
+	order := strconv.Itoa(int(b["order"].(float64)))
+	// a forged callback saying "success" while inPAY's record is still pending: nothing is given
+	call("POST", "/api/shop/inpay", "", map[string]any{"order_id": "1001", "status": "success", "amount": "15000.00"}, 200)
+	if len(owns()) != 0 {
+		t.Fatal("given on a forged callback")
+	}
+	if st := call("GET", "/api/shop/orders/"+order, ali, nil, 200)["status"]; st != "pending" {
+		t.Fatalf("order: %v", st)
+	}
+	// paid at inPAY: the callback (twice) settles it once
+	payState["1001"] = "success"
+	call("POST", "/api/shop/inpay", "", map[string]any{"order_id": 1001}, 200)
+	call("POST", "/api/shop/inpay", "", map[string]any{"order_id": 1001}, 200)
+	if o := owns(); len(o) != 1 || o[0] != "car:kia-k5" {
+		t.Fatalf("owns after paying: %v", o)
+	}
+	if st := call("GET", "/api/shop/orders/"+order, ali, nil, 200)["status"]; st != "paid" {
+		t.Fatalf("order: %v", st)
+	}
+	// the code was for one use only, and Ali has used it
+	call("POST", "/api/shop/quote", ali, map[string]any{"product": "car:kia-k5", "promo": "K25"}, 400)
+
+	// someone else's order is not shown
+	vali := login("Vali")
+	call("GET", "/api/shop/orders/"+order, vali, nil, 404)
+
+	// the bundle with the free code: given at once, for 30 days, as "all"
+	d := call("POST", "/api/shop/buy", vali, map[string]any{"product": "all", "promo": "GIFT"}, 200)
+	if d["done"] != true || d["user"].(map[string]any)["owns"].([]any)[0] != "all" {
+		t.Fatalf("free bundle: %v", d)
+	}
+	var until int64
+	db.QueryRow(ctx, "SELECT until FROM purchases WHERE item = 'all'").Scan(&until)
+	if days := (until - time.Now().UnixMilli()) / 86400000; days < 29 || days > 30 {
+		t.Fatalf("bundle days: %d", days)
+	}
+
+	// the admin's orders list and the money
+	or := call("GET", "/api/admin/orders", boss, nil, 200)
+	if or["paidTotal"].(float64) != 15000 || or["paidCount"].(float64) != 2 {
+		t.Fatalf("orders: %v %v", or["paidTotal"], or["paidCount"])
+	}
+
+	// selling off: nothing is paid, nothing can be bought
+	shop["enabled"] = false
+	call("PUT", "/api/admin/shop", boss, shop, 200)
+	if sh := call("GET", "/api/shop", "", nil, 200); len(sh["paid"].([]any)) != 0 {
+		t.Fatalf("off: %v", sh)
+	}
+	call("POST", "/api/shop/buy", ali, map[string]any{"product": "all"}, 400)
 }
