@@ -19,7 +19,9 @@ export function formatNumber(raw) {
   m = /^(\d{3})([A-Z]{3})$/.exec(t); if (m) return `${m[1]} ${m[2]}`;
   return t;
 }
-export const REGIONS = Array.from({ length: 95 }, (_, i) => String(i + 1).padStart(2, "0"));
+// the region codes in use: [code, region]
+export const REGION_NAMES = [["01", "Toshkent sh."], ["10", "Toshkent vil."], ["20", "Sirdaryo"], ["25", "Jizzax"], ["30", "Samarqand"], ["40", "Farg'ona"], ["50", "Namangan"], ["60", "Andijon"], ["70", "Qashqadaryo"], ["75", "Surxondaryo"], ["80", "Buxoro"], ["85", "Navoiy"], ["90", "Xorazm"], ["95", "Qoraqalpog'iston"]];
+export const REGIONS = REGION_NAMES.map(r => r[0]);
 export function plateParts(text) { const [r, n] = split(text); return [r, n.replace(/\s+/g, "")]; }
 function split(text) {
   const [region = "01", ...rest] = String(text || DEFAULT_PLATE).trim().toUpperCase().split(/\s+/);

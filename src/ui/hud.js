@@ -11,7 +11,7 @@ import { ELEMENTS } from "../world/tracks.js";
 import { CARS } from "../cars/index.js";
 import { apiOn, getUser, updateUser } from "../net/api.js";
 import { NAME, TAGLINE, logo } from "./brand.js";
-import { REGIONS, formatNumber, plateParts } from "../render/plates.js";
+import { REGIONS, REGION_NAMES, formatNumber, plateParts } from "../render/plates.js";
 import { carLocked, moodLocked, carItem, productsFor, shopInfo, quote, buy } from "../net/shop.js";
 import { renderAccount, showLeaderboard } from "./account.js";
 
@@ -170,7 +170,7 @@ export class Hud {
           <h3>Mashina</h3>
           <div class="cars">${CARS.map(c => `<button class="carbtn${carLocked(c) ? " locked" : ""}" data-car="${c.id}">${carLocked(c) ? '<i class="lock" aria-label="Pullik">🔒</i>' : ""}<b>${c.name.replace("Chevrolet ", "")}</b><small>${c.info ? c.info.split(" · ")[0] : "Chevrolet"}</small></button>`).join("")}</div>
           <div class="row"><span class="lbl">Rangi</span><div class="swatches">${COLORS.map(([v, hex, t]) => `<button class="sw" data-color="${v}" title="${t}" style="--c:${hex}"></button>`).join("")}</div></div>
-          <div class="row"><span class="lbl">Davlat raqami</span><span class="plate-in"><select id="optRegion" aria-label="Hudud kodi">${REGIONS.map(r => `<option>${r}</option>`).join("")}</select><input id="optPlate" maxlength="8" spellcheck="false" autocomplete="off" placeholder="A070BJ" aria-label="Raqam: 6 ta harf va son"></span></div>
+          <div class="row"><span class="lbl">Davlat raqami</span><span class="plate-in"><select id="optRegion" aria-label="Hudud kodi">${REGION_NAMES.map(([c, n]) => `<option value="${c}" title="${n}">${c}</option>`).join("")}</select><input id="optPlate" maxlength="8" spellcheck="false" autocomplete="off" placeholder="A070BJ" aria-label="Raqam: 6 ta harf va son"></span></div>
           ${(() => { const all = shopInfo().products.find(p => p.items.includes("all")); return all && apiOn && shopInfo().enabled && !(getUser() && ((getUser().owns || []).includes("all") || getUser().admin)) ? `<button class="garagebtn tariff" id="tariffBtn"><svg viewBox="0 0 24 24"><path d="m12 3 2.7 5.6 6.1.9-4.4 4.3 1 6.1-5.4-2.9-5.4 2.9 1-6.1-4.4-4.3 6.1-.9z"/></svg><span><b>${all.name}</b><small>Barcha mashinalar va 18+ · ${all.days ? all.days + " kun" : "doimiy"}</small></span><i>›</i></button>` : ""; })()}
           <button class="garagebtn" id="garageBtn"><svg viewBox="0 0 24 24"><path d="M3 21V9l9-5 9 5v12"/><path d="M7 21v-7h10v7M7 17h10"/></svg><span><b>Garaj</b><small>Mashinani ko'rib tanlang</small></span><i>›</i></button>
           <button class="ghost" id="statsBtn">${icon('<path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/>')} Natijalar va xatolar tahlili</button>
