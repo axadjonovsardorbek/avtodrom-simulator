@@ -10,6 +10,7 @@ import { ACHIEVEMENTS, loadAchievements } from "../sim/achievements.js";
 import { ELEMENTS } from "../world/tracks.js";
 import { CARS } from "../cars/index.js";
 import { apiOn, getUser, updateUser } from "../net/api.js";
+import { NAME, TAGLINE, logo } from "./brand.js";
 import { carLocked, moodLocked, carItem, productsFor, shopInfo, quote, buy } from "../net/shop.js";
 import { renderAccount, showLeaderboard } from "./account.js";
 
@@ -41,7 +42,7 @@ export class Hud {
     root.innerHTML = `
       <canvas id="gl"></canvas>
       <header class="topbar">
-        <div class="brand"><span class="mark">A</span><div><b>Avtodrom</b><small id="modeLabel">Simulyator</small></div></div>
+        <div class="brand">${logo("mark-logo")}<div><b>${NAME}</b><small id="modeLabel">Simulyator</small></div></div>
         <div class="tb-btns">
           <button class="tb" data-a="camera" title="Kamera (C)"><span id="camLabel">Kabina</span></button>
           <button class="tb" data-a="map" title="Xarita (M)">Xarita</button>
@@ -117,8 +118,11 @@ export class Hud {
   refreshMenu() { if (this.menuOpen) this.showMenu(this.menuState); }
 
   showMenu(state) {
+    const opening = !this.menuOpen;
     this.menuState = state;
     const m = $("#menu", this.root), S = this.h.settings;
+    // the coming-in animation when the menu opens, not when it is drawn again (a login, prices arriving)
+    if (opening) { m.classList.add("anim"); clearTimeout(this.animT); this.animT = setTimeout(() => m.classList.remove("anim"), 1200); }
     const icon = d => `<svg viewBox="0 0 24 24" aria-hidden="true">${d}</svg>`;
     const ICONS = {
       piyoda: '<path d="M4 20h16M6 20l2-8m4 8 0-8m6 8-2-8"/><circle cx="12" cy="5" r="1.6"/>',
@@ -140,8 +144,7 @@ export class Hud {
     m.innerHTML = `
       <div class="menu-grid">
         <section class="panel menu-main">
-          <span class="eyebrow">Toshkent imtihon markazi · B toifa</span>
-          <h1>Avtodrom <br>simulyatori</h1>
+          <div class="hero">${logo("hero-logo")}<div><h1 class="wordmark">${NAME}</h1><span class="eyebrow">${TAGLINE} · Avtodrom · B toifa</span></div></div>
           <p class="lead">Amaliy imtihonni to'liq avtodromda yoki alohida mashqlarda takrorlang. Jarima ballari rasmiy jadval bo'yicha.</p>
           ${state && state.canResume ? `<button class="resume" id="resume"><span>▶</span> Davom ettirish</button>` : ""}
           ${(() => { const d = dailyTask(new Date(), ELEMENTS), p = d.progress(loadHistory()), done = p >= d.goal; return `<div class="daily${done ? " done" : ""}"><span class="di">${done ? "✓" : "★"}</span><div><small>Kunlik vazifa</small><b>${d.text}</b><div class="dbar"><i style="width:${Math.round(p / d.goal * 100)}%"></i></div></div><em>${p}/${d.goal}</em></div>`; })()}
@@ -153,6 +156,9 @@ export class Hud {
             <button class="mode train" data-mode="training">
               <span class="ico">${icon('<path d="M4 12a8 8 0 1 0 3-6.2"/><path d="M4 4v4h4"/>')}</span>
               <b>Trening</b><small>Xuddi shu marshrut, xato qilsangiz ham davom etasiz.</small></button>
+            <div class="mode city" aria-disabled="true">
+              <span class="ico">${icon('<path d="M3 21h18M5 21V8l5-3v16M10 21V3l9 4v14"/><path d="M13 9h3M13 13h3M13 17h3"/>')}</span>
+              <b>Shahar</b><small>Toshkent ko'chalarida erkin haydash.</small><em class="soon">Tez orada</em></div>
           </div>
           <h2>Alohida mashq <small>raqam — xaritadagi element</small></h2>
           <div class="els">${els}</div>

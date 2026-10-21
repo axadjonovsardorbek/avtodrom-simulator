@@ -265,16 +265,50 @@ tr:last-child td { border-bottom: 0; }
 @media (prefers-reduced-motion: reduce) { .toast, .rotate svg { animation: none; } }
 
 /* boot screen: shown until the car model has loaded */
-.boot { position: fixed; inset: 0; z-index: 50; display: grid; place-items: center; background: #0b0c0e; transition: opacity .4s; }
-.boot.done { opacity: 0; pointer-events: none; }
-.boot-card { display: grid; justify-items: center; gap: 12px; color: #e9edf2; font-family: var(--f-body, sans-serif); text-align: center; padding: 24px; }
-.boot-card b { font-family: var(--f-display, sans-serif); font-size: 28px; letter-spacing: .04em; text-transform: uppercase; }
-.boot-mark { width: 56px; height: 56px; border-radius: 12px; background: #1f5fd1; border: 2px solid #fff; display: grid; place-items: center; font: 700 30px var(--f-display, sans-serif); }
-.boot-bar { width: min(280px, 70vw); height: 6px; border-radius: 3px; background: #23262c; overflow: hidden; }
-.boot-bar i { display: block; height: 100%; width: 5%; background: #f0b030; transition: width .25s; }
-.boot-card small { color: #9aa3ae; }
+/* ---------- boot: the wheel draws itself and turns in, the name comes up letter by letter, a light runs over it ---------- */
+.boot { position: fixed; inset: 0; z-index: 50; display: grid; place-items: center; background: #07080a; overflow: hidden; transition: opacity .6s, transform .6s; }
+.boot.done { opacity: 0; transform: scale(1.04); pointer-events: none; }
+.boot-glow { position: absolute; inset: -20%; background: radial-gradient(40% 35% at 50% 45%, rgba(242, 182, 50, .16), transparent 70%), radial-gradient(60% 50% at 50% 110%, rgba(40, 90, 200, .18), transparent 70%); animation: glow 6s ease-in-out infinite alternate; }
+@keyframes glow { to { transform: scale(1.08) translateY(-2%); } }
+.boot-card { position: relative; display: grid; justify-items: center; gap: 10px; color: #e9edf2; font-family: var(--f-body, sans-serif); text-align: center; padding: 24px; }
+.boot-logo { width: 96px; height: 96px; animation: wheelIn 1.3s cubic-bezier(.2, .8, .2, 1) both; filter: drop-shadow(0 0 22px rgba(242, 182, 50, .35)); }
+.boot-logo .lg-rim { stroke-dasharray: 252; stroke-dashoffset: 252; animation: draw 1.1s .15s ease-out forwards; }
+.boot-logo .lg-spk, .boot-logo .lg-hub, .boot-logo .lg-dot { opacity: 0; animation: fadeIn .4s .8s forwards; }
+@keyframes wheelIn { from { transform: rotate(-200deg) scale(.6); opacity: 0; } to { transform: none; opacity: 1; } }
+@keyframes draw { to { stroke-dashoffset: 0; } }
+@keyframes fadeIn { to { opacity: 1; } }
+.boot-name { margin: 6px 0 0; font: 700 64px/1 var(--f-display, sans-serif); letter-spacing: .18em; position: relative; overflow: hidden; padding-left: .18em; }
+.boot-name span { display: inline-block; opacity: 0; transform: translateY(60%); animation: letter .5s cubic-bezier(.2, .8, .2, 1) forwards; }
+.boot-name span:nth-child(1) { animation-delay: .9s; } .boot-name span:nth-child(2) { animation-delay: .98s; } .boot-name span:nth-child(3) { animation-delay: 1.06s; }
+.boot-name span:nth-child(4) { animation-delay: 1.14s; } .boot-name span:nth-child(5) { animation-delay: 1.22s; }
+.boot-name::after { content: ""; position: absolute; top: 0; bottom: 0; width: 40%; left: -60%; background: linear-gradient(100deg, transparent, rgba(255, 255, 255, .55), transparent); mix-blend-mode: overlay; animation: sweep 2.8s 1.6s ease-in-out infinite; }
+@keyframes letter { to { opacity: 1; transform: none; } }
+@keyframes sweep { 0% { left: -60%; } 45%, 100% { left: 130%; } }
+.boot-tag { margin: 0 0 14px; color: #f2b632; font: 600 14px var(--f-display, sans-serif); letter-spacing: .32em; text-transform: uppercase; opacity: 0; animation: fadeIn .6s 1.4s forwards; }
+.boot-bar { width: min(320px, 72vw); height: 4px; border-radius: 2px; background: #1c1f25; overflow: hidden; position: relative; }
+.boot-bar i { display: block; height: 100%; width: 5%; background: linear-gradient(90deg, #f2b632, #ffd877); transition: width .35s; position: relative; }
+.boot-bar i::after { content: ""; position: absolute; inset: 0; background: linear-gradient(90deg, transparent, rgba(255, 255, 255, .6), transparent); animation: shimmer 1.2s linear infinite; }
+@keyframes shimmer { from { transform: translateX(-100%); } to { transform: translateX(100%); } }
+.boot-card small { color: #9aa3ae; font-size: 13px; min-height: 1.2em; }
+.boot-tip { margin: 6px 0 0; max-width: 46ch; color: #6f7884; font-size: 13px; min-height: 2.6em; transition: opacity .4s; }
+.boot-go { margin-top: 8px; border: 0; border-radius: 999px; padding: 14px 44px; background: #f2b632; color: #1b1606; font: 700 20px var(--f-display, sans-serif); letter-spacing: .12em; text-transform: uppercase; cursor: pointer; box-shadow: 0 0 0 0 rgba(242, 182, 50, .6); animation: pulse 1.6s infinite; }
+@keyframes pulse { 70% { box-shadow: 0 0 0 18px rgba(242, 182, 50, 0); } 100% { box-shadow: 0 0 0 0 rgba(242, 182, 50, 0); } }
+.boot.ready .boot-bar, .boot.ready #bootText { display: none; }
 .boot.err .boot-bar { display: none; }
 .boot.err small { color: #ff8a7a; max-width: 40ch; }
+@media (max-height: 460px) { .boot-logo { width: 64px; height: 64px; } .boot-name { font-size: 44px; } .boot-tag { margin-bottom: 8px; } .boot-tip { display: none; } }
+@media (prefers-reduced-motion: reduce) { .boot *, .boot::before, .boot::after { animation-duration: .01s !important; animation-delay: 0s !important; } }
+
+/* the turning wheel wherever something loads */
+.logo { width: 40px; height: 40px; }
+.logo.spin { animation: steer 1.4s ease-in-out infinite; }
+@keyframes steer { 0% { transform: rotate(0); } 30% { transform: rotate(-90deg); } 60% { transform: rotate(60deg); } 100% { transform: rotate(0); } }
+.ld { display: grid; justify-items: center; gap: 12px; }
+.ld .logo { width: 58px; height: 58px; filter: drop-shadow(0 0 16px rgba(242, 182, 50, .3)); }
+.ld-t { font: 600 18px var(--f-display, sans-serif); letter-spacing: .06em; color: #eef0f2; }
+.ld-dots i { display: inline-block; width: 4px; height: 4px; margin-left: 3px; border-radius: 50%; background: #f2b632; animation: dot 1s infinite; }
+.ld-dots i:nth-child(2) { animation-delay: .15s; } .ld-dots i:nth-child(3) { animation-delay: .3s; }
+@keyframes dot { 0%, 100% { opacity: .2; transform: translateY(0); } 50% { opacity: 1; transform: translateY(-3px); } }
 
 /* ---------- menu (redesign): modes and elements on the left, settings card on the right,
    the car turning slowly in between ---------- */
@@ -601,7 +635,8 @@ table.lb em { color: var(--amber); font-style: normal; }
 .tg-wait a, .tg-wait .linkish { color: #2aabee; background: none; border: 0; font: inherit; cursor: pointer; padding: 0; text-decoration: underline; }
 
 /* "getting ready" card while a drive is set up (main.js start) */
-#prep { position: absolute; inset: 0; z-index: 60; display: none; flex-direction: column; align-items: center; justify-content: center; gap: 14px; background: #0e1013; color: #eef0f2; font: 600 18px/1.3 "Barlow Condensed", system-ui, sans-serif; letter-spacing: .02em; }
+#prep { position: absolute; inset: 0; z-index: 60; display: none; align-items: center; justify-content: center; background: radial-gradient(45% 40% at 50% 45%, rgba(242, 182, 50, .1), transparent 70%), #07080a; color: #eef0f2; }
+#prep.on { animation: fadeIn .25s both; }
 #prep.on { display: flex; }
 .prep-spin { width: 34px; height: 34px; border-radius: 50%; border: 3px solid rgba(255, 255, 255, .15); border-top-color: var(--amber, #f2b632); animation: prepSpin .8s linear infinite; }
 @keyframes prepSpin { to { transform: rotate(360deg); } }
@@ -629,3 +664,39 @@ table.lb em { color: var(--amber); font-style: normal; }
 .buy-msg { min-height: 1.3em; margin: 8px 0 0; color: #3ddc84; font-size: 14px; }
 .buy-msg.bad { color: #ff6b5e; }
 .garagebtn.tariff { border-color: rgba(242, 182, 50, .55); background: linear-gradient(135deg, rgba(242, 182, 50, .16), rgba(242, 182, 50, .04)); }
+
+/* ---------- brand in the menu and the bar on top ---------- */
+.brand .mark-logo { width: 34px; height: 34px; flex: none; filter: drop-shadow(0 0 8px rgba(242, 182, 50, .35)); }
+.brand b { letter-spacing: .14em; }
+.hero { display: flex; align-items: center; gap: 16px; margin: 2px 0 8px; }
+.hero-logo { width: 68px; height: 68px; flex: none; filter: drop-shadow(0 0 18px rgba(242, 182, 50, .35)); animation: heroWheel 7s ease-in-out infinite; }
+@keyframes heroWheel { 0%, 100% { transform: rotate(0); } 20% { transform: rotate(-22deg); } 40% { transform: rotate(14deg); } 60% { transform: rotate(0); } }
+.menu-main h1.wordmark { margin: 0; font-size: 60px; line-height: .9; letter-spacing: .16em; background: linear-gradient(100deg, #fff 0%, #fff 40%, #ffe3a0 50%, #fff 60%, #fff 100%); background-size: 250% 100%; -webkit-background-clip: text; background-clip: text; color: transparent; animation: wordShine 5s 1s ease-in-out infinite; }
+@keyframes wordShine { 0% { background-position: 100% 0; } 40%, 100% { background-position: -50% 0; } }
+.hero .eyebrow { display: block; margin-top: 6px; }
+/* the city: a teaser across both columns */
+.mode.city { grid-column: 1 / -1; grid-template-columns: auto 1fr auto; align-items: center; column-gap: 12px; padding: 12px 16px; cursor: default; background: linear-gradient(140deg, #1d2430, #14181e 70%); border-color: rgba(140, 160, 190, .35); opacity: .85; }
+.mode.city:hover { transform: none; }
+.mode.city .ico { margin: 0; background: rgba(140, 160, 190, .16); color: #b8c6da; grid-row: 1 / 3; }
+.mode.city b { font-size: 22px; color: #d6deea; }
+.mode.city small { grid-column: 2; }
+.mode.city .soon { grid-column: 3; grid-row: 1 / 3; font-style: normal; font-size: 12px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: #f2b632; border: 1px solid rgba(242, 182, 50, .5); border-radius: 999px; padding: 5px 10px; }
+/* the mode cards: a light runs over them on hover */
+.mode::after { content: ""; position: absolute; inset: 0; background: linear-gradient(110deg, transparent 30%, rgba(255, 255, 255, .12) 50%, transparent 70%); transform: translateX(-120%); transition: transform .6s; pointer-events: none; }
+.mode:not(.city):hover::after { transform: translateX(120%); }
+.mode.exam:hover { box-shadow: 0 10px 30px rgba(242, 182, 50, .18); }
+.mode.train:hover { box-shadow: 0 10px 30px rgba(80, 150, 240, .18); }
+/* the menu comes in: the panels slide in from their sides, their parts rise one after another */
+#menu.anim .menu-main { animation: inLeft .55s cubic-bezier(.2, .8, .2, 1) both; }
+#menu.anim .menu-side { animation: inRight .55s .08s cubic-bezier(.2, .8, .2, 1) both; }
+#menu.anim .menu-main > * { animation: rise .5s cubic-bezier(.2, .8, .2, 1) both; }
+#menu.anim .menu-main > :nth-child(2) { animation-delay: .08s; } #menu.anim .menu-main > :nth-child(3) { animation-delay: .14s; }
+#menu.anim .menu-main > :nth-child(4) { animation-delay: .2s; } #menu.anim .menu-main > :nth-child(5) { animation-delay: .26s; }
+#menu.anim .menu-main > :nth-child(n+6) { animation-delay: .32s; }
+@keyframes inLeft { from { opacity: 0; transform: translateX(-40px); } to { opacity: 1; transform: none; } }
+@keyframes inRight { from { opacity: 0; transform: translateX(40px); } to { opacity: 1; transform: none; } }
+@keyframes rise { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+@media (max-height: 520px), (max-width: 700px) { .menu-main h1.wordmark { font-size: 42px; } .hero-logo { width: 48px; height: 48px; } }
+@media (prefers-reduced-motion: reduce) { #menu .menu-main, #menu .menu-side, #menu .menu-main > *, .hero-logo, .menu-main h1.wordmark { animation: none !important; } }
+#menu .hero-logo { width: 68px; height: 68px; }
+@media (max-height: 520px), (max-width: 700px) { #menu .hero-logo { width: 48px; height: 48px; } }

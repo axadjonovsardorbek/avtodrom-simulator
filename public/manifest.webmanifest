@@ -1,7 +1,7 @@
 {
-  "name": "Avtodrom Simulyatori",
-  "short_name": "Avtodrom",
-  "description": "B toifa avtodrom amaliy imtihoniga tayyorlanish uchun 3D simulyator",
+  "name": "RULDA — haydash simulyatori",
+  "short_name": "RULDA",
+  "description": "3D haydash simulyatori: avtodrom amaliy imtihoniga tayyorlanish",
   "lang": "uz",
   "start_url": "./",
   "scope": "./",

@@ -7,10 +7,10 @@
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="theme-color" content="#0b0c0e" />
-    <title>Avtodrom Simulyatori — B toifa imtihoniga tayyorlanish</title>
-    <meta name="description" content="Avtodrom amaliy imtihoniga 3D simulyatorda tayyorlaning: to'liq marshrut, 13 mashq, rasmiy jarima ballari, o'zbek tilida ovozli ko'rsatmalar. Kompyuter va telefonda ishlaydi." />
-    <meta property="og:title" content="Avtodrom Simulyatori" />
-    <meta property="og:description" content="B toifa avtodrom imtihoniga 3D simulyatorda tayyorlaning: Chevrolet Cobalt va Malibu, instruktor, rasmiy jarima ballari." />
+    <title>RULDA — haydash simulyatori: avtodrom imtihoniga tayyorlanish</title>
+    <meta name="description" content="RULDA — 3D haydash simulyatori. Avtodrom amaliy imtihoniga tayyorlaning: tayyorlaning: to'liq marshrut, 13 mashq, rasmiy jarima ballari, o'zbek tilida ovozli ko'rsatmalar. Kompyuter va telefonda ishlaydi." />
+    <meta property="og:title" content="RULDA — haydash simulyatori" />
+    <meta property="og:description" content="B toifa avtodrom imtihoniga 3D simulyatorda tayyorlaning: haqiqiy mashinalar, instruktor, rasmiy jarima ballari." />
     <meta property="og:type" content="website" />
     <meta property="og:image" content="icons/icon-512.png" />
     <link rel="icon" href="icons/icon.svg" type="image/svg+xml" />
@@ -22,7 +22,24 @@
   </head>
   <body>
     <div id="app"></div>
-    <div id="boot" class="boot"><div class="boot-card"><span class="boot-mark">A</span><b>Avtodrom simulyatori</b><div class="boot-bar"><i id="bootBar"></i></div><small id="bootText">Yuklanmoqda…</small></div></div>
+    <div id="boot" class="boot">
+      <div class="boot-glow"></div>
+      <div class="boot-card">
+        <svg class="boot-logo" viewBox="0 0 100 100" aria-hidden="true">
+          <circle class="lg-rim" cx="50" cy="50" r="40" fill="none" stroke="#f2b632" stroke-width="9"/>
+          <path class="lg-spk" d="M50 50 L12 46 M50 50 L88 46 M50 50 L50 88" stroke="#eef0f2" stroke-width="8" stroke-linecap="round" fill="none"/>
+          <circle class="lg-hub" cx="50" cy="50" r="12" fill="#eef0f2"/>
+          <circle class="lg-dot" cx="50" cy="50" r="5" fill="#f2b632"/>
+          <path d="M44 11 h12" stroke="#0b0c0e" stroke-width="4" stroke-linecap="round"/>
+        </svg>
+        <h1 class="boot-name" aria-label="RULDA"><span>R</span><span>U</span><span>L</span><span>D</span><span>A</span></h1>
+        <p class="boot-tag">Haydash simulyatori</p>
+        <div class="boot-bar"><i id="bootBar"></i></div>
+        <small id="bootText">Yuklanmoqda…</small>
+        <p class="boot-tip" id="bootTip"></p>
+        <button class="boot-go" id="bootGo" hidden>Boshlash</button>
+      </div>
+    </div>
     <noscript><p style="color:#fff;padding:24px;font-family:sans-serif">Simulyator uchun JavaScript yoqilgan bo'lishi kerak.</p></noscript>
     <script type="module" src="/src/main.js"></script>
   </body>

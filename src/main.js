@@ -14,6 +14,7 @@ import { dressCobalt, addPaint } from "./render/carDress.js";
 import { addScreenAd, setAdSource, watchAds, takeAdViews } from "./render/screenAd.js";
 import { gripFor } from "./render/atmosphere.js";
 import { carLocked, moodLocked, carItem, loadShop, orderStatus } from "./net/shop.js";
+import { loader } from "./ui/brand.js";
 import { apiOn, onUser, updateUser, config, refreshMe, telegramMiniAppLogin, sendAttempt, flushAttempts, myAttempts, countRun, countDrive, trackAdsFrom } from "./net/api.js";
 trackAdsFrom(takeAdViews);
 import { addPlates, DEFAULT_PLATE } from "./render/plates.js";
@@ -134,8 +135,9 @@ const rec = new Recorder();
 let preparing = false;
 function prepCard(on) {
   let c = document.getElementById("prep");
-  if (!c) { c = document.createElement("div"); c.id = "prep"; c.innerHTML = '<div class="prep-spin"></div><div>Tayyorlanmoqda…</div>'; app.appendChild(c); }
-  c.classList.toggle("on", on);
+  if (!c) { c = document.createElement("div"); c.id = "prep"; app.appendChild(c); }
+  if (on) c.innerHTML = loader(typeof on === "string" ? on : "Tayyorlanmoqda");
+  c.classList.toggle("on", !!on);
 }
 function start(m, el) {
   if (preparing) return;
@@ -202,7 +204,7 @@ function openGarage() {
     // the garage's own shaders and textures (floor, walls, signs, lights) made ready before its first frame:
     // drawn at once, the first frame waited for every one of them to link
     garage.ready = false;
-    const ready = () => { garage.ready = true; };
+    const ready = () => { garage.ready = true; if (inGarage) prepCard(false); };
     warmUp(view.renderer, garage.scene, garage.cam, garage.scene).then(ready, ready);
     // the bays get the light -mid copies, one car at a time, the one in front first and then outwards, with a
     // pause between them so the picture does not stall while they decode; the car in front is then swapped
@@ -217,6 +219,7 @@ function openGarage() {
   garage.resize(view.w, view.h);
   garageComposer = view.composerFor(garage.scene, garage.cam);
   hud.hideMenu(); inGarage = true; paused = true;
+  if (!garage.ready) prepCard("Garaj ochilmoqda");
   app.classList.add("garage-open");
   hud.showGarage(true, garageAction, CARS[garage.index], settings.color);
   garageSharpen();

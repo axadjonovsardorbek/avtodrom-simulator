@@ -2,6 +2,29 @@
 // message when the device cannot run the simulator, and the offline cache registration.
 const el = () => document.getElementById("boot");
 let finished = false;
+const t0 = performance.now();
+
+// a tip under the bar while it loads
+const TIPS = [
+  "Imtihonda 100 balldan oshsa, imtihon to'xtatiladi.",
+  "To'xtash chizig'i oldida 1 metr ichida to'xtang.",
+  "Burilishdan oldin burilish chirog'ini yoqishni unutmang.",
+  "Ko'zgularni salon ko'rinishida sichqoncha yoki barmoq bilan sozlang.",
+  "Temir yo'l kesishmasida to'xtab, ikki tomonga qarang.",
+  "Qiyalikda qo'l tormozi bilan joyidan qo'zg'aling.",
+  "Trening rejimida xato qilsangiz ham davom etasiz."
+];
+let tipN = Math.floor(Math.random() * TIPS.length);
+const tip = () => { const t = document.getElementById("bootTip"); if (!t || finished) return; t.style.opacity = 0; setTimeout(() => { t.textContent = TIPS[tipN++ % TIPS.length]; t.style.opacity = 1; }, 350); };
+tip(); const tipTimer = setInterval(tip, 3800);
+
+// phones: full screen and turned on its side, as a game opens (the browser allows both only on a tap)
+export function landscape() {
+  const d = document.documentElement;
+  try { const p = (d.requestFullscreen || d.webkitRequestFullscreen || (() => null)).call(d, { navigationUI: "hide" }); if (p && p.catch) p.catch(() => {}); } catch (_) {}
+  try { const o = screen.orientation; if (o && o.lock) o.lock("landscape").catch(() => {}); } catch (_) {}
+}
+const touch = matchMedia("(pointer: coarse)").matches;
 
 export const boot = {
   isDone: () => finished,
@@ -10,14 +33,24 @@ export const boot = {
     b.querySelector("#bootText").textContent = text;
     b.querySelector("#bootBar").style.width = Math.round(Math.max(0.05, Math.min(1, f)) * 100) + "%";
   },
+  // ready: the intro plays to its end (about two seconds); on a phone a "Boshlash" button waits for the tap that
+  // may turn the screen on its side and fill it
   done() {
-    if (finished) return; finished = true;
+    if (finished) return; finished = true; clearInterval(tipTimer);
     const b = el(); if (!b) return;
-    b.classList.add("done"); setTimeout(() => b.remove(), 500);
+    b.querySelector("#bootBar").style.width = "100%";
+    const hide = () => { b.classList.add("done"); setTimeout(() => b.remove(), 650); };
+    const wait = Math.max(0, 2200 - (performance.now() - t0));
+    setTimeout(() => {
+      if (!touch) return hide();
+      b.classList.add("ready");
+      const go = b.querySelector("#bootGo"); go.hidden = false;
+      go.onclick = () => { landscape(); hide(); };
+    }, wait);
   },
   fail(text) {
     const b = el(); if (!b) return;
-    finished = true;
+    finished = true; clearInterval(tipTimer);
     b.classList.add("err"); b.classList.remove("done");
     b.querySelector("#bootText").textContent = text;
   }
