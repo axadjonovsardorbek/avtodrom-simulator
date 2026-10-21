@@ -11,6 +11,16 @@ const PW = 0.52, PH = 0.112;                 // plate size, m
 const CW = 2048, CH = Math.round(CW * PH / PW);
 const MM = CW / 520;                         // canvas px per mm
 
+// the number part as it is written on a plate: six letters and digits, spaced the Uzbek way
+// ("A070BJ" -> "A 070 BJ" for a private car, "070BJA" -> "070 BJA" for a company's); other mixes as typed
+export function formatNumber(raw) {
+  const t = String(raw || "").toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 6);
+  let m = /^([A-Z])(\d{3})([A-Z]{2})$/.exec(t); if (m) return `${m[1]} ${m[2]} ${m[3]}`;
+  m = /^(\d{3})([A-Z]{3})$/.exec(t); if (m) return `${m[1]} ${m[2]}`;
+  return t;
+}
+export const REGIONS = Array.from({ length: 95 }, (_, i) => String(i + 1).padStart(2, "0"));
+export function plateParts(text) { const [r, n] = split(text); return [r, n.replace(/\s+/g, "")]; }
 function split(text) {
   const [region = "01", ...rest] = String(text || DEFAULT_PLATE).trim().toUpperCase().split(/\s+/);
   return [region.slice(0, 2), rest.join(" ") || "A 070 BJ"];

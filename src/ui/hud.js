@@ -11,6 +11,7 @@ import { ELEMENTS } from "../world/tracks.js";
 import { CARS } from "../cars/index.js";
 import { apiOn, getUser, updateUser } from "../net/api.js";
 import { NAME, TAGLINE, logo } from "./brand.js";
+import { REGIONS, formatNumber, plateParts } from "../render/plates.js";
 import { carLocked, moodLocked, carItem, productsFor, shopInfo, quote, buy } from "../net/shop.js";
 import { renderAccount, showLeaderboard } from "./account.js";
 
@@ -169,7 +170,7 @@ export class Hud {
           <h3>Mashina</h3>
           <div class="cars">${CARS.map(c => `<button class="carbtn${carLocked(c) ? " locked" : ""}" data-car="${c.id}">${carLocked(c) ? '<i class="lock" aria-label="Pullik">🔒</i>' : ""}<b>${c.name.replace("Chevrolet ", "")}</b><small>${c.info ? c.info.split(" · ")[0] : "Chevrolet"}</small></button>`).join("")}</div>
           <div class="row"><span class="lbl">Rangi</span><div class="swatches">${COLORS.map(([v, hex, t]) => `<button class="sw" data-color="${v}" title="${t}" style="--c:${hex}"></button>`).join("")}</div></div>
-          <label class="row"><span class="lbl">Davlat raqami</span><input id="optPlate" maxlength="14" spellcheck="false" autocomplete="off"></label>
+          <div class="row"><span class="lbl">Davlat raqami</span><span class="plate-in"><select id="optRegion" aria-label="Hudud kodi">${REGIONS.map(r => `<option>${r}</option>`).join("")}</select><input id="optPlate" maxlength="8" spellcheck="false" autocomplete="off" placeholder="A070BJ" aria-label="Raqam: 6 ta harf va son"></span></div>
           ${(() => { const all = shopInfo().products.find(p => p.items.includes("all")); return all && apiOn && shopInfo().enabled && !(getUser() && ((getUser().owns || []).includes("all") || getUser().admin)) ? `<button class="garagebtn tariff" id="tariffBtn"><svg viewBox="0 0 24 24"><path d="m12 3 2.7 5.6 6.1.9-4.4 4.3 1 6.1-5.4-2.9-5.4 2.9 1-6.1-4.4-4.3 6.1-.9z"/></svg><span><b>${all.name}</b><small>Barcha mashinalar va 18+ · ${all.days ? all.days + " kun" : "doimiy"}</small></span><i>›</i></button>` : ""; })()}
           <button class="garagebtn" id="garageBtn"><svg viewBox="0 0 24 24"><path d="M3 21V9l9-5 9 5v12"/><path d="M7 21v-7h10v7M7 17h10"/></svg><span><b>Garaj</b><small>Mashinani ko'rib tanlang</small></span><i>›</i></button>
           <button class="ghost" id="statsBtn">${icon('<path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/>')} Natijalar va xatolar tahlili</button>
@@ -217,8 +218,15 @@ export class Hud {
     const markColor = () => m.querySelectorAll(".sw").forEach(b => b.classList.toggle("on", b.dataset.color === (S.color || "white")));
     markColor();
     m.querySelectorAll(".sw").forEach(b => b.onclick = () => { this.h.setColor && this.h.setColor(b.dataset.color); markColor(); });
-    $("#optPlate", m).value = S.plate || "01 A 070 BJ";
-    $("#optPlate", m).oninput = e => this.h.setPlate && this.h.setPlate(e.target.value.toUpperCase());
+    // the region from the list (01..95), the number typed: six letters and digits, spaced on the plate
+    const [reg0, num0] = plateParts(S.plate || "01 A 070 BJ"), regEl = $("#optRegion", m), numEl = $("#optPlate", m);
+    regEl.value = REGIONS.includes(reg0) ? reg0 : "01"; numEl.value = num0;
+    const setPlate = () => {
+      const raw = numEl.value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 6);
+      if (numEl.value !== raw) numEl.value = raw;
+      if (raw.length && this.h.setPlate) this.h.setPlate(regEl.value + " " + formatNumber(raw));
+    };
+    regEl.onchange = setPlate; numEl.oninput = setPlate;
     m.querySelectorAll("[data-mode]").forEach(b => b.onclick = () => this.h.start(b.dataset.mode));
     m.querySelectorAll("[data-el]").forEach(b => b.onclick = () => this.h.start("practice", b.dataset.el));
     const r = $("#resume", m); if (r) r.onclick = () => this.h.resume();
