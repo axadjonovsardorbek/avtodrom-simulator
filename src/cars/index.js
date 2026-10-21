@@ -36,7 +36,7 @@ export const CARS = [
     voice: { url: "cobalt.mp3", from: 4, dur: 3 }          // plays from the 4th second when the car is picked
   },
   {
-    id: "malibu-premier", paid: true, name: "Chevrolet Malibu 2 Premier", model: "models/malibu-premier.glb", info: "1.5 Turbo · 163 o.k. · 4,93 m",
+    id: "malibu-premier", plateY: [0.47, 0.82], paid: true, name: "Chevrolet Malibu 2 Premier", model: "models/malibu-premier.glb", info: "1.5 Turbo · 163 o.k. · 4,93 m",
     credit: "3D model: \"2021 Chevrolet Malibu 2LZ Premier\" by twr422 (Sketchfab), CC BY 4.0, modified",
     creditUrl: "https://sketchfab.com/3d-models/2021-chevrolet-malibu-2lz-premier-c1e8e127ce114b14a166e93100642424",
     dims: PREMIER, eye: [1.37, 1.18, -0.389], seat: [1.5, 0.47, 0.389],
@@ -48,7 +48,7 @@ export const CARS = [
     voice: { url: "guvohnoma.mp3", from: 0 }
   },
   {
-    id: "malibu-2019", paid: true, name: "Chevrolet Malibu 2019", model: "models/malibu-2019.glb", info: "1.5 Turbo · 163 o.k. · 4,92 m",
+    id: "malibu-2019", plateY: [0.456, 0.82], paid: true, name: "Chevrolet Malibu 2019", model: "models/malibu-2019.glb", info: "1.5 Turbo · 163 o.k. · 4,92 m",
     credit: "3D model: \"2019 Chevrolet Malibu Premier\" (Sketchfab), modified", creditUrl: "",
     dims: MALIBU19, eye: [1.35, 1.17, -0.385], seat: [1.48, 0.46, 0.385],
     screen: { at: { c: [2.148, 0.935, -0.006], n: [-0.87, 0.5, 0], w: 0.152, h: 0.085 } },
@@ -68,7 +68,7 @@ export const CARS = [
     voice: { url: "monzachila_shottamisila.mp3", from: 1.7, dur: 1.8 }
   },
   {
-    id: "matiz", name: "Daewoo Matiz", model: "models/matiz.glb", info: "0.8 · 51 o.k. · 3,50 m",
+    id: "matiz", plateY: [0.47, 0.79], name: "Daewoo Matiz", model: "models/matiz.glb", info: "0.8 · 51 o.k. · 3,50 m",
     credit: "3D model: \"Daewoo Matiz [FULL INTERIOR]\" by ALEX MILOS (Sketchfab), CC BY 4.0, modified",
     creditUrl: "https://sketchfab.com/3d-models/daewoo-matiz-full-interior-c2bb5406a5f8484d9e76e0deb044f5b5",
     dims: MATIZ, eye: [1.05, 1.13, -0.331], seat: [1.06, 0.4, 0.331],
@@ -78,7 +78,7 @@ export const CARS = [
     voice: { url: "matiz.m4a", from: 0, dur: 4 }
   },
   {
-    id: "damas", name: "Chevrolet Damas", model: "models/damas.glb", info: "0.8 · 38 o.k. · 3,50 m",
+    id: "damas", plateY: [0.57, 0.61], name: "Chevrolet Damas", model: "models/damas.glb", info: "0.8 · 38 o.k. · 3,50 m",
     credit: "3D model: \"Chevrolet Damas\" (Sketchfab), modified", creditUrl: "",
     dims: DAMAS, eye: [1.5, 1.4, -0.332], seat: [1.48, 0.66, 0.332],
     mirrors: { center: [2.1, 1.55, 0], left: [2.16, 1.4, -0.82], right: [2.16, 1.4, 0.82] },
@@ -87,7 +87,7 @@ export const CARS = [
     voice: { url: "damas.mp3", from: 33, dur: 4.3 }
   },
   {
-    id: "kia-k5", paid: true, name: "Kia K5", model: "models/kia-k5.glb", info: "1.6 Turbo · 180 o.k. · 4,91 m",
+    id: "kia-k5", plateY: [0.53, 0.67], paid: true, name: "Kia K5", model: "models/kia-k5.glb", info: "1.6 Turbo · 180 o.k. · 4,91 m",
     credit: "3D model: \"Kia K5 2025\" (Sketchfab), modified", creditUrl: "",
     dims: K5, eye: [1.2, 1.12, -0.386], seat: [1.33, 0.44, 0.386],
     screen: { at: { c: [2.032, 0.938, 0.006], n: [-0.985, 0.172, 0], w: 0.262, h: 0.09 } },      // the centre screen, measured from the seat
@@ -96,7 +96,7 @@ export const CARS = [
     sound: TURBO_SOUND
   },
   {
-    id: "passat-2022", paid: true, name: "Volkswagen Passat 2022", model: "models/passat-2022.glb", info: "1.4 TSI · 150 o.k. · 4,78 m",
+    id: "passat-2022", plateY: [0.404, 0.748], paid: true, name: "Volkswagen Passat 2022", model: "models/passat-2022.glb", info: "1.4 TSI · 150 o.k. · 4,78 m",
     credit: "3D model: \"Volkswagen Passat 2022\" (Sketchfab), modified", creditUrl: "",
     dims: PASSAT22, eye: [1.19, 1.16, -0.374], seat: [1.32, 0.46, 0.374],
     screen: { at: { c: [1.967, 0.829, 0.026], n: [-0.94, 0.35, 0], w: 0.105, h: 0.07 } },
@@ -105,7 +105,7 @@ export const CARS = [
     sound: TURBO_SOUND
   },
   {
-    id: "passat-pro", paid: true, name: "Volkswagen Passat Pro", model: "models/passat-pro.glb", info: "2.0 TSI · 220 o.k. · 5,01 m",
+    id: "passat-pro", plateY: [0.496, 0.788], paid: true, name: "Volkswagen Passat Pro", model: "models/passat-pro.glb", info: "2.0 TSI · 220 o.k. · 5,01 m",
     credit: "3D model: \"2025 Volkswagen Passat Pro 380TSI\" (Sketchfab), modified", creditUrl: "",
     dims: PASSATPRO, eye: [1.3, 1.22, -0.36], seat: [1.43, 0.5, 0.36],
     screen: { at: { c: [2.069, 0.988, 0.018], n: [-0.98, 0.12, -0.17], w: 0.285, h: 0.148 } },
