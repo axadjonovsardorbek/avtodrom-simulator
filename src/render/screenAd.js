@@ -69,7 +69,7 @@ class Player {
   }
   adopt(s, aspect) {
     const uv = s.geometry.attributes.uv;
-    s.userData.ad = { base: Float32Array.from(uv.array), aspect, contain: this.place === "rear" };
+    s.userData.ad = { base: Float32Array.from(uv.array), aspect, contain: false };     // the picture fills the glass or the screen (cropped, not shrunk)
     s.material = this.mat; fit(s, this.aspect); this.surfaces.push(new WeakRef(s));
   }
 }
@@ -92,6 +92,19 @@ function fit(s, picAspect) {
   uv.needsUpdate = true;
 }
 
+// A screen given by its place in the car (cars index.js: screen: { at: { c, n, w, h } }, car frame, metres): centre,
+// the way it faces (towards the driver), width and height. A flat panel is laid a few millimetres in front of the
+// dashboard's own picture, upright with the car. For models whose screen is not a part of its own.
+function placeScreen(root, { c, n, w, h }) {
+  const car = root.name === "car" ? root : root.getObjectByName("car") || root;
+  const z = new THREE.Vector3(...n).normalize(), x = new THREE.Vector3(0, 1, 0).cross(z).normalize(), y = z.clone().cross(x);
+  const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), new THREE.MeshBasicMaterial({ color: 0x000000 }));
+  m.name = "ad_screen";
+  m.position.set(...c).addScaledVector(z, 0.003);
+  m.quaternion.setFromRotationMatrix(new THREE.Matrix4().makeBasis(x, y, z));
+  car.add(m);
+  return m;
+}
 // a model whose screen is drawn in its dashboard texture atlas: the triangles mapped into the
 // atlas rectangle uv = [u0, u1, v0, v1] of material `matName` become a mesh of their own, with
 // the rectangle stretched over 0..1 (flipped where the atlas holds it mirrored)
@@ -143,7 +156,7 @@ function rearWindow(root) {
   if (!glass.length) return null;
   const toRoot = root.matrixWorld.clone().invert(), box = new THREE.Box3();
   for (const o of glass) box.union(new THREE.Box3().setFromObject(o).applyMatrix4(toRoot));
-  const NZ = 30, NY = 26, dir = new THREE.Vector3(1, 0, 0).transformDirection(root.matrixWorld);
+  const NZ = 44, NY = 32, dir = new THREE.Vector3(1, 0, 0).transformDirection(root.matrixWorld);
   const midX = (box.min.x + box.max.x) / 2;
   const hit = [], ok = [], rays = [];
   let host = null;
@@ -163,35 +176,33 @@ function rearWindow(root) {
     }
     ok[j * NZ + i] = good;
   }
-  // the largest rectangle of good cells (row by row, the heights of good columns as a histogram)
-  let best = null;
-  const hgt = new Array(NZ).fill(0);
-  for (let j = 0; j < NY; j++) {
-    for (let i = 0; i < NZ; i++) hgt[i] = ok[j * NZ + i] ? hgt[i] + 1 : 0;
-    for (let i0 = 0; i0 < NZ; i0++) {
-      let h = Infinity;
-      for (let i1 = i0; i1 < NZ && hgt[i1]; i1++) {
-        h = Math.min(h, hgt[i1]);
-        const area = (i1 - i0 + 1) * h;
-        if (!best || area > best.area) best = { area, i0, i1, j0: j - h + 1, j1: j };
-      }
-    }
-  }
-  if (!best || best.i1 - best.i0 < 5 || best.j1 - best.j0 < 3) return null;
-  // a cell in from each side keeps the film off the rubber and the black edge of the glass
-  const i0 = best.i0 + 1, i1 = best.i1 - 1, j0 = best.j0 + 1, j1 = best.j1 - (best.j1 - best.j0 > 5 ? 1 : 0);
+  // the film covers the whole glass, not a rectangle inside it (a rear window is a trapezoid: the rectangle left
+  // its corners and sides bare and the picture small): every cell on the glass whose neighbours are on it too (one
+  // cell in from the rubber and the black edge), the picture spread over all of them
+  const on = (i, j) => i >= 0 && j >= 0 && i < NZ && j < NY && ok[j * NZ + i];
+  const inner = (i, j) => on(i, j) && on(i - 1, j) && on(i + 1, j) && on(i, j - 1) && on(i, j + 1);
+  let i0 = NZ, i1 = -1, j0 = NY, j1 = -1, count = 0;
+  for (let j = 0; j < NY; j++) for (let i = 0; i < NZ; i++) if (inner(i, j)) { count++; i0 = Math.min(i0, i); i1 = Math.max(i1, i); j0 = Math.min(j0, j); j1 = Math.max(j1, j); }
+  if (count < 30 || i1 - i0 < 5 || j1 - j0 < 3) return null;
   const toHost = host.matrixWorld.clone().invert().multiply(root.matrixWorld);
-  const P = [], U = [], I = [], nz = i1 - i0 + 1, ny = j1 - j0 + 1;
-  for (let j = j0; j <= j1; j++) for (let i = i0; i <= i1; i++) {
-    const { p, n } = hit[j * NZ + i];
-    const q = p.clone().addScaledVector(n, 0.006).applyMatrix4(toHost);
-    P.push(q.x, q.y, q.z); U.push((i - i0) / (nz - 1), (j - j0) / (ny - 1));
-  }
+  const P = [], U = [], I = [], index = new Map();
+  const vert = (i, j) => {
+    const k = j * NZ + i; if (index.has(k)) return index.get(k);
+    const { p, n } = hit[k], q = p.clone().addScaledVector(n, 0.006).applyMatrix4(toHost);
+    P.push(q.x, q.y, q.z); U.push((i - i0) / (i1 - i0), (j - j0) / (j1 - j0));
+    index.set(k, P.length / 3 - 1); return P.length / 3 - 1;
+  };
   // facing backwards (to the -x side): seen from behind the car, +z is on the right
-  for (let j = 0; j < ny - 1; j++) for (let i = 0; i < nz - 1; i++) { const a = j * nz + i; I.push(a, a + 1, a + nz, a + 1, a + nz + 1, a + nz); }
+  for (let j = j0; j < j1; j++) for (let i = i0; i < i1; i++) {
+    if (!inner(i, j) || !inner(i + 1, j) || !inner(i, j + 1) || !inner(i + 1, j + 1)) continue;
+    const a = vert(i, j), b = vert(i + 1, j), c = vert(i, j + 1), d = vert(i + 1, j + 1);
+    I.push(a, b, c, b, d, c);
+  }
+  // the picture's frame: the widest row and the tallest column of the glass
   const at = (i, j) => hit[j * NZ + i].p;
-  const wide = at(i0, (j0 + j1) >> 1).distanceTo(at(i1, (j0 + j1) >> 1));
-  let tall = 0; for (let j = j0; j < j1; j++) tall += at((i0 + i1) >> 1, j).distanceTo(at((i0 + i1) >> 1, j + 1));
+  let wide = 0, tall = 0;
+  for (let j = j0; j <= j1; j++) { let a = -1, b = -1; for (let i = i0; i <= i1; i++) if (inner(i, j)) { if (a < 0) a = i; b = i; } if (a >= 0) wide = Math.max(wide, at(a, j).distanceTo(at(b, j))); }
+  for (let i = i0; i <= i1; i++) { let t = 0; for (let j = j0; j < j1; j++) if (inner(i, j) && inner(i, j + 1)) t += at(i, j).distanceTo(at(i, j + 1)); tall = Math.max(tall, t); }
   const geo = new THREE.BufferGeometry();
   geo.setAttribute("position", new THREE.Float32BufferAttribute(P, 3));
   geo.setAttribute("uv", new THREE.Float32BufferAttribute(U, 2));
@@ -211,6 +222,7 @@ export function addScreenAd(cv, spec, carId) {
     if (screen.length) {
       let s = cv.root.getObjectByName("ad_screen"), aspect;
       if (s) { const p = s.geometry.parameters || {}; aspect = (p.width || 16) / (p.height || 9); }
+      else if (spec && spec.at) { s = placeScreen(cv.root, spec.at); aspect = spec.at.w / spec.at.h; }
       else if (spec && (s = cutScreen(cv.root, spec))) {
         const { host, keep } = s.userData.cut; aspect = s.userData.cut.aspect; delete s.userData.cut;
         host.geometry = host.geometry.clone(); host.geometry.setIndex(keep);     // the atlas picture under it goes

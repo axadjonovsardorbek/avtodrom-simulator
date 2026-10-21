@@ -89,42 +89,33 @@ export function dressCobalt(cv) {
     const a0 = Math.min(...pts.map(p => p.x - b * p.y));
     return face(a0 + b * yc - 0.006, yc, z, Math.atan(b));
   };
-  // one tilted piano-black panel (as in the current car): the two centre vents on top,
-  // the lock / hazard / ESC buttons, then the screen in a satin bezel
+  // a piano-black housing (as in the current car) for the touch screen, with the hazard switch, the volume knob
+  // and two track buttons
   // the 2014 round centre vents and their satin rings stay hidden behind the new panel
-  car.traverse(o => { if (o.isMesh && /^painel_painel1/.test(o.name)) o.visible = false; });
+  // (the model's own round centre vents stay in sight above the screen)
   // laid on the dashboard surface (x 2.225 at y 0.80 down to 2.13 at y 0.60), just proud of it
   const stack = onDash(0.6, 0.82, 0.04, 0.735, [2.19, 0.735, 0.04, 0.44]);
-  const trap = new THREE.Shape([[-0.13, 0.135], [0.13, 0.135], [0.116, -0.135], [-0.116, -0.135]].map(([x, y]) => new THREE.Vector2(x, y)));
+  // a slim housing round the screen only, slightly narrower at the bottom
+  const trap = new THREE.Shape([[-0.124, 0.05], [0.124, 0.05], [0.118, -0.128], [-0.118, -0.128]].map(([x, y]) => new THREE.Vector2(x, y)));
   // a solid block that reaches back into the dashboard, so no gap shows round its edges
   const sideMat = new THREE.MeshStandardMaterial({ color: 0x3c3f44, roughness: 0.7 });
   const panel = new THREE.Mesh(new THREE.ExtrudeGeometry(trap, { depth: 0.16, bevelEnabled: true, bevelSize: 0.004, bevelThickness: 0.003, bevelSegments: 2 }), [piano, sideMat]);
   panel.position.z = -0.148; stack.add(panel);
   for (const sx of [-1, 1]) {                                             // satin side trims
-    const e = new THREE.Mesh(new THREE.BoxGeometry(0.006, 0.272, 0.006), satin);
-    e.position.set(sx * 0.123, 0, 0.014); e.rotation.z = sx * 0.065; stack.add(e);
+    const e = new THREE.Mesh(new THREE.BoxGeometry(0.005, 0.178, 0.006), satin);
+    e.position.set(sx * 0.121, -0.039, 0.014); e.rotation.z = sx * 0.034; stack.add(e);
   }
-  const slatsTex = canvasTex(64, 64, (g, w, h) => {
-    g.fillStyle = "#08090b"; g.fillRect(0, 0, w, h);
-    for (let y = 4; y < h; y += 9) { g.fillStyle = "#34373c"; g.fillRect(0, y, w, 3); g.fillStyle = "#4e5258"; g.fillRect(0, y, w, 1); }
-  });
-  const slatMat = new THREE.MeshStandardMaterial({ map: slatsTex, roughness: 0.6 });
-  for (const vx of [-0.058, 0.058]) {
-    const v = new THREE.Mesh(new THREE.PlaneGeometry(0.094, 0.044), slatMat); v.position.set(vx, 0.09, 0.0125); stack.add(v);
-    const tab = new THREE.Mesh(new THREE.BoxGeometry(0.016, 0.007, 0.008), satin); tab.position.set(vx, 0.065, 0.016); stack.add(tab);
-  }
-  for (const bx of [-0.07, 0.07]) {
-    const b = new THREE.Mesh(new THREE.BoxGeometry(0.044, 0.014, 0.005), darkGrey); b.position.set(bx, 0.042, 0.014); stack.add(b);
-  }
+  // the hazard switch on the housing's top edge
   const hazard = new THREE.Mesh(new THREE.CylinderGeometry(0.008, 0.008, 0.005, 3), new THREE.MeshStandardMaterial({ color: 0xd8262a, roughness: 0.4, emissive: 0x400000 }));
-  hazard.rotation.x = Math.PI / 2; hazard.position.set(0, 0.042, 0.015); stack.add(hazard);
-  const bezel = new THREE.Mesh(new THREE.BoxGeometry(0.176, 0.1, 0.004), satin); bezel.position.set(-0.008, -0.04, 0.0125); stack.add(bezel);
-  const glassBlack = new THREE.Mesh(new THREE.PlaneGeometry(0.168, 0.092), piano); glassBlack.position.set(-0.008, -0.04, 0.0148); stack.add(glassBlack);
-  const screen = new THREE.Mesh(new THREE.PlaneGeometry(0.152, 0.084), new THREE.MeshBasicMaterial({ map: screenTexture(), toneMapped: false }));
-  screen.name = "ad_screen"; screen.position.set(-0.008, -0.04, 0.0152); stack.add(screen);
-  // volume knob and the two track buttons at the right of the screen
-  const vol = new THREE.Mesh(new THREE.CylinderGeometry(0.009, 0.009, 0.01, 20), satin); vol.rotation.x = Math.PI / 2; vol.position.set(0.096, -0.008, 0.017); stack.add(vol);
-  for (const by of [-0.04, -0.062]) { const b = new THREE.Mesh(new THREE.BoxGeometry(0.014, 0.016, 0.004), darkGrey); b.position.set(0.096, by, 0.014); stack.add(b); }
+  hazard.rotation.x = Math.PI / 2; hazard.position.set(0, 0.04, 0.015); stack.add(hazard);
+  // the screen fills most of the panel (a 16:9 touch screen as in the current car), in a thin satin bezel;
+  // the volume knob and the two track buttons sit in a row under it
+  const bezel = new THREE.Mesh(new THREE.BoxGeometry(0.222, 0.13, 0.004), satin); bezel.position.set(0, -0.026, 0.0125); stack.add(bezel);
+  const glassBlack = new THREE.Mesh(new THREE.PlaneGeometry(0.216, 0.124), piano); glassBlack.position.set(0, -0.026, 0.0148); stack.add(glassBlack);
+  const screen = new THREE.Mesh(new THREE.PlaneGeometry(0.208, 0.117), new THREE.MeshBasicMaterial({ map: screenTexture(), toneMapped: false }));
+  screen.name = "ad_screen"; screen.position.set(0, -0.026, 0.0152); stack.add(screen);
+  const vol = new THREE.Mesh(new THREE.CylinderGeometry(0.009, 0.009, 0.01, 20), satin); vol.rotation.x = Math.PI / 2; vol.position.set(0, -0.11, 0.017); stack.add(vol);
+  for (const bx of [-0.045, 0.045]) { const b = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.01, 0.004), darkGrey); b.position.set(bx, -0.11, 0.014); stack.add(b); }
 
   const climate = onDash(0.5, 0.6, 0.04, 0.555, [2.1, 0.555, 0.04, 0.3]);
   const cpanel = new THREE.Mesh(new THREE.BoxGeometry(0.24, 0.07, 0.016), darkGrey); climate.add(cpanel);

@@ -51,6 +51,7 @@ export const CARS = [
     id: "malibu-2019", paid: true, name: "Chevrolet Malibu 2019", model: "models/malibu-2019.glb", info: "1.5 Turbo · 163 o.k. · 4,92 m",
     credit: "3D model: \"2019 Chevrolet Malibu Premier\" (Sketchfab), modified", creditUrl: "",
     dims: MALIBU19, eye: [1.35, 1.17, -0.385], seat: [1.48, 0.46, 0.385],
+    screen: { at: { c: [2.148, 0.935, -0.006], n: [-0.87, 0.5, 0], w: 0.152, h: 0.085 } },
     mirrors: { center: [1.9, 1.32, 0], left: [2.3, 1.06, -1.0], right: [2.3, 1.06, 1.0] },
     spec: { mass: 1500, wb: MALIBU19.wheelbase, rOh: MALIBU19.rOh, fOh: MALIBU19.fOh, width: 1.854, track: MALIBU19.track, wheelR: MALIBU19.wheelR, torque: TURBO, clutchCap: 400, autoForce: 5600 },
     sound: TURBO_SOUND,
@@ -60,6 +61,7 @@ export const CARS = [
     id: "monza", name: "Chevrolet Monza", model: "models/monza.glb", info: "1.5 · 113 o.k. · 4,66 m",
     credit: "3D model: \"2023 Chevrolet Monza\" (Sketchfab), modified", creditUrl: "",
     dims: MONZA, eye: [1.21, 1.16, -0.41], seat: [1.35, 0.46, 0.41],
+    screen: { at: { c: [1.904, 0.966, 0.025], n: [-0.99, 0.09, -0.13], w: 0.128, h: 0.105 } },
     mirrors: { center: [1.76, 1.3, 0], left: [2.15, 1.05, -0.98], right: [2.15, 1.05, 0.98] },
     spec: { mass: 1320, wb: MONZA.wheelbase, rOh: MONZA.rOh, fOh: MONZA.fOh, width: 1.80, track: MONZA.track, wheelR: MONZA.wheelR, torque: NA15, clutchCap: 300, autoForce: 4700 },
     sound: NA,
@@ -88,6 +90,7 @@ export const CARS = [
     id: "kia-k5", paid: true, name: "Kia K5", model: "models/kia-k5.glb", info: "1.6 Turbo · 180 o.k. · 4,91 m",
     credit: "3D model: \"Kia K5 2025\" (Sketchfab), modified", creditUrl: "",
     dims: K5, eye: [1.2, 1.12, -0.386], seat: [1.33, 0.44, 0.386],
+    screen: { at: { c: [2.032, 0.938, 0.006], n: [-0.985, 0.172, 0], w: 0.262, h: 0.09 } },      // the centre screen, measured from the seat
     mirrors: { center: [1.75, 1.24, 0], left: [2.15, 1.02, -0.98], right: [2.15, 1.02, 0.98] },
     spec: { mass: 1450, wb: K5.wheelbase, rOh: K5.rOh, fOh: K5.fOh, width: 1.86, track: K5.track, wheelR: K5.wheelR, torque: TURBO, clutchCap: 400, autoForce: 5800 },
     sound: TURBO_SOUND
@@ -96,6 +99,7 @@ export const CARS = [
     id: "passat-2022", paid: true, name: "Volkswagen Passat 2022", model: "models/passat-2022.glb", info: "1.4 TSI · 150 o.k. · 4,78 m",
     credit: "3D model: \"Volkswagen Passat 2022\" (Sketchfab), modified", creditUrl: "",
     dims: PASSAT22, eye: [1.19, 1.16, -0.374], seat: [1.32, 0.46, 0.374],
+    screen: { at: { c: [1.967, 0.829, 0.026], n: [-0.94, 0.35, 0], w: 0.105, h: 0.07 } },
     mirrors: { center: [1.74, 1.29, 0], left: [2.14, 1.06, -0.94], right: [2.14, 1.06, 0.94] },
     spec: { mass: 1480, wb: PASSAT22.wheelbase, rOh: PASSAT22.rOh, fOh: PASSAT22.fOh, width: 1.83, track: PASSAT22.track, wheelR: PASSAT22.wheelR, torque: TURBO, clutchCap: 400, autoForce: 5600 },
     sound: TURBO_SOUND
@@ -104,6 +108,7 @@ export const CARS = [
     id: "passat-pro", paid: true, name: "Volkswagen Passat Pro", model: "models/passat-pro.glb", info: "2.0 TSI · 220 o.k. · 5,01 m",
     credit: "3D model: \"2025 Volkswagen Passat Pro 380TSI\" (Sketchfab), modified", creditUrl: "",
     dims: PASSATPRO, eye: [1.3, 1.22, -0.36], seat: [1.43, 0.5, 0.36],
+    screen: { at: { c: [2.069, 0.988, 0.018], n: [-0.98, 0.12, -0.17], w: 0.285, h: 0.148 } },
     mirrors: { center: [1.85, 1.34, 0], left: [2.25, 1.12, -1.0], right: [2.25, 1.12, 1.0] },
     spec: { mass: 1580, wb: PASSATPRO.wheelbase, rOh: PASSATPRO.rOh, fOh: PASSATPRO.fOh, width: 1.84, track: PASSATPRO.track, wheelR: PASSATPRO.wheelR, torque: TURBO20, clutchCap: 500, autoForce: 6800 },
     sound: TURBO_SOUND
