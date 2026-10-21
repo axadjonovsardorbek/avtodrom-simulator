@@ -186,9 +186,9 @@ export class Hud {
             <div><span class="lbl">Ovozli ko'rsatma</span>${seg("optVoice", [["on", "Ha"], ["off", "Yo'q"]])}</div>
             <div><span class="lbl">Boshqa mashinalar</span>${seg("optTraffic", [["off", "Yo'q"], ["simple", "Oddiy"], ["real", "Real"]])}</div>
             <div><span class="lbl">Grafika</span>${seg("optQuality", [["high", "Yuqori"], ["mid", "O'rta"], ["low", "Yengil"]])}</div>
-            <div><span class="lbl">Kadr tezligi (FPS)</span>${seg("optFps", [["30", "30 tejamkor"], ["60", "60"], ["max", "Maks"]])}</div>
-            <div><span class="lbl">Ob-havo</span>${seg("optWeather", [["clear", "Quyoshli"], ["cloudy", "Bulutli"], ["rain", "Yomg'ir"], ["fog", "Tuman"]])}</div>
-            <div><span class="lbl">Vaqt</span>${seg("optTime", [["day", "Kunduz"], ["evening", "Kechqurun"]])}</div>
+            <div><span class="lbl">Kadr tezligi (FPS)</span>${seg("optFps", [["30", "30"], ["60", "60"], ["max", "Maks"]])}</div>
+            <div class="full"><span class="lbl">Ob-havo</span>${seg("optWeather", [["clear", "Quyoshli"], ["cloudy", "Bulutli"], ["rain", "Yomg'ir"], ["fog", "Tuman"]])}</div>
+            <div class="full"><span class="lbl">Vaqt</span>${seg("optTime", [["day", "Kunduz"], ["evening", "Kechqurun"]])}</div>
           </div>
         </aside>
       </div>`;

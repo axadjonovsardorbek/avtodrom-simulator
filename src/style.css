@@ -358,10 +358,12 @@ tr:last-child td { border-bottom: 0; }
 .ghost { width: 100%; margin-top: 12px; display: flex; align-items: center; justify-content: center; gap: 8px; border: 1px dashed #4a515b; background: transparent; border-radius: 10px; padding: 10px; cursor: pointer; font-weight: 600; color: var(--fg); }
 .ghost:hover { border-color: var(--amber); color: var(--amber); }
 .seg { display: flex; background: #12151a; border: 1px solid var(--rule); border-radius: 10px; padding: 3px; gap: 3px; }
-.seg button { flex: 1; border: 0; background: transparent; border-radius: 7px; padding: 7px 6px; font-size: 13px; font-weight: 600; color: var(--muted); cursor: pointer; white-space: nowrap; }
+.seg button { flex: 1 1 0; min-width: 0; overflow: hidden; text-overflow: ellipsis; border: 0; background: transparent; border-radius: 7px; padding: 7px 6px; font-size: 13px; font-weight: 600; color: var(--muted); cursor: pointer; white-space: nowrap; }
 .seg button.on { background: var(--raise); color: var(--fg); box-shadow: 0 1px 0 rgba(255, 255, 255, .06) inset, 0 2px 6px rgba(0, 0, 0, .3); }
 #optInstr button[data-v="rude"].on { color: #ff8a7a; }
-.row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.row2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px 10px; }
+.row2 > div { min-width: 0; }
+.row2 > .full { grid-column: 1 / -1; }
 @media (max-width: 1100px) {
   .menu-grid { grid-template-columns: minmax(0, 1fr) minmax(0, 340px); }
   .menu-side { grid-column: 2; }

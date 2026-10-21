@@ -701,6 +701,7 @@ function frame(now) {
       let n = 0;
       const c = session.car;
       if (prevCar !== c) { prevCar = c; prevPose = {}; for (const k of POSE) prevPose[k] = c[k] || 0; }
+      if (view.boarding) acc = 0;                  // the clock (and the start signal) waits until both are in their seats
       while (acc >= H && n < 60) { for (const k of POSE) prevPose[k] = c[k] || 0; session.step(H); acc -= H; n++; }
       rec.sample(session);
       countDrive(settings.car, dt);

@@ -602,13 +602,17 @@ export class View {
       const w = this.instructorWanted && this.carView.hasDoors && this.walker && this.walker.sit && this.instructor ? this.walker : null;       // he only walks in where there is a door to open
       const dw = this.carView.hasDoors && this.driverWalker && this.driverWalker.sit && this.driver ? this.driverWalker : null;
       for (const x of [this.walker, this.driverWalker]) if (x && x.root.parent !== root) root.add(x.root);       // the car model can arrive after the start
-      const t0 = w ? 5.8 : 1, L = t - t0;           // the learner's part starts when the instructor is in
+      const t0 = w ? 6.6 : 1, L = t - t0;           // the learner's part starts when the instructor is in
       const A0 = P(seatX + 3.8, 1.55, 4.6), A1 = P(seatX + 3.8, 1.55, -4.6);      // close in: the start lane runs beside the fence
-      const L0 = P(seatX + 0.2, 0.95, 2.3), L1 = P(seatX + 0.2, 0.75, -2.3);
-      if (L < 0) { cam.position.copy(A0); cam.lookAt(L0); }
-      else if (L < 3.8) { const k = smooth(L / 2.2); cam.position.copy(A0.clone().lerp(A1, k)); cam.lookAt(L0.clone().lerp(L1, k)); }
+      // both come along the side of the car from behind it (not through the open door), stop by the door and turn to it
+      const walkTo = (x, k) => x - 3.6 + 3.6 * smooth(k);
+      const iz = 1.15, dz = -1.15, ix = seatX + 0.05, dx = ex + 0.1;
+      const iPos = P(walkTo(ix, t / 2.9), 1.0, iz), dPos = P(walkTo(dx, L / 2.9), 0.95, dz);
+      const L1 = P(dx, 0.75, dz);
+      if (L < 0) { cam.position.copy(A0); cam.lookAt(iPos); }
+      else if (L < 4.9) { const k = smooth(L / 2.2); cam.position.copy(A0.clone().lerp(A1, k)); cam.lookAt(iPos.clone().lerp(L < 2.9 ? dPos : L1, k)); }
       else {
-        const e = smooth((L - 3.8) / 2.4);
+        const e = smooth((L - 4.9) / 2.4);
         cam.position.copy(A1.clone().multiplyScalar((1 - e) * (1 - e)).addScaledVector(C, 2 * (1 - e) * e).addScaledVector(E, e * e));
         const look0 = P(ex + 0.1, 0.95, ez - 0.2), look1 = P(ex + 10, ey - 0.45, ez);
         cam.lookAt(L1.clone().lerp(look0, smooth(e * 3)).lerp(look1, Math.pow(e, 1.4)));
@@ -616,27 +620,27 @@ export class View {
       if (cam.fov !== 68) { cam.fov = 68; cam.updateProjectionMatrix(); }
       // the instructor: walks to the door, then sits down; once in, his seated figure takes over
       if (w) {
-        const seated = t >= 5.2;
+        const seated = t >= 6.0;
         w.root.visible = !seated;
-        if (t < 2.7) { w.root.position.set(seatX + 0.05, 0, 4.4 + (1.15 - 4.4) * smooth(t / 2.7)); w.root.rotation.y = Math.PI / 2; w.update(dt, true); }
-        else if (!seated) w.sit(this.instructor, (t - 2.7) / 2.5, new THREE.Vector3(seatX + 0.05, 0, 1.15), 1);
+        if (t < 3.5) { w.root.position.set(walkTo(ix, t / 2.9), 0, iz); w.root.rotation.y = 0.5 * Math.PI * smooth((t - 2.9) / 0.5); w.update(dt, t < 2.9); }
+        else if (!seated) w.sit(this.instructor, (t - 3.5) / 2.5, new THREE.Vector3(ix, 0, iz), 1);
       }
-      if (this.instructor) this.instructor.visible = !w || t >= 5.2 ? !!this.instructorWanted : false;
+      if (this.instructor) this.instructor.visible = !w || t >= 6.0 ? !!this.instructorWanted : false;
       // the learner walks up to the driver's door on the left, the door opens, and he sits down
-      const inside = L > 5.13;       // the outside of the car shows until the camera is through the door
+      const inside = L > 6.23;       // the outside of the car shows until the camera is through the door
       if (dw) {
         dw.root.visible = L >= 0 && !inside;
-        if (L >= 0 && L < 2.4) { dw.root.position.set(ex + 0.1, 0, -4.4 + 3.25 * smooth(L / 2.4)); dw.root.rotation.y = -Math.PI / 2; dw.update(dt, L < 2.3); }
-        else if (L >= 2.4 && !inside) dw.sit(this.driver.root, (L - 2.4) / 2.2, new THREE.Vector3(ex + 0.1, 0, -1.15), -1);
+        if (L >= 0 && L < 3.5) { dw.root.position.set(walkTo(dx, L / 2.9), 0, dz); dw.root.rotation.y = -0.5 * Math.PI * smooth((L - 2.9) / 0.5); dw.update(dt, L < 2.9); }
+        else if (L >= 3.5 && !inside) dw.sit(this.driver.root, (L - 3.5) / 2.2, new THREE.Vector3(dx, 0, dz), -1);
       }
       // doors: the passenger door opens as he comes up and is pulled shut once he is in; the driver's likewise
-      const pk = !w ? 0 : t < 1.8 ? 0 : t < 2.5 ? (t - 1.8) / 0.7 : t < 5.3 ? 1 : Math.max(0, (5.9 - t) / 0.6);
-      const dk = L < 1.8 ? 0 : L < 2.5 ? (L - 1.8) / 0.7 : L < 5.4 ? 1 : Math.max(0, (6.1 - L) / 0.7);
+      const pk = !w ? 0 : t < 2.9 ? 0 : t < 3.6 ? (t - 2.9) / 0.7 : t < 6.1 ? 1 : Math.max(0, (6.7 - t) / 0.6);
+      const dk = L < 2.9 ? 0 : L < 3.6 ? (L - 2.9) / 0.7 : L < 6.5 ? 1 : Math.max(0, (7.2 - L) / 0.7);
       if (this.carView.setDoor) { this.carView.setDoor("rf", pk); this.carView.setDoor("lf", dk); }
-      if (w && !b.thud1 && t > 5.9) { b.thud1 = true; if (this.onDoor) this.onDoor(); }
-      if (!b.thudded && L > 6.05) { b.thudded = true; if (this.onDoor) this.onDoor(); }
+      if (w && !b.thud1 && t > 6.7) { b.thud1 = true; if (this.onDoor) this.onDoor(); }
+      if (!b.thudded && L > 7.15) { b.thudded = true; if (this.onDoor) this.onDoor(); }
       this.carView.setCockpit(inside); if (this.driver) this.driver.root.visible = inside;
-      if (L >= 6.2) this.skipBoarding();
+      if (L >= 7.3) this.skipBoarding();
     } else if (this.mode === "cockpit") {
       const [ex0, ey0, ez0] = this.eye || [1.2, 1.22, -0.37];
       const ex = ex0 + this.head.x, ey = ey0 + Math.sin(tt * 31) * shake + Math.sin(tt * 17.3) * shake * 0.6, ez = ez0 + this.head.z;
