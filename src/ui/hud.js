@@ -231,7 +231,7 @@ export class Hud {
     if (!on) { if (el) el.hidden = true; return; }
     if (!el) { el = document.createElement("div"); el.id = "garageBar"; el.className = "garage-bar"; this.root.appendChild(el); }
     el.hidden = false;
-    const COLS = [["white", "#f3f4f2", "Oq"], ["blue", "#1b2b63", "To'q ko'k"], ["graphite", "#3a3d41", "Grafit"]];
+    const COLS = [["original", "conic-gradient(#d33, #f3f4f2, #1b2b63, #3a3d41, #d33)", "Asl rangi"], ["white", "#f3f4f2", "Oq"], ["blue", "#1b2b63", "To'q ko'k"], ["graphite", "#3a3d41", "Grafit"]];
     el.innerHTML = `
       <div class="g-title"><span class="eyebrow">Garaj</span><h2>${car.name}</h2><small>${car.info || ""}</small></div>
       <div class="g-row">
