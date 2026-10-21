@@ -42,12 +42,18 @@ export class Controls {
   bindWheel(el) {
     if (!el) return;
     let id = null, a0 = 0, sw0 = 0, last = 0;
+    // the thumb's angle round the centre, and how far out it is (0 centre, 1 rim): near the centre the angle
+    // jumps about with every small movement, so there the wheel is not turned
     const ang = e => { const r = el.getBoundingClientRect(); return Math.atan2(e.clientY - (r.top + r.height / 2), e.clientX - (r.left + r.width / 2)) * 180 / Math.PI; };
+    const out = e => { const r = el.getBoundingClientRect(); return Math.hypot(e.clientX - (r.left + r.width / 2), e.clientY - (r.top + r.height / 2)) / (r.width / 2); };
     el.addEventListener("pointerdown", e => { e.preventDefault(); id = e.pointerId; try { el.setPointerCapture(id); } catch (_) {} a0 = last = ang(e); sw0 = this.wheelSw ?? this.curSw ?? 0; this.wheelSw = sw0; });
     el.addEventListener("pointermove", e => {
       if (e.pointerId !== id) return;
       let a = ang(e), d = a - last; if (d > 180) d -= 360; else if (d < -180) d += 360;      // continue past the +-180 seam
-      last = a; this.wheelSw = clamp((this.wheelSw ?? 0) + d * 1.35, -540, 540);
+      last = a;
+      // a thumb turns a phone's wheel through much less than hands turn a real one: about a third of a turn of the
+      // thumb reaches full lock (540 deg), instead of more than a whole turn
+      if (out(e) > 0.22) this.wheelSw = clamp((this.wheelSw ?? 0) + d * 2.4, -540, 540);
     });
     const up = e => { if (e.pointerId === id) { id = null; this.wheelSw = null; } };
     el.addEventListener("pointerup", up); el.addEventListener("pointercancel", up); el.addEventListener("lostpointercapture", up);

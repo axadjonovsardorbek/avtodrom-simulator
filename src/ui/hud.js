@@ -74,7 +74,7 @@ export class Hud {
       </section>
       <section class="touchpad" id="touchpad">
         <div class="tp-steer">
-          <div class="wheelpad" id="wheelpad" aria-label="Rul: aylantiring"><svg viewBox="0 0 120 120" id="wheelSvg"><circle cx="60" cy="60" r="52" fill="none" stroke="currentColor" stroke-width="9"/><circle cx="60" cy="60" r="15" fill="currentColor"/><path d="M60 60 L12 56 M60 60 L108 56 M60 60 L60 110" stroke="currentColor" stroke-width="8" stroke-linecap="round"/><path d="M52 4 h16" stroke="#f2b632" stroke-width="7" stroke-linecap="round"/></svg></div>
+          <div class="wheelpad" id="wheelpad" aria-label="Rul: aylantiring"><div id="wheelSvg" class="wheelimg"><img src="icons/wheel.webp" alt="" draggable="false"><i class="wheelmark"></i></div></div>
         </div>
         <div class="tp-mid">
           <div class="row">
