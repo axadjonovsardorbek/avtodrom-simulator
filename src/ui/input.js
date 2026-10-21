@@ -135,4 +135,71 @@ export class Controls {
     pad.buttons.forEach((b, i) => { if (b.pressed && !prev[i] && map[i]) this.onAction(map[i]); });
     this.prevPad = pad.buttons.map(b => b.pressed);
   }
+
+  // Menus with the gamepad: while not driving (`isUi`), the d-pad or left stick moves a highlight to the nearest
+  // control in that direction on screen, ✕ presses it, ○ goes back, L1/R1 the ‹ › arrows (the garage),
+  // the right stick scrolls, Options resumes
+  startPadNav(isUi) {
+    let prev = [], held = null, next = 0, cur = null;
+    const SEL = "button, a[href], input, select, [tabindex]:not([tabindex='-1']), [data-act], [data-v], [data-id], [data-mode], [role=button]";
+    const shown = el => {
+      if (el.disabled || el.closest("[hidden]")) return false;
+      const r = el.getBoundingClientRect(); if (r.width < 4 || r.height < 4 || r.bottom < 0 || r.right < 0 || r.top > innerHeight || r.left > innerWidth) return false;
+      const x = Math.min(innerWidth - 1, Math.max(0, r.left + r.width / 2)), y = Math.min(innerHeight - 1, Math.max(0, r.top + r.height / 2));
+      const top = document.elementFromPoint(x, y);                       // not covered by an overlay in front of it
+      return !!top && (top === el || el.contains(top) || top.contains(el));
+    };
+    const all = () => [...document.querySelectorAll(SEL)].filter((el, i, a) => !a.some(o => o !== el && o.contains(el) && o.matches(SEL) && o.tagName !== "DIV") && shown(el));
+    const mark = el => {
+      if (cur) cur.classList.remove("padfocus");
+      cur = el; if (!el) return;
+      el.classList.add("padfocus"); try { el.focus({ preventScroll: true, focusVisible: true }); } catch (_) {}
+      el.scrollIntoView({ block: "nearest", inline: "nearest" });
+    };
+    const move = (dx, dy) => {
+      const els = all(); if (!els.length) return;
+      if (!cur || !els.includes(cur)) return mark(els.find(e => e.classList.contains("primary")) || els[0]);
+      const a = cur.getBoundingClientRect(), ax = a.left + a.width / 2, ay = a.top + a.height / 2;
+      let best = null, bs = Infinity;
+      for (const el of els) {
+        if (el === cur) continue;
+        const r = el.getBoundingClientRect(), x = r.left + r.width / 2 - ax, y = r.top + r.height / 2 - ay;
+        const along = x * dx + y * dy, side = Math.abs(x * dy - y * dx);
+        if (along <= 2) continue;
+        const sc = along + side * 2.2;
+        if (sc < bs) { bs = sc; best = el; }
+      }
+      if (best) mark(best);
+    };
+    const press = sel => { const el = all().find(e => sel(e)); if (el) { el.click(); return true; } return false; };
+    const loop = () => {
+      requestAnimationFrame(loop);
+      if (this.padIndex == null && navigator.getGamepads) { const g = [...navigator.getGamepads()].find(x => x && x.connected !== false); if (g) this.padIndex = g.index; }   // a pad plugged in before the page opened
+      const pad = this.padIndex != null && navigator.getGamepads ? navigator.getGamepads()[this.padIndex] : null;
+      if (!pad) return;
+      const b = pad.buttons.map(x => x.pressed), ax = pad.axes, edge = i => b[i] && !prev[i];
+      prev = b;
+      if (!isUi()) { held = null; if (cur) mark(null); return; }
+      const dir = b[12] || ax[1] < -0.6 ? [0, -1] : b[13] || ax[1] > 0.6 ? [0, 1] : b[14] || ax[0] < -0.6 ? [-1, 0] : b[15] || ax[0] > 0.6 ? [1, 0] : null;
+      const now = performance.now(), key = dir && dir.join();
+      if (!dir) held = null;
+      else if (key !== held) { held = key; next = now + 380; move(...dir); }
+      else if (now > next) { next = now + 130; move(...dir); }
+      if (edge(0) && cur && document.contains(cur)) {
+        if (cur.tagName === "SELECT") { cur.selectedIndex = (cur.selectedIndex + 1) % cur.options.length; cur.dispatchEvent(new Event("change", { bubbles: true })); }
+        else cur.click();
+      }
+      if (edge(1)) press(e => e.matches("[data-close]")) || press(e => /^(Orqaga|Yopish|Bekor)/i.test(e.textContent.trim()));
+      if (edge(4)) press(e => e.textContent.trim() === "‹");
+      if (edge(5)) press(e => e.textContent.trim() === "›");
+      if (edge(9)) this.onAction("pause");
+      const ry = ax[3] || 0;
+      if (Math.abs(ry) > 0.2) {
+        let el = cur || document.elementFromPoint(innerWidth / 2, innerHeight / 2);
+        while (el && el !== document.body && !(el.scrollHeight > el.clientHeight + 2 && /(auto|scroll)/.test(getComputedStyle(el).overflowY))) el = el.parentElement;
+        if (el) el.scrollTop += ry * 18;
+      }
+    };
+    requestAnimationFrame(loop);
+  }
 }

@@ -711,3 +711,5 @@ table.lb em { color: var(--amber); font-style: normal; }
 @media (pointer: coarse) and (orientation: portrait) {
   .boot .boot-card { transform: rotate(90deg); }
 }
+/* the control picked with a gamepad in the menus */
+.padfocus { outline: 3px solid var(--amber) !important; outline-offset: 3px; border-radius: 8px; }

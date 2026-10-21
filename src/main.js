@@ -90,6 +90,7 @@ loadPeople().then(P => {
   if (import.meta.env.DEV) window.__sim.fig = instructorFig;
 }).catch(e => console.warn("people not loaded, keeping the simple figures:", e.message));
 const controls = new Controls(hud.canvas, onAction);
+controls.startPadNav(() => !app.classList.contains("playing"));            // the menus with a gamepad
 controls.bindTouch(document.getElementById("touchpad"));
 controls.mouseSteer = settings.mouseSteer;
 document.getElementById("mouseBtn").classList.toggle("on", settings.mouseSteer);
