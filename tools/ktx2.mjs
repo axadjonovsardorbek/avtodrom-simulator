@@ -36,11 +36,9 @@ for (const id of ids) for (const suffix of ["", "-mid"]) {
     const png = join(tmp, "in.png"), out = join(tmp, "out.ktx2");
     // through sharp: the source may be WebP or JPEG; the ktx tool reads PNG
     const info = await sharp(img).ensureAlpha().png().toFile(png);
-    // the full copies: UASTC (near lossless), its rate-distortion pass trading a hair of detail for a much smaller file;
-    // the -mid copies (phones): colour in ETC1S, a fraction of the download, the data maps in UASTC (ETC1S smears normals)
-    const small = suffix === "-mid" && srgb.has(tex);
-    const enc = small ? ["--encode", "basis-lz", "--clevel", "2", "--qlevel", "200"]
-      : ["--encode", "uastc", "--uastc-quality", "2", "--uastc-rdo", "--uastc-rdo-l", suffix ? "3" : "1.5", "--zstd", "18"];
+    // UASTC (near lossless) for every copy, its rate-distortion pass trading a hair of detail for a smaller file (more of
+    // it on the -mid copies for phones). ETC1S, a fraction of the download, made the phones' paint and badges muddy.
+    const enc = ["--encode", "uastc", "--uastc-quality", "2", "--uastc-rdo", "--uastc-rdo-l", suffix ? "3" : "1.5", "--zstd", "18"];
     const args = ["create", "--format", srgb.has(tex) ? "R8G8B8A8_SRGB" : "R8G8B8A8_UNORM", "--assign-tf", srgb.has(tex) ? "srgb" : "linear", ...enc, "--generate-mipmap", png, out];
     if (info.width % 4 || info.height % 4) {      // block compressed formats work in 4x4 blocks
       await sharp(img).resize(Math.ceil(info.width / 4) * 4, Math.ceil(info.height / 4) * 4, { fit: "fill" }).ensureAlpha().png().toFile(png);

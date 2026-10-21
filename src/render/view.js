@@ -94,7 +94,7 @@ const MAXRATIO = COARSE ? { low: 1.5, mid: 1.75, high: 2 } : { low: 1.25, mid: 1
 // entry-level phone GPUs (Adreno 610/619 of the Redmi Note 12 and its kind, the smaller Malis, PowerVR): a 1080p
 // screen drawn at 1.75x is more than they can fill at 60 frames, so they get fewer pixels on every setting
 const WEAK_GPU = /Adreno \(TM\) ?([1-5]\d\d|6[0-3]\d)\b|Mali-(T|G(31|51|52|57|68|71|72|76)\b)|PowerVR/i;
-const MAXRATIO_WEAK = { low: 1, mid: 1.3, high: 1.5 };
+const MAXRATIO_WEAK = { low: 1.15, mid: 1.5, high: 1.75 };
 const TIER = { low: { mirror: 0.5, shadow: 1024, aa: 0, bloom: false }, mid: { mirror: 0.65, shadow: 1024, aa: 4, bloom: false }, high: { mirror: 1, shadow: 2048, aa: 4, bloom: true } };
 
 export class View {
