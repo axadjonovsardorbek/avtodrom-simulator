@@ -32,6 +32,27 @@ function gradedOutput() {
     }`;
   return p;
 }
+// A transparent double-sided material is drawn by three in two passes (back faces, then front), and switching
+// its side between them marks it for a new shader every time: for the people, the glass and the lamps that was
+// a quarter of each frame on a phone. One pass draws them the same here (thin shells, not nested glass).
+// Glass with transmission (refraction, from some of the car files) makes three draw the whole scene once more,
+// into a target of its own, every frame; it becomes plain see-through tinted glass.
+export function singlePass(root) {
+  root.traverse(o => {
+    for (const m of o.material ? [].concat(o.material) : []) {
+      if (m.transmission > 0) { m.transmission = 0; m.transparent = true; if (m.opacity === 1) m.opacity = 0.35; m.depthWrite = false; m.needsUpdate = true; }
+      if (m.transparent && m.side === THREE.DoubleSide) m.forceSinglePass = true;
+    }
+  });
+}
+// the picture of a mirror drawn as it is (already tone-mapped and display-encoded), turned left to right
+function rawQuad(map) {
+  return new THREE.ShaderMaterial({
+    uniforms: { map: { value: map } },
+    vertexShader: "varying vec2 vUv; void main() { vUv = vec2(1.0 - uv.x, uv.y); gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }",
+    fragmentShader: "uniform sampler2D map; varying vec2 vUv; void main() { gl_FragColor = vec4(texture2D(map, vUv).rgb, 1.0); }"
+  });
+}
 // Bloom that cannot turn black: a single broken pixel (NaN or Inf in the half-float picture, e.g. a sun
 // glint on chrome at a grazing angle, which comes and goes as the car moves) was blurred by the bloom's
 // mip chain into large black squares flashing on the screen. Such pixels are dropped and the rest capped
@@ -180,7 +201,7 @@ export class View {
 
   // Swap in another car model (e.g. one loaded from a .glb); mirrors move with it.
   setCarModel(cv, car) {
-    this.polishCar(cv.root);
+    this.polishCar(cv.root); singlePass(cv.root);
     if (car) {
       this.eye = car.eye;
       for (const m of this.mirrors) if (car.mirrors && car.mirrors[m.key]) m.cam.position.set(...car.mirrors[m.key]);
@@ -300,6 +321,7 @@ export class View {
     this.quality = quality; this.dressPedestrians();
     this.buildStopZones(W);
     this.buildGuides(W);
+    singlePass(group);
     this.scene.add(group);
     this.renderer.shadowMap.enabled = quality !== "low";
     // soft shadow edges take 4x the shadow lookups: phones below "high" keep the plain filtered ones
@@ -747,7 +769,24 @@ export class View {
 
   // bloom (lamps, sun glints) and the colour grade; off on the light setting
   // MSAA on the composer's target (the renderer's own antialias does not reach it); bloom on high only
+  // Drawn straight to the screen (phones), every material is built tone-mapped and display-encoded; a mirror drawn
+  // into an ordinary target needs it linear and untouched, so every material seen in a mirror had its shader chosen
+  // anew twice a frame. The mirrors then draw like the screen: their targets are marked as XR targets, which is
+  // what tells three to tone-map and encode into a target, and the picture is shown as it is.
+  setMirrorDirect(on) {
+    if (this.mirrorDirect === on) return; this.mirrorDirect = on;
+    for (const m of this.mirrors) {
+      const w = m.rt.width, h = m.rt.height; m.rt.dispose();
+      const rt = new THREE.WebGLRenderTarget(w, h, { type: on ? THREE.UnsignedByteType : THREE.HalfFloatType });
+      if (on) { rt.isXRRenderTarget = true; rt.texture.colorSpace = THREE.SRGBColorSpace; }
+      rt.texture.repeat.set(-1, 1); rt.texture.offset.set(1, 0);
+      m.rt = rt; m.quad.material.dispose();
+      m.quad.material = on ? rawQuad(rt.texture) : new THREE.MeshBasicMaterial({ map: rt.texture });
+    }
+  }
+
   setupPost(quality) {
+    this.setMirrorDirect(direct(quality));
     const T = TIER[quality] || TIER.high;
     this.renderer.toneMapping = direct(quality) ? THREE.CustomToneMapping : THREE.ACESFilmicToneMapping;
     this.renderer.offscreenPost = !direct(quality);           // read by warmUp (garage.js): where the scene is drawn

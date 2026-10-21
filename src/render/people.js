@@ -17,6 +17,7 @@ const V = () => new THREE.Vector3(), Q = () => new THREE.Quaternion(), Z = new T
 // stripes (model space, bind pose); `sleeves` gives the parts beyond |x| > sleeves.x their own tint.
 function restyle(mat, { tint, bands, sleeves, gain = 2.1 } = {}) {
   const m = new THREE.MeshStandardMaterial({ map: mat.map, normalMap: mat.normalMap, alphaMap: mat.alphaMap, transparent: mat.transparent, alphaTest: mat.alphaTest || (mat.transparent ? 0.4 : 0), side: mat.side, roughness: 0.82, metalness: 0, name: mat.name });
+  m.forceSinglePass = true;            // drawn in two passes, it was given a new shader twice every frame (view.js singlePass)
   if (!tint && !bands && !sleeves) return m;
   // one shader program for every style: the colours are uniforms, and three runs onBeforeCompile (which sets
   // them) for each material, also when it reuses the program (a program per style was over a hundred

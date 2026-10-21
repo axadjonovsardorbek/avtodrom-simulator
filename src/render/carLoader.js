@@ -6,6 +6,7 @@ import { KTX2Loader } from "three/examples/jsm/loaders/KTX2Loader.js";
 import * as THREE from "three";
 import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js";
 import { rigCar } from "./carModel.js";
+import { singlePass } from "./view.js";
 
 // the car textures are KTX2 (tools/ktx2.mjs): they reach the GPU still compressed, in whatever block format it
 // takes; the transcoder (public/basis) runs in a worker. Set once the renderer exists (it tells the formats).
@@ -75,6 +76,7 @@ export async function loadTrafficModel(url) {
   const root = gltf.scene;
   mergeByMaterial(root);
   root.traverse(o => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = false; } });
+  singlePass(root);
   return root;
 }
 

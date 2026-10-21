@@ -474,7 +474,7 @@ function prepareCar(car, onProgress, variant = modelVariant()) {
 // the locomotive that crosses at the railway crossing, loaded once
 let trainLoading = null;
 function loadTrain() {
-  if (!trainLoading) trainLoading = loadTrafficModel("models/train.glb").then(m => view.setTrainModel(m)).catch(e => console.warn("train model", e.message));
+  if (!trainLoading) trainLoading = loadTrafficModel("models/train.glb").then(m => warmUp(view.renderer, m, view.cam, view.scene).then(() => m)).then(m => view.setTrainModel(m)).catch(e => console.warn("train model", e.message));
   return trainLoading;
 }
 
@@ -483,7 +483,7 @@ let trafficLoading = null;
 function loadTrafficModels() {
   if (trafficLoading) return trafficLoading;
   const map = {};
-  trafficLoading = CARS.reduce((p, c) => p.then(() => new Promise(r => setTimeout(r, 1500))).then(() => loadTrafficModel(c.model.replace(/\.glb$/, "-lite.glb")).then(m => { map[c.id] = m; view.setTrafficModels({ ...map }); }).catch(e => console.warn("traffic model", c.id, e.message))), Promise.resolve());
+  trafficLoading = CARS.reduce((p, c) => p.then(() => new Promise(r => setTimeout(r, 1500))).then(() => loadTrafficModel(c.model.replace(/\.glb$/, "-lite.glb")).then(m => warmUp(view.renderer, m, view.cam, view.scene).then(() => m)).then(m => { map[c.id] = m; view.setTrafficModels({ ...map }); }).catch(e => console.warn("traffic model", c.id, e.message))), Promise.resolve());
   return trafficLoading;
 }
 

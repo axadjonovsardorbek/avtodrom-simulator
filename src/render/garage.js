@@ -2,6 +2,7 @@
 // between the bays; the player picks a car (and its colour) here. Own scene and camera,
 // drawn instead of the autodrome while open.
 import * as THREE from "three";
+import { singlePass } from "./view.js";
 import { RoomEnvironment } from "three/examples/jsm/environments/RoomEnvironment.js";
 
 const BAY = 7.5;                         // distance between bays, m
@@ -118,6 +119,7 @@ export class Garage {
     cv.root.position.set(-mid, 0, 0); cv.root.rotation.set(0, 0, 0);
     cv.root.traverse(o => { if (o.isMesh && !o.name.startsWith("shadow")) o.castShadow = true; });
     cv.setCockpit && cv.setCockpit(false);
+    singlePass(cv.root);
     const show = () => { if (bay.cv === cv) bay.turn.add(cv.root); };
     if (this.renderer) warmUp(this.renderer, cv.root, this.cam, this.scene).then(show, show); else show();
   }
