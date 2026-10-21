@@ -296,7 +296,7 @@ export class Hud {
           <dt>Sichqoncha</dt><dd>Kabinada sudrab atrofga qarang (ikki marta bosish: oldinga). "360°" kamerada mashinani aylantiring, g'ildirakcha bilan yaqinlashtiring</dd>
           <dt><kbd>Esc</kbd></dt><dd>Menyu</dd>
         </dl>
-        <p>Rul yoki gamepad ulansa: chap stik rul, RT gaz, LT tormoz, LB ilashish, A/B uzatma yuqori/past.</p>
+        <p><b>Joystik (PS5 / Xbox):</b> chap stik — rul, o'ng stik — atrofga qarash, R2 (RT) — gaz, L2 (LT) — tormoz, L1 (LB) — ilashish, R1 (RB) — qo'l tormozi, ✕ (A) — uzatma yuqori, □ (X) — uzatma past, ○ (B) — dvigatel, △ (Y) — kamar, krestovina ← → — burilish chiroqlari, ↓ — avariya chiroqlari, ↑ — kamera, touchpad / R3 — xarita, Options — pauza, Create — ovoz.</p>
         <p class="muted">Joyidan jo'nash (mexanik): ilashishni bosing, 1-uzatma, qo'l tormozini tushiring, ozgina gaz bering va ilashishni sekin qo'yib yuboring. Qiyalikda qo'l tormozini ilashish ushlagan paytda tushiring.</p>
         <button class="btn primary" data-close>Tushunarli</button>
       </div>`;

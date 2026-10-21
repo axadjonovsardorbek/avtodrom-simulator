@@ -408,7 +408,7 @@ function resultAction(id) {
 const MANUAL = ["R", "N", 1, 2, 3, 4, 5], AUTO = ["P", "R", "N", "D"];
 function onAction(a) {
   if (a === "help") return hud.toggleHelp();
-  if (a === "padConnected") return hud.toast("Rul / gamepad ulandi");
+  if (a === "padConnected") return hud.toast("Joystik ulandi: R2 gaz, L2 tormoz, chap stik rul (hammasi \"?\" ichida)");
   if (a === "mute") { settings.muted = !settings.muted; audio.setMuted(settings.muted); showMute(); saveSettings(); if (!settings.muted) audio.chime(); return; }
   if (a === "mouse") { settings.mouseSteer = controls.mouseSteer = !controls.mouseSteer; document.getElementById("mouseBtn").classList.toggle("on", settings.mouseSteer); hud.toast(settings.mouseSteer ? "Rul sichqoncha bilan: kursorni chapga-o'ngga suring" : "Rul klaviatura bilan"); saveSettings(); return; }
   if (a === "camera") { const order = ["cockpit", "chase", "orbit", "top"]; settings.camera = order[(order.indexOf(view.mode) + 1) % 4]; view.setMode(settings.camera); saveSettings(); return; }

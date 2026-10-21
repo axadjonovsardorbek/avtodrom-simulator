@@ -83,17 +83,23 @@ export class Controls {
     let brk = this.held("KeyS", "ArrowDown") || t.brake ? 1 : 0;
     let clu = this.held("ShiftLeft", "ShiftRight") || t.clutch ? 1 : 0;
     let steerDir = (this.held("KeyD", "ArrowRight") || t.right ? 1 : 0) - (this.held("KeyA", "ArrowLeft") || t.left ? 1 : 0);
-    this.look = ramp(this.look, this.held("KeyZ") ? -1.2 : this.held("KeyX") ? 1.2 : 0, 4, 4, dt);
+    this.look = ramp(this.look, this.held("KeyZ") ? -1.2 : this.held("KeyX") ? 1.2 : 0, 4, 4, dt);       // the right stick overrides it below
 
-    // gamepad / wheel (standard mapping): left stick steers, RT gas, LT brake, LB clutch
+    // gamepad / wheel (standard mapping; a PS5 DualSense: R2 gas, L2 brake, L1 clutch, left stick steers,
+    // right stick looks round). Triggers are analogue: half pressed is half the pedal
     const pad = this.padIndex != null && navigator.getGamepads ? navigator.getGamepads()[this.padIndex] : null;
     let padSteer = null;
     if (pad) {
-      const b = pad.buttons;
-      if (b[7] && b[7].value > 0.02) gas = b[7].value;
-      if (b[6] && b[6].value > 0.02) brk = b[6].value;
+      const b = pad.buttons, ax = pad.axes;
+      const trig = i => { const v = b[i] ? b[i].value : 0; return v > 0.03 ? Math.min(1, (v - 0.03) / 0.94) : 0; };
+      if (trig(7)) gas = Math.max(gas, trig(7));
+      if (trig(6)) brk = Math.max(brk, trig(6));
       if (b[4] && b[4].pressed) clu = 1;
-      if (Math.abs(pad.axes[0]) > 0.04) padSteer = pad.axes[0];
+      // a dead zone round the centre (worn sticks drift), then a curve: fine control near straight ahead
+      const x = ax[0] || 0, dz = 0.08;
+      if (Math.abs(x) > dz) { const k = (Math.abs(x) - dz) / (1 - dz); padSteer = Math.sign(x) * (0.35 * k + 0.65 * k * k * k); }
+      const rx = ax[2] || 0;
+      if (Math.abs(rx) > 0.15) this.look = rx * 1.3;
       this.padButtons(pad);
     }
 
@@ -105,7 +111,7 @@ export class Controls {
     const toward = (target, rate) => { const d = target - car.sw; car.sw += Math.sign(d) * Math.min(Math.abs(d), rate * dt); };
     this.curSw = car.sw;
     if (this.wheelSw != null) toward(this.wheelSw, 2600);
-    else if (padSteer != null) toward(Math.sign(padSteer) * padSteer * padSteer * 540, 1400 / (1 + Math.abs(car.v) / 12));
+    else if (padSteer != null) toward(padSteer * 540, 1600 / (1 + Math.abs(car.v) / 12));
     else if (this.mouseSteer) toward(clamp((this.mouseX - 0.5) * 2 * 1.15, -1, 1) * 540, 1400);
     else if (steerDir) {
       // a tap nudges the wheel, holding winds it faster (hand over hand); reversing direction is quick
@@ -121,9 +127,11 @@ export class Controls {
     }
   }
 
+  // PS5 layout (standard mapping): ✕ gear up, □ gear down, ○ engine, △ seat belt, R1 handbrake,
+  // d-pad ← → indicators, ↓ hazard lights, ↑ camera, touchpad map, Options pause, Create mute
   padButtons(pad) {
     const prev = this.prevPad || [];
-    const map = { 0: "gUp", 1: "gDown", 2: "sigL", 3: "sigR", 5: "hand", 8: "camera", 9: "pause" };
+    const map = { 0: "gUp", 2: "gDown", 1: "engine", 3: "belt", 5: "hand", 12: "camera", 13: "hazard", 14: "sigL", 15: "sigR", 9: "pause", 8: "mute", 17: "map", 11: "map" };
     pad.buttons.forEach((b, i) => { if (b.pressed && !prev[i] && map[i]) this.onAction(map[i]); });
     this.prevPad = pad.buttons.map(b => b.pressed);
   }
