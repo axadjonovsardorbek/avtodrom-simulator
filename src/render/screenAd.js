@@ -69,7 +69,9 @@ class Player {
   }
   adopt(s, aspect) {
     const uv = s.geometry.attributes.uv;
-    s.userData.ad = { base: Float32Array.from(uv.array), aspect, contain: false };     // the picture fills the glass or the screen (cropped, not shrunk)
+    // a screen shows the picture filling it (cropped at the edges if its shape differs); the rear window shows the
+    // whole picture spread over the whole glass (a wide, low window would cut the text off a cropped one)
+    s.userData.ad = { base: Float32Array.from(uv.array), aspect, contain: false, stretch: this.place === "rear" };
     s.material = this.mat; fit(s, this.aspect); this.surfaces.push(new WeakRef(s));
   }
 }
@@ -86,8 +88,8 @@ function playerFor(items, place) {
 // (the picture cropped at its edges), the rear window shows all of it (its edge colour fills the rest,
 // so text is never cut on a tall van window)
 function fit(s, picAspect) {
-  const { base, aspect, contain } = s.userData.ad, uv = s.geometry.attributes.uv;
-  const ku = (contain ? Math.max : Math.min)(1, aspect / picAspect), kv = (contain ? Math.max : Math.min)(1, picAspect / aspect);
+  const { base, aspect, contain, stretch } = s.userData.ad, uv = s.geometry.attributes.uv;
+  const ku = stretch ? 1 : (contain ? Math.max : Math.min)(1, aspect / picAspect), kv = stretch ? 1 : (contain ? Math.max : Math.min)(1, picAspect / aspect);
   for (let i = 0; i < uv.count; i++) uv.setXY(i, 0.5 + (base[2 * i] - 0.5) * ku, 0.5 + (base[2 * i + 1] - 0.5) * kv);
   uv.needsUpdate = true;
 }
@@ -144,9 +146,9 @@ function cutScreen(root, { mat: matName, uv: [u0, u1, v0, v1], flipU, flipV }) {
 }
 
 // The rear window, found by looking at the car from behind: a grid of rays along the car (+x in the
-// car's frame) meets glass facing backwards; the largest rectangle of the grid where every ray did
-// becomes a film a few millimetres outside the glass, following its curve. Seen from inside, the
-// film's back faces are not drawn: the driver and the rear-view mirror look through it.
+// car's frame) meets glass facing backwards; the glass mesh met most is the window, and its own
+// back-facing triangles become a film a few millimetres outside it, to its very edge. Seen from
+// inside, the film's back faces are not drawn: the driver and the rear-view mirror look through it.
 // glass: see-through, or named so (some models keep their windows opaque, or tinted black)
 const GLASSY = m => m && !/lamp|light|tail|head|turn|поворот|фар/i.test(m.name || "") && ((m.transparent && m.opacity < 0.95) || /glass|window|стекл|окн/i.test(m.name || ""));
 function rearWindow(root) {
@@ -156,61 +158,55 @@ function rearWindow(root) {
   if (!glass.length) return null;
   const toRoot = root.matrixWorld.clone().invert(), box = new THREE.Box3();
   for (const o of glass) box.union(new THREE.Box3().setFromObject(o).applyMatrix4(toRoot));
-  const NZ = 44, NY = 32, dir = new THREE.Vector3(1, 0, 0).transformDirection(root.matrixWorld);
-  const midX = (box.min.x + box.max.x) / 2;
-  const hit = [], ok = [], rays = [];
-  let host = null;
+  const NZ = 24, NY = 18, dir = new THREE.Vector3(1, 0, 0).transformDirection(root.matrixWorld);
+  const midX = (box.min.x + box.max.x) / 2, rays = [];
   for (let j = 0; j < NY; j++) for (let i = 0; i < NZ; i++) {
     const y = box.min.y + (box.max.y - box.min.y) * (j + 0.5) / NY, z = box.min.z + (box.max.z - box.min.z) * (i + 0.5) / NZ;
     rays.push({ origin: new THREE.Vector3(box.min.x - 1, y, z).applyMatrix4(root.matrixWorld), dir });
   }
-  const hits = castRays(glass, rays, GLASSY);
-  for (let j = 0; j < NY; j++) for (let i = 0; i < NZ; i++) {
-    const h = hits[j * NZ + i];
-    let good = false;
-    if (h) {
-      const n = h.normal.clone().transformDirection(toRoot);
-      const p = h.point.clone().applyMatrix4(toRoot);
-      // facing back at all: the Malibus' rear window leans back to about 17° from flat
-      if (p.x < midX && n.x < -0.15) { good = true; hit[j * NZ + i] = { p, n }; host = host || h.object.parent; }
-    }
-    ok[j * NZ + i] = good;
+  // the glass the rays from behind meet first, facing back (the Malibus' rear window leans back to about 17° from
+  // flat): the mesh met most is the rear window
+  const count = new Map();
+  for (const h of castRays(glass, rays, GLASSY)) {
+    if (!h) continue;
+    const n = h.normal.clone().transformDirection(toRoot), p = h.point.clone().applyMatrix4(toRoot);
+    if (p.x < midX && n.x < -0.15) count.set(h.object, (count.get(h.object) || 0) + 1);
   }
-  // the film covers the whole glass, not a rectangle inside it (a rear window is a trapezoid: the rectangle left
-  // its corners and sides bare and the picture small): every cell on the glass whose neighbours are on it too (one
-  // cell in from the rubber and the black edge), the picture spread over all of them
-  const on = (i, j) => i >= 0 && j >= 0 && i < NZ && j < NY && ok[j * NZ + i];
-  const inner = (i, j) => on(i, j) && on(i - 1, j) && on(i + 1, j) && on(i, j - 1) && on(i, j + 1);
-  let i0 = NZ, i1 = -1, j0 = NY, j1 = -1, count = 0;
-  for (let j = 0; j < NY; j++) for (let i = 0; i < NZ; i++) if (inner(i, j)) { count++; i0 = Math.min(i0, i); i1 = Math.max(i1, i); j0 = Math.min(j0, j); j1 = Math.max(j1, j); }
-  if (count < 30 || i1 - i0 < 5 || j1 - j0 < 3) return null;
-  const toHost = host.matrixWorld.clone().invert().multiply(root.matrixWorld);
-  const P = [], U = [], I = [], index = new Map();
-  const vert = (i, j) => {
-    const k = j * NZ + i; if (index.has(k)) return index.get(k);
-    const { p, n } = hit[k], q = p.clone().addScaledVector(n, 0.006).applyMatrix4(toHost);
-    P.push(q.x, q.y, q.z); U.push((i - i0) / (i1 - i0), (j - j0) / (j1 - j0));
-    index.set(k, P.length / 3 - 1); return P.length / 3 - 1;
-  };
-  // facing backwards (to the -x side): seen from behind the car, +z is on the right
-  for (let j = j0; j < j1; j++) for (let i = i0; i < i1; i++) {
-    if (!inner(i, j) || !inner(i + 1, j) || !inner(i, j + 1) || !inner(i + 1, j + 1)) continue;
-    const a = vert(i, j), b = vert(i + 1, j), c = vert(i, j + 1), d = vert(i + 1, j + 1);
-    I.push(a, b, c, b, d, c);
+  const win = [...count].sort((a, b) => b[1] - a[1])[0];
+  if (!win || win[1] < 12) return null;
+  // the film is the window's own shape: its back-facing triangles (one of each, when the glass has an inside face
+  // too), a few millimetres out, the picture laid across them as seen from behind (+z on the right)
+  const obj = win[0], g = obj.geometry, pos = g.attributes.position, idx = g.index;
+  const toR = toRoot.clone().multiply(obj.matrixWorld);
+  const tris = (idx ? idx.count : pos.count) / 3, a = new THREE.Vector3(), b = new THREE.Vector3(), c = new THREE.Vector3(), n = new THREE.Vector3();
+  const P = [], seen = new Set();
+  for (let t = 0; t < tris; t++) {
+    const k = i => (idx ? idx.getX(3 * t + i) : 3 * t + i);
+    a.fromBufferAttribute(pos, k(0)).applyMatrix4(toR); b.fromBufferAttribute(pos, k(1)).applyMatrix4(toR); c.fromBufferAttribute(pos, k(2)).applyMatrix4(toR);
+    n.subVectors(b, a).cross(c.clone().sub(a)); const len = n.length(); if (len < 1e-10) continue; n.divideScalar(len);
+    if (Math.abs(n.x) < 0.15 || (a.x + b.x + c.x) / 3 > midX) continue;
+    const key = [a.x + b.x + c.x, a.y + b.y + c.y, a.z + b.z + c.z].map(q => Math.round(q * 300)).join();
+    if (seen.has(key)) continue; seen.add(key);
+    const out = n.x < 0 ? n : n.negate();                       // outwards, to the back
+    const order = n.x < 0 ? [a, b, c] : [a, c, b];               // facing the back, whichever way the file wound it
+    for (const v of order) P.push(v.x + out.x * 0.006, v.y + out.y * 0.006, v.z + out.z * 0.006);
   }
-  // the picture's frame: the widest row and the tallest column of the glass
-  const at = (i, j) => hit[j * NZ + i].p;
-  let wide = 0, tall = 0;
-  for (let j = j0; j <= j1; j++) { let a = -1, b = -1; for (let i = i0; i <= i1; i++) if (inner(i, j)) { if (a < 0) a = i; b = i; } if (a >= 0) wide = Math.max(wide, at(a, j).distanceTo(at(b, j))); }
-  for (let i = i0; i <= i1; i++) { let t = 0; for (let j = j0; j < j1; j++) if (inner(i, j) && inner(i, j + 1)) t += at(i, j).distanceTo(at(i, j + 1)); tall = Math.max(tall, t); }
+  if (P.length < 9) return null;
+  let z0 = Infinity, z1 = -Infinity, y0 = Infinity, y1 = -Infinity, xLo = 0, xHi = 0;
+  for (let i = 0; i < P.length; i += 3) {
+    if (P[i + 2] < z0) z0 = P[i + 2]; if (P[i + 2] > z1) z1 = P[i + 2];
+    if (P[i + 1] < y0) { y0 = P[i + 1]; xLo = P[i]; } if (P[i + 1] > y1) { y1 = P[i + 1]; xHi = P[i]; }
+  }
+  const U = [];
+  for (let i = 0; i < P.length; i += 3) U.push((P[i + 2] - z0) / (z1 - z0), (P[i + 1] - y0) / (y1 - y0));
   const geo = new THREE.BufferGeometry();
   geo.setAttribute("position", new THREE.Float32BufferAttribute(P, 3));
   geo.setAttribute("uv", new THREE.Float32BufferAttribute(U, 2));
-  geo.setIndex(I); geo.computeVertexNormals();
+  geo.computeVertexNormals();
   const s = new THREE.Mesh(geo, new THREE.MeshBasicMaterial()); s.name = "ad_rear";
   s.renderOrder = 2; s.castShadow = false; s.receiveShadow = true;
-  host.add(s);
-  return { mesh: s, aspect: wide / (tall || 1) };
+  root.add(s);
+  return { mesh: s, aspect: (z1 - z0) / (Math.hypot(y1 - y0, xHi - xLo) || 1) };
 }
 
 // once the list is in: the car's screen (its own "ad_screen" mesh, or the one cut out of its

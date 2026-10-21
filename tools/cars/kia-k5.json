@@ -14,9 +14,9 @@
   [
    "^chassis\\.0$",
    {
-    "color": "#2a2b2f",
-    "metal": 0.5,
-    "rough": 0.45
+    "color": "#1c1d20",
+    "metal": 0.15,
+    "rough": 0.62
    }
   ]
  ],
