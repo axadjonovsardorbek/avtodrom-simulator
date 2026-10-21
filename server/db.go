@@ -51,6 +51,16 @@ CREATE INDEX IF NOT EXISTS attempts_key ON attempts (key, passed, total, t);
 CREATE INDEX IF NOT EXISTS attempts_at ON attempts (at);
 ALTER TABLE users ADD COLUMN IF NOT EXISTS phone TEXT NOT NULL DEFAULT '';  -- from the Telegram bot login
 CREATE TABLE IF NOT EXISTS settings (k TEXT PRIMARY KEY, v JSONB NOT NULL);
+-- what a user may use beyond the free part: "car:<id>", "instructor:rude"; until NULL = for good.
+-- Filled by a payment (Inpay, to come) or by the admin
+CREATE TABLE IF NOT EXISTS purchases (
+  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  item TEXT NOT NULL,
+  until BIGINT,                          -- ms; NULL: no end
+  source TEXT NOT NULL DEFAULT '',       -- "admin", "inpay:<payment id>"
+  created BIGINT NOT NULL,
+  PRIMARY KEY (user_id, item)
+);
 -- what is played, per day (Tashkent), device and car: runs started and seconds driven; logged in or not
 CREATE TABLE IF NOT EXISTS plays (
   day DATE NOT NULL,
@@ -122,6 +132,7 @@ type User struct {
 	Blocked  bool   `json:"blocked"`
 	Admin    bool   `json:"admin"`
 	Phone    string `json:"phone"`
+	Owns     []string `json:"owns"` // paid items in force (filled by withOwns)
 }
 
 const userCols = "id, provider, name, username, email, photo, created, seen, blocked, admin, phone"

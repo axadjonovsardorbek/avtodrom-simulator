@@ -207,7 +207,7 @@ async function users(v, q = "", offset = 0, acc = []) {
 }
 
 async function openUser(id, changed) {
-  const { user: u, attempts } = await api("/api/admin/users/" + id).catch(e => { failed(e); return {}; });
+  const { user: u, attempts, purchases = [] } = await api("/api/admin/users/" + id).catch(e => { failed(e); return {}; });
   if (!u) return;
   const me = getUser();
   const bg = document.createElement("div"), d = document.createElement("aside");
@@ -233,6 +233,19 @@ async function openUser(id, changed) {
         <button class="btn" data-a="admin">${u.admin ? "Admin huquqini olish" : "Admin qilish"}</button>
         <button class="btn danger" data-a="delete">O'chirish</button>`}
     </div>
+    <h3>Pullik narsalar</h3>
+    ${(() => {
+      // every paid item, with what this user has of it; given by hand here until the online payment is in
+      const items = [...ALL_CARS.filter(c => c.paid).map(c => ["car:" + c.id, c.name]), ["instructor:rude", "18+ instruktor"]];
+      const now = Date.now(), have = new Map(purchases.map(p => [p.item, p]));
+      return `<div class="tblwrap"><table><thead><tr><th>Narsa</th><th>Holati</th><th></th></tr></thead><tbody>${items.map(([item, name]) => {
+        const p = have.get(item), on = p && (p.until == null || p.until > now);
+        const state = !p ? "—" : on ? (p.until == null ? `<span class="tag ok">Doimiy</span>` : `<span class="tag ok">${when(p.until)} gacha</span>`) : `<span class="tag bad">Muddati tugagan</span>`;
+        return `<tr><td>${esc(name)}</td><td>${state}${p ? ` <small>${esc(p.source)}</small>` : ""}</td><td class="acts">
+          <select data-days="${item}"><option value="0">Doimiy</option><option value="7">7 kun</option><option value="30">30 kun</option><option value="90">90 kun</option></select>
+          <button class="btn small" data-grant="${item}">Berish</button>${p ? `<button class="btn small danger" data-revoke="${item}">Olish</button>` : ""}</td></tr>`;
+      }).join("")}</tbody></table></div>`;
+    })()}
     <h3>Urinishlar</h3>
     ${attempts.length ? `<div class="tblwrap"><table><thead><tr><th>Vaqt</th><th>Mashq</th><th>Natija</th><th class="num">Ball</th><th class="num">Vaqt</th></tr></thead><tbody>
       ${attempts.map(a => `<tr><td class="when">${when(a.at)}</td><td>${esc(keyName(a.key))}</td><td>${a.passed ? `<span class="tag ok">O'tdi</span>` : `<span class="tag bad">O'tmadi</span>`}</td><td class="num">${a.total}</td><td class="num">${mmss(a.t)}</td></tr>`).join("")}
@@ -242,6 +255,15 @@ async function openUser(id, changed) {
   const act = async (body, msg) => { try { await api("/api/admin/users/" + u.id, { method: "PATCH", body }); toast(msg, "good"); close(); changed(); openUser(u.id, changed); } catch (e) { failed(e); } };
   const b = d.querySelector('[data-a="block"]'); if (b) b.onclick = () => act({ blocked: !u.blocked }, u.blocked ? "Blokdan chiqarildi" : "Bloklandi");
   const a = d.querySelector('[data-a="admin"]'); if (a) a.onclick = () => { if (u.admin || confirm(`${u.name} admin qilinsinmi? U hamma narsani boshqara oladi.`)) act({ admin: !u.admin }, u.admin ? "Admin huquqi olindi" : "Admin qilindi"); };
+  const reopen = msg => { toast(msg, "good"); close(); openUser(u.id, changed); };
+  d.querySelectorAll("[data-grant]").forEach(b => b.onclick = async () => {
+    const item = b.dataset.grant, days = +d.querySelector(`[data-days="${item}"]`).value;
+    try { await api(`/api/admin/users/${u.id}/grant`, { method: "POST", body: { item, days } }); reopen("Berildi"); } catch (e) { failed(e); }
+  });
+  d.querySelectorAll("[data-revoke]").forEach(b => b.onclick = async () => {
+    if (!confirm("Olib qo'yilsinmi?")) return;
+    try { await api(`/api/admin/users/${u.id}/grant/${encodeURIComponent(b.dataset.revoke)}`, { method: "DELETE" }); reopen("Olib qo'yildi"); } catch (e) { failed(e); }
+  });
   const del = d.querySelector('[data-a="delete"]');
   if (del) del.onclick = async () => {
     if (!confirm(`${u.name} va uning barcha natijalari butunlay o'chirilsinmi? Buni qaytarib bo'lmaydi.`)) return;

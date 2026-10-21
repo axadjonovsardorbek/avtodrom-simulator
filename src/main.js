@@ -13,7 +13,8 @@ import { loadCarModel, loadTrafficModel, setTextureRenderer } from "./render/car
 import { dressCobalt, addPaint } from "./render/carDress.js";
 import { addScreenAd, setAdSource, watchAds, takeAdViews } from "./render/screenAd.js";
 import { gripFor } from "./render/atmosphere.js";
-import { apiOn, config, refreshMe, telegramMiniAppLogin, sendAttempt, flushAttempts, myAttempts, countRun, countDrive, trackAdsFrom } from "./net/api.js";
+import { carLocked, moodLocked, carItem } from "./net/shop.js";
+import { apiOn, onUser, config, refreshMe, telegramMiniAppLogin, sendAttempt, flushAttempts, myAttempts, countRun, countDrive, trackAdsFrom } from "./net/api.js";
 trackAdsFrom(takeAdViews);
 import { addPlates, DEFAULT_PLATE } from "./render/plates.js";
 import PHRASES from "./audio/phrases.json";
@@ -181,6 +182,7 @@ function startNow(m, el) {
   audio.chime();
   audio.preload(Object.keys(PHRASES.phrases).concat(["clips/fayzulla", "clips/balandku"]));
   balandFor = null;
+  if (moodLocked(settings.instructor)) settings.instructor = "angry";
   instructor.mood = settings.instructor; instructor.reset();
   kidShow.reset(session, m === "training");
   view.setInstructorVisible(instructor.on);
@@ -261,6 +263,8 @@ function garageAction(a, v) {
     for (const cv of [...garage.bays.map(b => b.cv), ...garage.mids]) if (cv && cv.setPaint) cv.setPaint(v);
     if (view.carView.setPaint) view.carView.setPaint(v);
     hud.showGarage(true, garageAction, CARS[garage.index], v);
+  } else if (a === "buy") {
+    hud.showBuy(carItem(CARS[garage.index]), CARS[garage.index].name);
   } else if (a === "pick" || a === "back") {
     // the picked car's light copy is already loaded and on the GPU: on a phone (which drives that copy) it goes straight to the road
     if (a === "pick" && modelVariant() === "-mid" && garage.mids[garage.index]) { const cv = garage.mids[garage.index]; cv.root.removeFromParent(); garage.bays[garage.index].cv = null; carModelCache.set(CARS[garage.index].id + "-mid", cv); }
@@ -497,7 +501,8 @@ function playCarVoice(id) {
 }
 function selectCar(id) { useCar(id); playCarVoice(id); }
 function useCar(id) {
-  const car = carById(id);
+  let car = carById(id);
+  if (carLocked(car)) car = CARS.find(c => !c.paid) || CARS[0];       // a paid car only for its owner
   const key = car.id + modelVariant();
   if (carModelId === key) return;
   carModelId = key;
@@ -534,10 +539,18 @@ if (apiOn) {
     if (!CARS.some(x => x.id === picked)) { settings.car = CARS[0].id; saveSettings(); useCar(settings.car); }
     hud.refreshMenu();
   });
-  refreshMe().then(u => { if (u) syncHistory(); hud.refreshMenu(); });
+  refreshMe().then(u => { if (u) syncHistory(); keepToOwned(); hud.refreshMenu(); });
   telegramMiniAppLogin().then(u => { if (u) onAccount(u); });
 }
 // logged in or out: the menu shows it; a login sends this browser's attempts and brings the others' back
+// what was picked but is not owned (logged out, or a purchase ran out) goes back to a free choice
+function keepToOwned() {
+  let changed = false;
+  if (carLocked(carById(settings.car))) { settings.car = (CARS.find(c => !c.paid) || CARS[0]).id; useCar(settings.car); changed = true; }
+  if (moodLocked(settings.instructor)) { settings.instructor = "angry"; instructor.mood = "angry"; changed = true; }
+  if (changed) saveSettings();
+}
+onUser(() => { keepToOwned(); hud.refreshMenu(); });
 function onAccount(u) {
   hud.refreshMenu();
   if (u) { hud.toast(`Xush kelibsiz, ${u.name || u.username || ""}`, "good"); syncHistory(); }

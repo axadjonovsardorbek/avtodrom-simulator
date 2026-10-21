@@ -184,7 +184,12 @@ func (a *App) handleUser(w http.ResponseWriter, r *http.Request) {
 		serverError(w, r, err)
 		return
 	}
-	writeJSON(w, 200, map[string]any{"user": u, "attempts": list})
+	bought, err := a.purchasesOf(r, u.ID)
+	if err != nil {
+		serverError(w, r, err)
+		return
+	}
+	writeJSON(w, 200, map[string]any{"user": a.withOwns(r, u), "attempts": list, "purchases": bought})
 }
 
 // PATCH /api/admin/users/{id}: { blocked?, admin? }

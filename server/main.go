@@ -127,6 +127,8 @@ func (a *App) routes() http.Handler {
 	mux.HandleFunc("GET /api/admin/users/{id}", a.admin(a.handleUser))
 	mux.HandleFunc("PATCH /api/admin/users/{id}", a.admin(a.handlePatchUser))
 	mux.HandleFunc("DELETE /api/admin/users/{id}", a.admin(a.handleDeleteUser))
+	mux.HandleFunc("POST /api/admin/users/{id}/grant", a.admin(a.handleGrant))
+	mux.HandleFunc("DELETE /api/admin/users/{id}/grant/{item}", a.admin(a.handleRevoke))
 	mux.HandleFunc("GET /api/admin/attempts", a.admin(a.handleAttempts))
 	mux.HandleFunc("GET /api/admin/analytics", a.admin(a.handleAnalytics))
 	mux.HandleFunc("GET /api/admin/ads", a.admin(a.handleGetAds))

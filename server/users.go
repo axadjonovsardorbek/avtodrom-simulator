@@ -110,7 +110,7 @@ func (a *App) login(w http.ResponseWriter, r *http.Request, id *Identity) {
 		return
 	}
 	a.db.Exec(ctx, "DELETE FROM sessions WHERE expires < $1", now)
-	writeJSON(w, 200, map[string]any{"token": tok, "user": u})
+	writeJSON(w, 200, map[string]any{"token": tok, "user": a.withOwns(r, u)})
 }
 
 func trim(s string, n int) string {
@@ -193,7 +193,7 @@ func (a *App) handleDevLogin(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *App) handleMe(w http.ResponseWriter, r *http.Request) {
-	writeJSON(w, 200, map[string]any{"user": userFrom(r)})
+	writeJSON(w, 200, map[string]any{"user": a.withOwns(r, userFrom(r))})
 }
 
 func (a *App) handleLogout(w http.ResponseWriter, r *http.Request) {

@@ -605,3 +605,16 @@ table.lb em { color: var(--amber); font-style: normal; }
 #prep.on { display: flex; }
 .prep-spin { width: 34px; height: 34px; border-radius: 50%; border: 3px solid rgba(255, 255, 255, .15); border-top-color: var(--amber, #f2b632); animation: prepSpin .8s linear infinite; }
 @keyframes prepSpin { to { transform: rotate(360deg); } }
+
+/* paid items: the lock on a car, the "buy" card */
+.carbtn { position: relative; }
+.carbtn.locked { opacity: .78; }
+.carbtn .lock { position: absolute; top: 4px; right: 6px; font-style: normal; font-size: 12px; }
+.buy-card { position: absolute; inset: 0; z-index: 70; display: grid; place-items: center; background: rgba(8, 9, 11, .6); backdrop-filter: blur(3px); padding: 16px; }
+.buy-card[hidden] { display: none; }
+.buy-box { max-width: 420px; width: 100%; background: #16181c; color: #eef0f2; border: 1px solid rgba(255, 255, 255, .12); border-radius: 14px; padding: 20px; box-shadow: 0 12px 40px rgba(0, 0, 0, .5); }
+.buy-box h2 { margin: 4px 0 10px; font-size: 22px; }
+.buy-box p { margin: 0 0 10px; line-height: 1.4; color: #c9cdd3; }
+.buy-box .buy-note { color: #f2b632; }
+.buy-box .acts { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 14px; }
+.buy-box .btn[disabled] { opacity: .55; cursor: default; }

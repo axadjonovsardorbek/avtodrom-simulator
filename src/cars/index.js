@@ -1,3 +1,4 @@
+// paid: only for those who bought it (src/net/shop.js); the Cobalt, Matiz, Damas and Monza are free.
 // Available cars. To add one: drop its .glb into public/models/ (parts named as
 // described in src/render/carModel.js -> rigCar) and add an entry here.
 // eye: driver's eye point; seat: passenger hip point (instructor); mirrors: rear-view mirror camera points (car frame, meters).
@@ -35,7 +36,7 @@ export const CARS = [
     voice: { url: "cobalt.mp3", from: 4, dur: 3 }          // plays from the 4th second when the car is picked
   },
   {
-    id: "malibu-premier", name: "Chevrolet Malibu 2 Premier", model: "models/malibu-premier.glb", info: "1.5 Turbo · 163 o.k. · 4,93 m",
+    id: "malibu-premier", paid: true, name: "Chevrolet Malibu 2 Premier", model: "models/malibu-premier.glb", info: "1.5 Turbo · 163 o.k. · 4,93 m",
     credit: "3D model: \"2021 Chevrolet Malibu 2LZ Premier\" by twr422 (Sketchfab), CC BY 4.0, modified",
     creditUrl: "https://sketchfab.com/3d-models/2021-chevrolet-malibu-2lz-premier-c1e8e127ce114b14a166e93100642424",
     dims: PREMIER, eye: [1.37, 1.18, -0.389], seat: [1.5, 0.47, 0.389],
@@ -47,7 +48,7 @@ export const CARS = [
     voice: { url: "guvohnoma.mp3", from: 0 }
   },
   {
-    id: "malibu-2019", name: "Chevrolet Malibu 2019", model: "models/malibu-2019.glb", info: "1.5 Turbo · 163 o.k. · 4,92 m",
+    id: "malibu-2019", paid: true, name: "Chevrolet Malibu 2019", model: "models/malibu-2019.glb", info: "1.5 Turbo · 163 o.k. · 4,92 m",
     credit: "3D model: \"2019 Chevrolet Malibu Premier\" (Sketchfab), modified", creditUrl: "",
     dims: MALIBU19, eye: [1.35, 1.17, -0.385], seat: [1.48, 0.46, 0.385],
     mirrors: { center: [1.9, 1.32, 0], left: [2.3, 1.06, -1.0], right: [2.3, 1.06, 1.0] },
@@ -84,7 +85,7 @@ export const CARS = [
     voice: { url: "damas.mp3", from: 33, dur: 4.3 }
   },
   {
-    id: "kia-k5", name: "Kia K5", model: "models/kia-k5.glb", info: "1.6 Turbo · 180 o.k. · 4,91 m",
+    id: "kia-k5", paid: true, name: "Kia K5", model: "models/kia-k5.glb", info: "1.6 Turbo · 180 o.k. · 4,91 m",
     credit: "3D model: \"Kia K5 2025\" (Sketchfab), modified", creditUrl: "",
     dims: K5, eye: [1.2, 1.12, -0.386], seat: [1.33, 0.44, 0.386],
     mirrors: { center: [1.75, 1.24, 0], left: [2.15, 1.02, -0.98], right: [2.15, 1.02, 0.98] },
@@ -92,7 +93,7 @@ export const CARS = [
     sound: TURBO_SOUND
   },
   {
-    id: "passat-2022", name: "Volkswagen Passat 2022", model: "models/passat-2022.glb", info: "1.4 TSI · 150 o.k. · 4,78 m",
+    id: "passat-2022", paid: true, name: "Volkswagen Passat 2022", model: "models/passat-2022.glb", info: "1.4 TSI · 150 o.k. · 4,78 m",
     credit: "3D model: \"Volkswagen Passat 2022\" (Sketchfab), modified", creditUrl: "",
     dims: PASSAT22, eye: [1.19, 1.16, -0.374], seat: [1.32, 0.46, 0.374],
     mirrors: { center: [1.74, 1.29, 0], left: [2.14, 1.06, -0.94], right: [2.14, 1.06, 0.94] },
@@ -100,7 +101,7 @@ export const CARS = [
     sound: TURBO_SOUND
   },
   {
-    id: "passat-pro", name: "Volkswagen Passat Pro", model: "models/passat-pro.glb", info: "2.0 TSI · 220 o.k. · 5,01 m",
+    id: "passat-pro", paid: true, name: "Volkswagen Passat Pro", model: "models/passat-pro.glb", info: "2.0 TSI · 220 o.k. · 5,01 m",
     credit: "3D model: \"2025 Volkswagen Passat Pro 380TSI\" (Sketchfab), modified", creditUrl: "",
     dims: PASSATPRO, eye: [1.3, 1.22, -0.36], seat: [1.43, 0.5, 0.36],
     mirrors: { center: [1.85, 1.34, 0], left: [2.25, 1.12, -1.0], right: [2.25, 1.12, 1.0] },

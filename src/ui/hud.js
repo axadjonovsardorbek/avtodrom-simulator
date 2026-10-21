@@ -9,7 +9,8 @@ import { loadHistory } from "../sim/history.js";
 import { ACHIEVEMENTS, loadAchievements } from "../sim/achievements.js";
 import { ELEMENTS } from "../world/tracks.js";
 import { CARS } from "../cars/index.js";
-import { apiOn } from "../net/api.js";
+import { apiOn, getUser } from "../net/api.js";
+import { carLocked, moodLocked, carItem } from "../net/shop.js";
 import { renderAccount, showLeaderboard } from "./account.js";
 
 const $ = (sel, root = document) => root.querySelector(sel);
@@ -160,7 +161,7 @@ export class Hud {
         <aside class="panel menu-side">
           <div class="acct" id="acct" hidden></div>
           <h3>Mashina</h3>
-          <div class="cars">${CARS.map(c => `<button class="carbtn" data-car="${c.id}"><b>${c.name.replace("Chevrolet ", "")}</b><small>${c.info ? c.info.split(" · ")[0] : "Chevrolet"}</small></button>`).join("")}</div>
+          <div class="cars">${CARS.map(c => `<button class="carbtn${carLocked(c) ? " locked" : ""}" data-car="${c.id}">${carLocked(c) ? '<i class="lock" aria-label="Pullik">🔒</i>' : ""}<b>${c.name.replace("Chevrolet ", "")}</b><small>${c.info ? c.info.split(" · ")[0] : "Chevrolet"}</small></button>`).join("")}</div>
           <div class="row"><span class="lbl">Rangi</span><div class="swatches">${COLORS.map(([v, hex, t]) => `<button class="sw" data-color="${v}" title="${t}" style="--c:${hex}"></button>`).join("")}</div></div>
           <label class="row"><span class="lbl">Davlat raqami</span><input id="optPlate" maxlength="14" spellcheck="false" autocomplete="off"></label>
           <button class="garagebtn" id="garageBtn"><svg viewBox="0 0 24 24"><path d="M3 21V9l9-5 9 5v12"/><path d="M7 21v-7h10v7M7 17h10"/></svg><span><b>Garaj</b><small>Mashinani ko'rib tanlang</small></span><i>›</i></button>
@@ -171,7 +172,7 @@ export class Hud {
           <span class="lbl">Uzatmalar qutisi</span>${seg("optTrans", [["manual", "Mexanik"], ["auto", "Avtomat"]])}
           <span class="lbl">Poligon (trening, mashq)</span>${seg("optSize", [["wide", "Keng"], ["mid", "O'rta"], ["real", "Haqiqiy"]])}
           <h3>Instruktor — Bobur aka</h3>
-          ${seg("optInstr", [["angry", "Jahldor"], ["calm", "Yumshoq"], ["rude", "18+"], ["off", "Yo'q"]])}
+          ${seg("optInstr", [["angry", "Jahldor"], ["calm", "Yumshoq"], ["rude", moodLocked("rude") ? "18+ 🔒" : "18+"], ["off", "Yo'q"]])}
           <h3>Boshqa</h3>
           <div class="row2">
             <div><span class="lbl">Ovozli ko'rsatma</span>${seg("optVoice", [["on", "Ha"], ["off", "Yo'q"]])}</div>
@@ -191,7 +192,12 @@ export class Hud {
     };
     bindSeg("optTrans", S.transmission, v => S.transmission = v);
     bindSeg("optSize", S.size || "real", v => S.size = v);
-    bindSeg("optInstr", S.instructor || "angry", v => S.instructor = v);
+    // the 18+ instructor is bought: a tap on it while locked offers it and leaves the choice as it was
+    bindSeg("optInstr", S.instructor || "angry", v => {
+      if (!moodLocked(v)) { S.instructor = v; return; }
+      $("#optInstr", m).querySelectorAll("button").forEach(b => b.classList.toggle("on", b.dataset.v === (S.instructor || "angry")));
+      this.showBuy("instructor:rude", "18+ instruktor");
+    });
     bindSeg("optVoice", S.voice === false ? "off" : "on", v => S.voice = v === "on");
     bindSeg("optQuality", S.quality, v => S.quality = v);
     bindSeg("optWeather", S.weather || "clear", v => { S.weather = v; this.h.atmosphere && this.h.atmosphere(); });
@@ -200,7 +206,7 @@ export class Hud {
     bindSeg("optTraffic", S.traffic || "simple", v => S.traffic = v);
     const markCar = () => m.querySelectorAll(".carbtn").forEach(b => b.classList.toggle("on", b.dataset.car === (S.car === "malibu" ? "malibu-premier" : S.car || CARS[0].id)));
     markCar();
-    m.querySelectorAll(".carbtn").forEach(b => b.onclick = () => { S.car = b.dataset.car; markCar(); this.h.useCar && this.h.useCar(S.car); this.h.save && this.h.save(); });
+    m.querySelectorAll(".carbtn").forEach(b => b.onclick = () => { const car = CARS.find(c => c.id === b.dataset.car); if (car && carLocked(car)) { this.showBuy(carItem(car), car.name); return; } S.car = b.dataset.car; markCar(); this.h.useCar && this.h.useCar(S.car); this.h.save && this.h.save(); });
     const markColor = () => m.querySelectorAll(".sw").forEach(b => b.classList.toggle("on", b.dataset.color === (S.color || "white")));
     markColor();
     m.querySelectorAll(".sw").forEach(b => b.onclick = () => { this.h.setColor && this.h.setColor(b.dataset.color); markColor(); });
@@ -231,7 +237,7 @@ export class Hud {
         <div class="swatches">${COLS.map(([v, hex, t]) => `<button class="sw${v === color ? " on" : ""}" data-c="${v}" title="${t}" style="--c:${hex}"></button>`).join("")}</div>
         <button class="g-arrow" data-g="next" aria-label="Keyingi">›</button>
       </div>
-      <div class="g-row"><button class="btn" data-g="back">Orqaga</button><button class="btn primary" data-g="pick">Shu mashinani tanlash</button></div>
+      <div class="g-row"><button class="btn" data-g="back">Orqaga</button>${carLocked(car) ? '<button class="btn primary" data-g="buy">🔒 Sotib olish</button>' : '<button class="btn primary" data-g="pick">Shu mashinani tanlash</button>'}</div>
       <small class="g-hint">Sudrab aylantiring</small>`;
     el.querySelectorAll("[data-g]").forEach(b => b.onclick = () => act(b.dataset.g));
     el.querySelectorAll("[data-c]").forEach(b => b.onclick = () => act("color", b.dataset.c));
@@ -290,6 +296,21 @@ export class Hud {
     $("#result", this.root).hidden = true;
     this.mmBase = null;
     this.session = session;
+  }
+
+  // a paid item: what it is and how to get it (the payment through Inpay comes next; until then the admin grants it)
+  showBuy(item, name) {
+    let el = $("#buy", this.root);
+    if (!el) { el = document.createElement("div"); el.id = "buy"; el.className = "buy-card"; this.root.appendChild(el); }
+    const u = getUser();
+    el.innerHTML = `<div class="buy-box" role="dialog" aria-label="${name}">
+      <span class="eyebrow">Pullik</span><h2>🔒 ${name}</h2>
+      <p>${item.startsWith("car:") ? "Bu mashina pullik. Cobalt, Matiz, Damas va Monza bepul." : "18+ instruktor pullik. Jahldor va yumshoq instruktor bepul."}</p>
+      <p class="buy-note">${u ? "Onlayn to'lov tez orada qo'shiladi." : "Sotib olish uchun avval menyuda hisobingizga kiring (Google yoki Telegram)."}</p>
+      <div class="acts"><button class="btn primary" data-b="pay" disabled>Sotib olish · tez orada</button><button class="btn" data-b="close">Yopish</button></div></div>`;
+    el.hidden = false;
+    el.querySelector('[data-b="close"]').onclick = () => { el.hidden = true; };
+    el.onclick = e => { if (e.target === el) el.hidden = true; };
   }
 
   toast(msg, kind = "") {

@@ -97,7 +97,7 @@ func TestAPI(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer db.Close()
-	db.Exec(ctx, "TRUNCATE users, sessions, attempts, settings, plays, ad_views RESTART IDENTITY CASCADE")
+	db.Exec(ctx, "TRUNCATE users, sessions, attempts, settings, plays, ad_views, purchases RESTART IDENTITY CASCADE")
 	cfg := Config{DevLogin: true, UploadDir: t.TempDir(), Admins: map[string]bool{"dev:boss": true}, Origins: []string{"https://site.example"}, TelegramToken: bot}
 	os.MkdirAll(cfg.UploadDir+"/ads", 0o755)
 	srv := httptest.NewServer(newApp(cfg, db).routes())
@@ -143,6 +143,31 @@ func TestAPI(t *testing.T) {
 	}
 	call("GET", "/api/me", "", nil, 401)
 	call("GET", "/api/admin/stats", ali, nil, 403)
+
+	// paid items: none at first; the admin grants (for good or for some days) and takes back; others cannot
+	owns := func(tok string) []any { return call("GET", "/api/me", tok, nil, 200)["user"].(map[string]any)["owns"].([]any) }
+	if len(owns(ali)) != 0 {
+		t.Fatal("owns at first")
+	}
+	aid := strconv.Itoa(int(au["id"].(float64)))
+	call("POST", "/api/admin/users/"+aid+"/grant", ali, map[string]any{"item": "car:kia-k5"}, 403)
+	call("POST", "/api/admin/users/"+aid+"/grant", boss, map[string]any{"item": "car:../x"}, 400)
+	call("POST", "/api/admin/users/"+aid+"/grant", boss, map[string]any{"item": "car:kia-k5"}, 200)
+	gr := call("POST", "/api/admin/users/"+aid+"/grant", boss, map[string]any{"item": "instructor:rude", "days": 7}, 200)
+	if ps := gr["purchases"].([]any); len(ps) != 2 {
+		t.Fatalf("purchases: %v", ps)
+	}
+	if o := owns(ali); len(o) != 2 || o[0] != "car:kia-k5" || o[1] != "instructor:rude" {
+		t.Fatalf("owns: %v", o)
+	}
+	db.Exec(ctx, "UPDATE purchases SET until = 1 WHERE item = 'instructor:rude'") // ran out
+	if o := owns(ali); len(o) != 1 {
+		t.Fatalf("owns after the end: %v", o)
+	}
+	call("DELETE", "/api/admin/users/"+aid+"/grant/car:kia-k5", boss, nil, 200)
+	if len(owns(ali)) != 0 {
+		t.Fatal("owns after revoke")
+	}
 
 	// a Telegram login creates a user too
 	d := map[string]string{"id": "555", "first_name": "Tg", "auth_date": strconv.FormatInt(time.Now().Unix(), 10)}
