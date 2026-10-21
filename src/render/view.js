@@ -787,6 +787,16 @@ export class View {
     }
   }
 
+  // the mirrors' frames and pictures are drawn over the view in the cabin only: compiled ahead (for the screen, where
+  // they are drawn), the first look into the cabin does not wait for them
+  warmHud() {
+    const r = this.renderer, prev = r.getRenderTarget();
+    r.setRenderTarget(null);
+    const job = r.compileAsync ? r.compileAsync(this.hud, this.hudCam) : Promise.resolve();
+    r.setRenderTarget(prev);
+    return job.catch(() => {});
+  }
+
   setupPost(quality) {
     this.setMirrorDirect(direct(quality));
     const T = TIER[quality] || TIER.high;
