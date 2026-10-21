@@ -96,7 +96,7 @@ export const CARS = [
     sound: TURBO_SOUND
   },
   {
-    id: "passat-2022", plateY: [0.404, 0.748], paid: true, name: "Volkswagen Passat 2022", model: "models/passat-2022.glb", info: "1.4 TSI · 150 o.k. · 4,78 m",
+    id: "passat-2022", plateY: [0.404, 0.73], plateOut: [0.012, 0.105], plateFrame: 0.15, paid: true, name: "Volkswagen Passat 2022", model: "models/passat-2022.glb", info: "1.4 TSI · 150 o.k. · 4,78 m",
     credit: "3D model: \"Volkswagen Passat 2022\" (Sketchfab), modified", creditUrl: "",
     dims: PASSAT22, eye: [1.19, 1.16, -0.374], seat: [1.32, 0.46, 0.374],
     screen: { at: { c: [1.967, 0.829, 0.026], n: [-0.94, 0.35, 0], w: 0.105, h: 0.07 } },

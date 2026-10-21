@@ -474,7 +474,7 @@ function prepareCar(car, onProgress, variant = modelVariant()) {
     // drawn in their paint ("MALIBU", "Passat"): ours covers it, at the height measured on each car (plateY: front, rear)
     const d = car.dims, py = car.plateY;
     addPlates(cv, settings.plate, car.id === "cobalt" ? [{ pos: [3.582, 0.45, 0], back: false }, { pos: [-0.882, 0.47, 0], back: true }]
-      : py ? [{ pos: [d.wheelbase + d.fOh, py[0], 0], back: false }, { pos: [-d.rOh, py[1], 0], back: true }] : undefined);
+      : py ? [{ pos: [d.wheelbase + d.fOh, py[0], 0], back: false, out: (car.plateOut || [])[0] }, { pos: [-d.rOh, py[1], 0], back: true, out: (car.plateOut || [])[1], frame: car.plateFrame }] : undefined);
     if (cv.setPaint) cv.setPaint(settings.color);
     return cv;
   });

@@ -65,6 +65,14 @@ export async function loadCarModel(url, onProgress) {
   // and the body does not receive shadows: the proxy boxes inside it would mark the paint
   // with dark blotches wherever the body dips below their flat sides
   root.traverse(o => { if (o.isMesh) { o.castShadow = false; o.receiveShadow = false; } });
+  // textures exported with an alpha channel make a whole part "transparent": drawn after the rest without depth
+  // order, the rim showed through the tyre. Full-opacity parts that are not glass are cut out by alpha instead
+  root.traverse(o => {
+    if (!o.isMesh) return;
+    for (const m of [].concat(o.material)) if (m.transparent && m.map && m.opacity >= 0.99 && !(m.transmission > 0) && !/glass|lens|lamp|light|window/i.test(m.name)) {
+      m.transparent = false; m.alphaTest = Math.max(m.alphaTest || 0, 0.5); m.depthWrite = true; m.needsUpdate = true;
+    }
+  });
   addShadowProxy(root);
   return rigCar(root);
 }

@@ -99,12 +99,13 @@ export function plateMaterial(text) {
 
 const holderMat = new THREE.MeshStandardMaterial({ color: 0x111214, roughness: 0.55 });
 // plate + holder, facing +x of its own group
-export function makePlate(mat) {
+export function makePlate(mat, frame = 0) {
   const g = new THREE.Group(); g.name = "plate";
   const face = new THREE.Mesh(new THREE.PlaneGeometry(PW, PH), mat);
   face.rotation.y = Math.PI / 2; face.position.x = 0.008; face.name = "plate";
   // thin backing only: the plate is screwed straight to the body, no thick frame
-  const holder = new THREE.Mesh(new THREE.BoxGeometry(0.006, PH + 0.004, PW + 0.004), holderMat);
+  // `frame`: a taller holder, where the model's own plate panel is taller than an Uzbek plate
+  const holder = new THREE.Mesh(new THREE.BoxGeometry(0.006, Math.max(PH + 0.004, frame), PW + 0.004), holderMat);
   holder.position.x = 0.003; holder.name = "plate";
   g.add(holder, face);
   return g;
@@ -171,10 +172,10 @@ export function addPlates(cv, text, spots) {
   });
   for (const s of spots) {
     const { p, n } = settle(car, meshes, s.pos, s.back);
-    const plate = makePlate(mat);
+    const plate = makePlate(mat, s.frame);
     // face along n: turn round for the rear plate, then tilt with the bumper (stays upright, never upside down)
-    plate.rotation.set(0, n.x < 0 ? Math.PI : 0, Math.asin(THREE.MathUtils.clamp(n.y, -1, 1)), "YZX");
-    plate.position.copy(p).addScaledVector(n, 0.001);
+    plate.rotation.set(0, n.x < 0 ? Math.PI : 0, s.out ? 0 : Math.asin(THREE.MathUtils.clamp(n.y, -1, 1)), "YZX");   // set out from the body: upright
+    plate.position.copy(p).addScaledVector(n, 0.001 + (s.out || 0));   // out: past a raised panel the rays miss
     car.add(plate);
   }
   cv.setPlate = t => mat.userData.setText(t || DEFAULT_PLATE);
