@@ -157,17 +157,17 @@ func (db *DB) setSetting(ctx context.Context, k string, v any) error {
 }
 
 type User struct {
-	ID       int    `json:"id"`
-	Provider string `json:"provider"`
-	Name     string `json:"name"`
-	Username string `json:"username"`
-	Email    string `json:"email"`
-	Photo    string `json:"photo"`
-	Created  int64  `json:"created"`
-	Seen     int64  `json:"seen"`
-	Blocked  bool   `json:"blocked"`
-	Admin    bool   `json:"admin"`
-	Phone    string `json:"phone"`
+	ID       int      `json:"id"`
+	Provider string   `json:"provider"`
+	Name     string   `json:"name"`
+	Username string   `json:"username"`
+	Email    string   `json:"email"`
+	Photo    string   `json:"photo"`
+	Created  int64    `json:"created"`
+	Seen     int64    `json:"seen"`
+	Blocked  bool     `json:"blocked"`
+	Admin    bool     `json:"admin"`
+	Phone    string   `json:"phone"`
 	Owns     []string `json:"owns"` // paid items in force (filled by withOwns)
 }
 

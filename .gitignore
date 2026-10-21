@@ -7,3 +7,4 @@ server/uploads/
 server/avtodrom-server
 server/.env
 .env
+server/server

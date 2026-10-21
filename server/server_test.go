@@ -145,7 +145,9 @@ func TestAPI(t *testing.T) {
 	call("GET", "/api/admin/stats", ali, nil, 403)
 
 	// paid items: none at first; the admin grants (for good or for some days) and takes back; others cannot
-	owns := func(tok string) []any { return call("GET", "/api/me", tok, nil, 200)["user"].(map[string]any)["owns"].([]any) }
+	owns := func(tok string) []any {
+		return call("GET", "/api/me", tok, nil, 200)["user"].(map[string]any)["owns"].([]any)
+	}
 	if len(owns(ali)) != 0 {
 		t.Fatal("owns at first")
 	}

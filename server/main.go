@@ -22,7 +22,7 @@ import (
 
 type Config struct {
 	Addr, DatabaseURL, GoogleClientID, TelegramToken, TelegramBot, UploadDir, StaticDir, PublicURL string
-	InpayURL, InpayMerchant, InpayToken                                                             string // payments (shop.go)
+	InpayURL, InpayMerchant, InpayToken                                                            string          // payments (shop.go)
 	Admins                                                                                         map[string]bool // "tg:<id>", "google:<email>"
 	Origins                                                                                        []string        // allowed CORS origins; "*" any
 	DevLogin, TrustProxy                                                                           bool
