@@ -142,7 +142,7 @@ function start(m, el) {
   requestAnimationFrame(() => requestAnimationFrame(() => {
     try { startNow(m, el); } catch (e) { preparing = false; prepCard(false); throw e; }
     const done = () => { preparing = false; prepCard(false); };
-    warmUp(view.renderer, view.worldGroup, view.cam, view.scene).then(done, done);
+    warmUp(view.renderer, view.scene, view.cam, view.scene).then(done, done);       // the whole scene: ground, people, cabin
   }));
 }
 function startNow(m, el) {

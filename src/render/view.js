@@ -143,7 +143,8 @@ export class View {
     this.cam = new THREE.PerspectiveCamera(60, 1, 0.05, 900);
     // soft cabin light so the interior is readable under the roof's shadow
     this.cabinLight = new THREE.PointLight(0xfff2e2, 0.8, 2.6, 1.8);
-    this.cabinLight.visible = false;
+    // always in the scene, dark outside the cabin views: a light switched on or off changes the light count every
+    // shader is built for, and all of them were built again when the camera went into the cabin (seconds on a phone)
     s.add(this.cabinLight);
     this.carView = buildCar();
     s.add(this.carView.root);
@@ -516,8 +517,9 @@ export class View {
     this.carView.update(car, now);
     this.levelWheels();
     if (this.driver) this.driver.update(dt, this.driver.wheel, car);
-    this.cabinLight.visible = this.mode === "cockpit" || this.mode === "interiorRear";
-    if (this.cabinLight.visible) this.cabinLight.position.copy(root.localToWorld(new THREE.Vector3(1.2, 1.12, 0)));
+    const cabin = this.mode === "cockpit" || this.mode === "interiorRear";
+    this.cabinLight.intensity = cabin ? 0.8 : 0;
+    if (cabin) this.cabinLight.position.copy(root.localToWorld(new THREE.Vector3(1.2, 1.12, 0)));
     updateWorldMeshes(this.W, this.dyn, session.clock, now);
     if (this.zones && this.zonesOn) {
       const [fx, fy] = car.frontPoint();

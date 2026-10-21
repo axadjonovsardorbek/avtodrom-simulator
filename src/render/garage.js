@@ -20,8 +20,11 @@ export async function warmUp(renderer, root, cam, scene) {
     // material, linear output): compiled for the screen, every program was another one and was linked again at draw
     const prev = renderer.getRenderTarget();
     if (renderer.offscreenPost) renderer.setRenderTarget(warmTarget || (warmTarget = new THREE.WebGLRenderTarget(1, 1, { type: THREE.HalfFloatType })));
+    // three compiles only what is visible: the hidden parts (the cabin of a car seen from outside, the driver, the
+    // walkers) are shown for the moment of the compile, so the first look at them does not stall either
+    const hidden = []; root.traverse(o => { if (!o.visible) { hidden.push(o); o.visible = true; } });
     let job;
-    try { job = renderer.compileAsync(root, cam, scene); } finally { renderer.setRenderTarget(prev); }
+    try { job = renderer.compileAsync(root, cam, scene); } finally { renderer.setRenderTarget(prev); for (const o of hidden) o.visible = false; }
     const r = await Promise.race([job.catch(e => console.warn("compile", e)), late(8000)]);
     if (r === "late") console.warn("warmUp: shaders still compiling after 8 s");
   }

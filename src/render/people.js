@@ -205,7 +205,10 @@ export function realDriver(gltf) {
         const at = P.root.localToWorld(V().set(0.14, 0, 0));
         clip.setFromNormalAndCoplanarPoint(fwd, at);
       }
-      P.clipFloor(cockpit ? [clip] : []);
+      // the same number of planes in and out of the cabin (a plane far behind cuts nothing): a change of number
+      // rebuilds the shaders, a stall on every switch to the cabin
+      if (!cockpit) clip.set(V().set(1, 0, 0), 1e4);
+      P.clipFloor([clip]);
     }
   };
   return self;
