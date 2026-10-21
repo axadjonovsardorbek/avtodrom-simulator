@@ -20,5 +20,11 @@
    }
   ]
  ],
- "keepMaterials": true
+ "keepMaterials": true,
+ "steerFit": true,
+ "steer": [
+  1.863,
+  0.854,
+  -0.386
+ ]
 }

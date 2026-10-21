@@ -161,10 +161,54 @@ function triCentroids(n, prim, fn) {
     fn(i / 3, a.clone().add(b).add(c).divideScalar(3), [ia, ib, ic]);
   }
 }
+// the cut: inside the rim's cylinder, from just behind the rim (the column and the dashboard stay) to the hub
+let rimR = 0.205, ringR = 0;
 const inWheel = (p, centre, ax) => {
   const d = p.clone().sub(centre), along = d.dot(ax), r = d.addScaledVector(ax, -along).length();
-  return r < 0.205 && along > -0.06 && along < 0.14;
+  return r < rimR && along > (CFG.steerFit ? (CFG.steerBack ?? -0.035) : -0.06) && along < 0.14;
 };
+// "steerFit": the rim found as a ring: its plane from the spread of the rim's points, its centre by fitting a circle
+// to them in that plane (the mean of the points is pulled off centre by the spokes and by a rim cut unevenly), its
+// radius from the fit; repeated, each pass on the points near the ring found before. The cut is then the ring and
+// what lies inside it in front of it (hub, airbag, buttons), not the column or the dashboard behind.
+if (CFG.steerFit) {
+  let R = 0.18;
+  for (let pass = 0; pass < 5; pass++) {
+    // the rim is the outermost thing round the column: in each 10-degree sector, the points near the farthest one
+    const cand = [], bins = new Array(36).fill(0), u0 = new THREE.Vector3(0, 0, 1), v0 = axis.clone().cross(u0).normalize();
+    for (const n of meshNodes) for (const prim of n.getMesh().listPrimitives())
+      triCentroids(n, prim, (_, p) => {
+        const d = p.clone().sub(sw0), along = d.dot(axis); d.addScaledVector(axis, -along); const r = d.length();
+        if (Math.abs(along) > 0.05 || r > 0.23 || r < 0.08) return;
+        const b = Math.floor((Math.atan2(d.dot(v0), d.dot(u0)) + Math.PI) / (2 * Math.PI) * 36) % 36;
+        cand.push([p, r, b]); bins[b] = Math.max(bins[b], r);
+      });
+    // sectors where something else reaches farther out (door trim, the dashboard's edge) are left out: their farthest
+    // point is well beyond the others'
+    const seen = bins.filter(x => x > 0).sort((a, b) => a - b), med = seen[seen.length >> 1] || R;
+    const pts = cand.filter(([, r, b]) => bins[b] < med + 0.015 && r > bins[b] - 0.012).map(c => c[0]);
+    if (pts.length < 50) { console.log("steerFit: rim not found, pass", pass); break; }
+    const mean = pts.reduce((a, p) => a.add(p), new THREE.Vector3()).divideScalar(pts.length);
+    const cov = [[0, 0, 0], [0, 0, 0], [0, 0, 0]];
+    for (const p of pts) { const d = [p.x - mean.x, p.y - mean.y, p.z - mean.z]; for (let a = 0; a < 3; a++) for (let b = 0; b < 3; b++) cov[a][b] += d[a] * d[b]; }
+    const inv = new THREE.Matrix3().set(...cov.flat()).invert();
+    let ax = axis.clone(); for (let k = 0; k < 60; k++) ax.applyMatrix3(inv).normalize();
+    if (ax.x > 0) ax.negate();
+    ax.z = 0; ax.normalize();
+    // a steering column rises towards the driver: a fit leaning the other way was pulled by the dashboard; keep the axis
+    if (ax.y > 0.1) axis = ax;
+    // circle fit (Kasa) in the plane through the mean
+    const u = new THREE.Vector3(0, 0, 1), v = axis.clone().cross(u).normalize();
+    let Sx = 0, Sy = 0, Sxx = 0, Syy = 0, Sxy = 0, Sxz = 0, Syz = 0, Sz = 0;
+    for (const p of pts) { const d = p.clone().sub(mean), x = d.dot(u), y = d.dot(v), z = x * x + y * y; Sx += x; Sy += y; Sxx += x * x; Syy += y * y; Sxy += x * y; Sxz += x * z; Syz += y * z; Sz += z; }
+    const N = pts.length, A = new THREE.Matrix3().set(Sxx, Sxy, Sx, Sxy, Syy, Sy, Sx, Sy, N).invert();
+    const sol = new THREE.Vector3(Sxz, Syz, Sz).applyMatrix3(A);
+    const cx = sol.x / 2, cy = sol.y / 2; R = Math.sqrt(sol.z + cx * cx + cy * cy);
+    sw0.copy(mean).addScaledVector(u, cx).addScaledVector(v, cy);
+    console.log(`steering ring pass ${pass}: ${N} triangles, centre ${sw0.toArray().map(q => q.toFixed(3))}, axis ${axis.toArray().map(q => q.toFixed(2))}, radius ${R.toFixed(3)}`);
+  }
+  rimR = R + (CFG.steerPad ?? 0.025); ringR = R;           // "steerPad": how far beyond the fitted ring the cut reaches
+} else
 // refine centre and axis with the rim points (least-spread direction)
 for (let pass = 0; pass < 2; pass++) {
   const pts = [];
@@ -188,9 +232,26 @@ for (const n of meshNodes) {
   const prims = n.getMesh().listPrimitives();
   const parts = [];
   for (const prim of prims) {
-    const keep = [], take = [];
-    triCentroids(n, prim, (_, p, tri) => (inWheel(p, sw0, axis) ? take : keep).push(...tri));
+    let keep = [], take = [];
+    const cands = [];
+    triCentroids(n, prim, (_, p, tri) => { if (inWheel(p, sw0, axis)) { take.push(...tri); cands.push([p, tri]); } else keep.push(...tri); });
     if (!take.length) continue;
+    // "steerConnected": of what lies in the cut, the pieces joined to the rim (vertex to vertex) that are not behind it,
+    // and the loose pieces clearly in front of it (hub, airbag, buttons), go with the wheel; a separate piece reaching into it (the instrument hood above a steeply raked
+    // column) stays on the dashboard
+    if (CFG.steerConnected && ringR) {
+      const pos = prim.getAttribute("POSITION"), key = v => { const e = pos.getElement(v, []); return e.map(q => Math.round(q * 2e4)).join(); };
+      const parent = cands.map((_, i) => i), find = i => { while (parent[i] !== i) i = parent[i] = parent[parent[i]]; return i; };
+      const owner = new Map();
+      cands.forEach(([, tri], i) => { for (const v of tri) { const k = key(v), o = owner.get(k); if (o === undefined) owner.set(k, i); else parent[find(i)] = find(o); } });
+      const info = new Map();
+      cands.forEach(([p], i) => {
+        const d = p.clone().sub(sw0), along = d.dot(axis), r = d.addScaledVector(axis, -along).length(), c = find(i);
+        const f = info.get(c) || { seed: false, sum: 0, n: 0 }; f.n++; f.sum += along; if (Math.abs(along) < 0.03 && Math.abs(r - ringR) < 0.012) f.seed = true; info.set(c, f);
+      });
+      take = []; cands.forEach(([, tri], i) => { const f = info.get(find(i)); ((f.seed && f.sum / f.n > -0.012) || f.sum / f.n > 0.02 ? take : keep).push(...tri); });
+      if (!take.length) { setIndices(prim, keep); continue; }
+    }
     cut += take.length / 3;
     parts.push(subPrimitive(prim, take));
     setIndices(prim, keep);
