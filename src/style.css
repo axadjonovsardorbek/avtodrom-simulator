@@ -707,3 +707,7 @@ table.lb em { color: var(--amber); font-style: normal; }
 .plate-in { display: inline-flex; align-items: stretch; border: 2px solid #111; border-radius: 6px; overflow: hidden; background: #f7f7f2; }
 .plate-in select { appearance: none; -webkit-appearance: none; border: 0; border-right: 2px solid #111; background: #f7f7f2; color: #151515; font: 700 15px var(--f-display); padding: 6px 8px; cursor: pointer; }
 .row .plate-in input { width: 104px; border: 0; border-radius: 0; text-transform: uppercase; }
+/* phones held upright: the boot screen is turned sideways too, like the game behind it */
+@media (pointer: coarse) and (orientation: portrait) {
+  .boot .boot-card { transform: rotate(90deg); }
+}

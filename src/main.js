@@ -102,10 +102,9 @@ for (const ev of ["pointerdown", "keydown", "touchstart"]) addEventListener(ev, 
 // phones and tablets get the on-screen controls (?mobile forces them for testing)
 const touchUi = coarse || (navigator.maxTouchPoints > 0 && Math.min(innerWidth, innerHeight) < 900) || /[?&]mobile/.test(location.search);
 if (touchUi) app.classList.add("touch");
-// phones held upright: where the browser can lock the screen to landscape it is asked to (after the first touch);
-// where it cannot (iPhone), the whole interface is turned a quarter so it is always played sideways
-const canLock = !!(screen.orientation && screen.orientation.lock) && !/[?&]rot/.test(location.search);
-function applyRot() { app.classList.toggle("rot", touchUi && !canLock && innerHeight > innerWidth); }
+// phones are played sideways only: held upright, the whole interface is turned a quarter (from the first frame);
+// where the browser can lock the screen to landscape it is asked to on the first touch, and the turn then goes away
+function applyRot() { app.classList.toggle("rot", touchUi && innerHeight > innerWidth); }
 addEventListener("resize", applyRot); addEventListener("orientationchange", applyRot); applyRot();
 if (touchUi) addEventListener("pointerdown", () => goFullscreen(), { once: true, capture: true });
 // a quarter-turned interface cannot be scrolled by the browser the usual way: drag the panel under the finger
