@@ -1,6 +1,6 @@
 // Three.js scene, lighting, cameras and rear-view mirrors.
 import * as THREE from "three";
-import { buildWorldMeshes, updateWorldMeshes, fillTrains } from "./worldMesh.js";
+import { buildWorldMeshes, updateWorldMeshes, updateLods, fillTrains } from "./worldMesh.js";
 import { inPoly } from "../sim/geom.js";
 import { Sky } from "three/examples/jsm/objects/Sky.js";
 import { EffectComposer } from "three/examples/jsm/postprocessing/EffectComposer.js";
@@ -141,6 +141,7 @@ export class View {
     this.sunDir = SUN_DIR.clone();
 
     this.cam = new THREE.PerspectiveCamera(60, 1, 0.05, 900);
+    this.cam.layers.enable(2);                 // grass tufts: seen by the eye, left out of the mirrors
     // soft cabin light so the interior is readable under the roof's shadow
     this.cabinLight = new THREE.PointLight(0xfff2e2, 0.8, 2.6, 1.8);
     // always in the scene, dark outside the cabin views: a light switched on or off changes the light count every
@@ -523,6 +524,7 @@ export class View {
     this.cabinLight.intensity = cabin ? 0.8 : 0;
     if (cabin) this.cabinLight.position.copy(root.localToWorld(new THREE.Vector3(1.2, 1.12, 0)));
     updateWorldMeshes(this.W, this.dyn, session.clock, now);
+    updateLods(this.dyn, this.cam.position.x, this.cam.position.z);
     if (this.zones && this.zonesOn) {
       const [fx, fy] = car.frontPoint();
       for (const { z, mat } of this.zones) {

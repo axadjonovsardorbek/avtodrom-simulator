@@ -79,10 +79,42 @@ const groundRot = (th) => Math.atan2(-Math.cos(th), -Math.sin(th));
 const SHADOW_ONLY = new THREE.MeshBasicMaterial({ colorWrite: false, depthWrite: false });
 function shadowTwin(im, geo) {
   const t = new THREE.InstancedMesh(geo, SHADOW_ONLY, im.count);
-  t.instanceMatrix = im.instanceMatrix; t.count = im.count; t.castShadow = true; t.layers.set(1);
+  t.instanceMatrix = im.instanceMatrix.clone(); t.count = im.count;      // its own copy: the detailed one's order changes with distance (lod) t.castShadow = true; t.layers.set(1);
   im.castShadow = false;
   return t;
 }
+// Distance detail for instanced meshes standing still (shrubs, tree crowns, grass tufts): within `near` metres
+// of the camera an instance is drawn with the detailed shape, beyond it with `lowGeo` (or not at all when null).
+// The instances are re-sorted between the two only when the camera has moved a few metres.
+function lod(dyn, im, lowGeo, near) {
+  const n = im.count, mats = im.instanceMatrix.array.slice(0, n * 16), cols = im.instanceColor ? im.instanceColor.array.slice(0, n * 3) : null;
+  let low = null;
+  if (lowGeo) {
+    low = new THREE.InstancedMesh(lowGeo, im.material, n); low.count = 0; low.receiveShadow = im.receiveShadow; low.layers.mask = im.layers.mask;
+    if (cols) low.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(n * 3), 3);
+    low.frustumCulled = false; im.parent ? im.parent.add(low) : null;
+  }
+  im.frustumCulled = false;
+  (dyn.lods || (dyn.lods = [])).push({ hi: im, low, n, mats, cols, near2: near * near, lx: Infinity, lz: Infinity });
+  return low;
+}
+export function updateLods(dyn, x, z) {
+  for (const L of dyn.lods || []) {
+    if ((x - L.lx) ** 2 + (z - L.lz) ** 2 < 16) continue;                // moved less than 4 m: as it was
+    L.lx = x; L.lz = z;
+    const H = L.hi.instanceMatrix.array, HC = L.hi.instanceColor && L.hi.instanceColor.array;
+    const W = L.low && L.low.instanceMatrix.array, WC = L.low && L.low.instanceColor && L.low.instanceColor.array;
+    let h = 0, w = 0;
+    for (let i = 0; i < L.n; i++) {
+      const dx = L.mats[i * 16 + 12] - x, dz = L.mats[i * 16 + 14] - z;
+      if (dx * dx + dz * dz < L.near2) { H.set(L.mats.subarray(i * 16, i * 16 + 16), h * 16); if (HC) HC.set(L.cols.subarray(i * 3, i * 3 + 3), h * 3); h++; }
+      else if (W) { W.set(L.mats.subarray(i * 16, i * 16 + 16), w * 16); if (WC) WC.set(L.cols.subarray(i * 3, i * 3 + 3), w * 3); w++; }
+    }
+    L.hi.count = h; L.hi.instanceMatrix.needsUpdate = true; if (HC) L.hi.instanceColor.needsUpdate = true;
+    if (L.low) { L.low.count = w; L.low.instanceMatrix.needsUpdate = true; if (WC) L.low.instanceColor.needsUpdate = true; }
+  }
+}
+
 function mergeGeos(geos) {
   const parts = geos.map(g => g.index ? g.toNonIndexed() : g);
   const out = new THREE.BufferGeometry();
@@ -189,6 +221,7 @@ export function buildWorldMeshes(W, quality) {
     spots.forEach(([x, y], i) => { const s = 0.7 + rand() * 0.35; bm.compose(bv.set(x, 0.15 + 0.32 * s, y), bq.setFromAxisAngle(new THREE.Vector3(0, 1, 0), rand() * 6), bs.set(s, s * (0.85 + rand() * 0.25), s)); bushes.setMatrixAt(i, bm); bushes.setColorAt(i, bc.setHSL(0.23 + rand() * 0.05, 0.42 + rand() * 0.12, 0.42 + rand() * 0.10)); });
     bushes.receiveShadow = true; group.add(bushes);
     if (quality === "high") group.add(shadowTwin(bushes, bushShape(1)));
+    if (quality !== "low") lod(dyn, bushes, bushShape(0), quality === "high" ? 50 : 38);     // beyond: 80 triangles, a hand's width on the screen
 
     // a low concrete wall along the edge of the asphalt (the kerb posts of src/world/board.js stand in it)
     { const f = bd.frame.map(([x, y]) => [x + Math.sign(x) * 0.75, y + Math.sign(y) * 0.75]), geos = [];
@@ -490,6 +523,7 @@ export function buildWorldMeshes(W, quality) {
   trunks.count = crowns.count = placed;
   trunks.castShadow = true; crowns.receiveShadow = true;
   group.add(trunks, crowns, shadowTwin(crowns, crownOf(1)));
+  { const lowCrown = mergeVertices(crownOf(1), 1e-3); lowCrown.computeVertexNormals(); lod(dyn, crowns, lowCrown, quality === "high" ? 70 : 50); }
 
   // street lamps along the route, set back from the edge, with a lit head
   {
@@ -537,6 +571,8 @@ export function buildWorldMeshes(W, quality) {
       tufts.setColorAt(n, col.setHSL(0.23 + rand() * 0.06, 0.5, 0.16 + rand() * 0.1)); n++;
     }
     tufts.count = n; group.add(tufts);
+    tufts.layers.set(2);                                   // not in the mirrors (view.js: the main camera alone sees layer 2)
+    lod(dyn, tufts, null, quality === "high" ? 45 : 32);   // blades a few pixels high: not drawn further away
   }
 
   if (W.name === "full") {
