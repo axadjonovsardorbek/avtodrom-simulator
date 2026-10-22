@@ -98,8 +98,8 @@ func TestAPI(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer db.Close()
-	db.Exec(ctx, "TRUNCATE users, sessions, attempts, settings, plays, ad_views, purchases, promos, promo_uses, orders RESTART IDENTITY CASCADE")
-	cfg := Config{DevLogin: true, UploadDir: t.TempDir(), Admins: map[string]bool{"dev:boss": true}, Origins: []string{"https://site.example"}, TelegramToken: bot}
+	db.Exec(ctx, "TRUNCATE users, sessions, attempts, settings, plays, ad_views, purchases, promos, promo_uses, orders, admins, admin_sessions RESTART IDENTITY CASCADE")
+	cfg := Config{DevLogin: true, UploadDir: t.TempDir(), AdminLogin: "boss", AdminPassword: "secret123", Origins: []string{"https://site.example"}, TelegramToken: bot}
 	os.MkdirAll(cfg.UploadDir+"/ads", 0o755)
 	srv := httptest.NewServer(newApp(cfg, db).routes())
 	defer srv.Close()
@@ -138,12 +138,34 @@ func TestAPI(t *testing.T) {
 	}
 
 	boss, bu := login("Boss")
+	adm := call("POST", "/api/admin/login", "", map[string]string{"login": "Boss", "password": "secret123"}, 200)["token"].(string)
 	ali, au := login("Ali")
-	if bu["admin"] != true || au["admin"] != false {
+	// a player account is never an admin, and its token opens nothing in the admin panel; an admin's token is no player's
+	if bu["admin"] != false || au["admin"] != false {
 		t.Fatalf("admin flags: %v %v", bu["admin"], au["admin"])
 	}
 	call("GET", "/api/me", "", nil, 401)
-	call("GET", "/api/admin/stats", ali, nil, 403)
+	call("GET", "/api/admin/stats", ali, nil, 401)
+	call("GET", "/api/admin/stats", boss, nil, 401)
+	call("GET", "/api/me", adm, nil, 401)
+	call("POST", "/api/admin/login", "", map[string]string{"login": "boss", "password": "wrong-pass"}, 401)
+	call("POST", "/api/admin/login", "", map[string]string{"login": "nobody", "password": "secret123"}, 401)
+	if me := call("GET", "/api/admin/me", adm, nil, 200)["admin"].(map[string]any); me["login"] != "boss" {
+		t.Fatalf("admin me: %v", me)
+	}
+	// admins: add one, a busy login and a short password refused, not oneself deleted; a password change
+	call("POST", "/api/admin/admins", adm, map[string]string{"login": "vali", "name": "Vali", "password": "parol1234"}, 200)
+	call("POST", "/api/admin/admins", adm, map[string]string{"login": "vali", "password": "parol1234"}, 409)
+	call("POST", "/api/admin/admins", adm, map[string]string{"login": "x1", "password": "short"}, 400)
+	vali := call("POST", "/api/admin/login", "", map[string]string{"login": "Vali", "password": "parol1234"}, 200)["token"].(string)
+	me := call("GET", "/api/admin/me", vali, nil, 200)["admin"].(map[string]any)
+	call("DELETE", "/api/admin/admins/"+strconv.Itoa(int(me["id"].(float64))), vali, nil, 400)
+	call("PUT", "/api/admin/password", vali, map[string]string{"old": "bad", "new": "yangiparol"}, 400)
+	call("PUT", "/api/admin/password", vali, map[string]string{"old": "parol1234", "new": "yangiparol"}, 200)
+	call("POST", "/api/admin/login", "", map[string]string{"login": "vali", "password": "yangiparol"}, 200)
+	call("DELETE", "/api/admin/admins/"+strconv.Itoa(int(me["id"].(float64))), adm, nil, 200)
+	call("POST", "/api/admin/login", "", map[string]string{"login": "vali", "password": "yangiparol"}, 401)
+	call("POST", "/api/admin/logout", vali, nil, 200)
 
 	// paid items: none at first; the admin grants (for good or for some days) and takes back; others cannot
 	owns := func(tok string) []any {
@@ -153,10 +175,10 @@ func TestAPI(t *testing.T) {
 		t.Fatal("owns at first")
 	}
 	aid := strconv.Itoa(int(au["id"].(float64)))
-	call("POST", "/api/admin/users/"+aid+"/grant", ali, map[string]any{"item": "car:kia-k5"}, 403)
-	call("POST", "/api/admin/users/"+aid+"/grant", boss, map[string]any{"item": "car:../x"}, 400)
-	call("POST", "/api/admin/users/"+aid+"/grant", boss, map[string]any{"item": "car:kia-k5"}, 200)
-	gr := call("POST", "/api/admin/users/"+aid+"/grant", boss, map[string]any{"item": "instructor:rude", "days": 7}, 200)
+	call("POST", "/api/admin/users/"+aid+"/grant", ali, map[string]any{"item": "car:kia-k5"}, 401)
+	call("POST", "/api/admin/users/"+aid+"/grant", adm, map[string]any{"item": "car:../x"}, 400)
+	call("POST", "/api/admin/users/"+aid+"/grant", adm, map[string]any{"item": "car:kia-k5"}, 200)
+	gr := call("POST", "/api/admin/users/"+aid+"/grant", adm, map[string]any{"item": "instructor:rude", "days": 7}, 200)
 	if ps := gr["purchases"].([]any); len(ps) != 2 {
 		t.Fatalf("purchases: %v", ps)
 	}
@@ -167,7 +189,7 @@ func TestAPI(t *testing.T) {
 	if o := owns(ali); len(o) != 1 {
 		t.Fatalf("owns after the end: %v", o)
 	}
-	call("DELETE", "/api/admin/users/"+aid+"/grant/car:kia-k5", boss, nil, 200)
+	call("DELETE", "/api/admin/users/"+aid+"/grant/car:kia-k5", adm, nil, 200)
 	if len(owns(ali)) != 0 {
 		t.Fatal("owns after revoke")
 	}
@@ -203,34 +225,33 @@ func TestAPI(t *testing.T) {
 	}
 
 	// admin: stats, users, blocking
-	st := call("GET", "/api/admin/stats", boss, nil, 200)
+	st := call("GET", "/api/admin/stats", adm, nil, 200)
 	if st["users"].(map[string]any)["total"].(float64) != 3 || st["attempts"].(map[string]any)["total"].(float64) != 3 {
 		t.Fatalf("stats: %v", st)
 	}
 	if ms := st["mistakes"].([]any); len(ms) != 1 || ms[0].(map[string]any)["pts"].(float64) != 5 {
 		t.Fatalf("mistakes: %v", st["mistakes"])
 	}
-	us := call("GET", "/api/admin/users?q=ali", boss, nil, 200)
+	us := call("GET", "/api/admin/users?q=ali", adm, nil, 200)
 	if us["total"].(float64) != 1 {
 		t.Fatalf("user search: %v", us)
 	}
 	aliID := strconv.Itoa(int(au["id"].(float64)))
-	call("PATCH", "/api/admin/users/"+aliID, boss, map[string]bool{"blocked": true}, 200)
+	call("PATCH", "/api/admin/users/"+aliID, adm, map[string]bool{"blocked": true}, 200)
 	call("GET", "/api/me", ali, nil, 401) // logged out
 	call("POST", "/api/auth/dev", "", map[string]string{"name": "Ali"}, 403)
 	if lb := call("GET", "/api/leaderboard", "", nil, 200)["items"].([]any); len(lb) != 1 {
 		t.Fatalf("a blocked user stays on the leaderboard: %v", lb)
 	}
-	call("PATCH", "/api/admin/users/"+strconv.Itoa(int(bu["id"].(float64))), boss, map[string]bool{"admin": false}, 400)
-	call("DELETE", "/api/admin/users/"+aliID, boss, nil, 200)
-	call("GET", "/api/admin/users/"+aliID, boss, nil, 404)
+	call("DELETE", "/api/admin/users/"+aliID, adm, nil, 200)
+	call("GET", "/api/admin/users/"+aliID, adm, nil, 404)
 
 	// advertising: before any upload the site's own list is used; then the uploaded one
 	if _, has := call("GET", "/api/config", "", nil, 200)["ads"]; has {
 		t.Fatal("ads before any were set")
 	}
-	call("POST", "/api/admin/ads", boss, []byte{}, 400) // empty
-	ads := call("POST", "/api/admin/ads", boss, []byte("\xff\xd8\xff picture"), 200)["items"].([]any)
+	call("POST", "/api/admin/ads", adm, []byte{}, 400) // empty
+	ads := call("POST", "/api/admin/ads", adm, []byte("\xff\xd8\xff picture"), 200)["items"].([]any)
 	id := ads[0].(map[string]any)["id"].(string)
 	cfgOut := call("GET", "/api/config", "", nil, 200)
 	if items := cfgOut["ads"].([]any); len(items) != 1 || !strings.Contains(items[0].(map[string]any)["src"].(string), "/uploads/ads/") {
@@ -242,7 +263,7 @@ func TestAPI(t *testing.T) {
 	}
 	res.Body.Close()
 	// on the rear window of the Cobalt only
-	call("PUT", "/api/admin/ads", boss, map[string]any{"items": []map[string]any{{"id": id, "sec": 9, "on": true, "place": "rear", "cars": []string{"cobalt", "cobalt", "BAD!"}}}}, 200)
+	call("PUT", "/api/admin/ads", adm, map[string]any{"items": []map[string]any{{"id": id, "sec": 9, "on": true, "place": "rear", "cars": []string{"cobalt", "cobalt", "BAD!"}}}}, 200)
 	if it := call("GET", "/api/config", "", nil, 200)["ads"].([]any)[0].(map[string]any); it["place"] != "rear" || len(it["cars"].([]any)) != 1 || it["id"] != id {
 		t.Fatalf("ad place and cars: %v", it)
 	}
@@ -255,7 +276,7 @@ func TestAPI(t *testing.T) {
 	track("", "dev0000aaaa", 0, 50)
 	track(boss, "dev0000bbbb", 2, 200)
 	call("POST", "/api/track", "", map[string]any{"device": "x"}, 400)
-	an := call("GET", "/api/admin/analytics?days=7", boss, nil, 200)
+	an := call("GET", "/api/admin/analytics?days=7", adm, nil, 200)
 	if tt := an["totals"].(map[string]any); tt["devices"].(float64) != 2 || tt["runs"].(float64) != 6 || tt["secs"].(float64) != 440 || tt["adViews"].(float64) != 6 {
 		t.Fatalf("analytics totals: %v", tt)
 	}
@@ -269,14 +290,14 @@ func TestAPI(t *testing.T) {
 		t.Fatalf("analytics players: %v", an["players"])
 	}
 	call("GET", "/api/admin/analytics", "", nil, 401)
-	call("PUT", "/api/admin/ads", boss, map[string]any{"items": []map[string]any{{"id": id, "sec": 12, "on": false}}}, 200)
+	call("PUT", "/api/admin/ads", adm, map[string]any{"items": []map[string]any{{"id": id, "sec": 12, "on": false}}}, 200)
 	if items := call("GET", "/api/config", "", nil, 200)["ads"].([]any); len(items) != 0 {
 		t.Fatalf("a switched-off ad is shown: %v", items)
 	}
-	call("DELETE", "/api/admin/ads/"+id, boss, nil, 200)
+	call("DELETE", "/api/admin/ads/"+id, adm, nil, 200)
 
 	// cars
-	call("PUT", "/api/admin/cars", boss, map[string]any{"disabled": []string{"damas", "bad id!"}}, 200)
+	call("PUT", "/api/admin/cars", adm, map[string]any{"disabled": []string{"damas", "bad id!"}}, 200)
 	if dc := call("GET", "/api/config", "", nil, 200)["disabledCars"].([]any); len(dc) != 1 || dc[0] != "damas" {
 		t.Fatalf("disabled cars: %v", dc)
 	}
@@ -358,7 +379,7 @@ func TestShop(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer db.Close()
-	db.Exec(ctx, "TRUNCATE users, sessions, attempts, settings, plays, ad_views, purchases, promos, promo_uses, orders RESTART IDENTITY CASCADE")
+	db.Exec(ctx, "TRUNCATE users, sessions, attempts, settings, plays, ad_views, purchases, promos, promo_uses, orders, admins, admin_sessions RESTART IDENTITY CASCADE")
 
 	// inPAY stand-in
 	var payState = map[string]string{}
@@ -399,7 +420,7 @@ func TestShop(t *testing.T) {
 	}))
 	defer fake.Close()
 
-	cfg := Config{DevLogin: true, UploadDir: t.TempDir(), Admins: map[string]bool{"dev:boss": true}, InpayURL: fake.URL, InpayMerchant: "m1", InpayToken: "secret", PublicURL: "https://site.example"}
+	cfg := Config{DevLogin: true, UploadDir: t.TempDir(), AdminLogin: "boss", AdminPassword: "secret123", InpayURL: fake.URL, InpayMerchant: "m1", InpayToken: "secret", PublicURL: "https://site.example"}
 	srv := httptest.NewServer(newApp(cfg, db).routes())
 	defer srv.Close()
 	call := func(method, path, token string, body any, want int) map[string]any {
@@ -424,7 +445,8 @@ func TestShop(t *testing.T) {
 	login := func(name string) string {
 		return call("POST", "/api/auth/dev", "", map[string]string{"name": name}, 200)["token"].(string)
 	}
-	boss, ali := login("Boss"), login("Ali")
+	ali := login("Ali")
+	adm := call("POST", "/api/admin/login", "", map[string]string{"login": "Boss", "password": "secret123"}, 200)["token"].(string)
 	owns := func() []any { return call("GET", "/api/me", ali, nil, 200)["user"].(map[string]any)["owns"].([]any) }
 
 	// at first: selling on, six paid items, nothing priced so nothing offered
@@ -437,17 +459,17 @@ func TestShop(t *testing.T) {
 		{"id": "car:kia-k5", "name": "Kia K5", "items": []string{"car:kia-k5"}, "price": 20000, "days": 0, "on": true},
 		{"id": "all", "name": "Hammasi", "items": []string{"all"}, "price": 50000, "days": 30, "on": true},
 	}}
-	call("PUT", "/api/admin/shop", ali, shop, 403)
-	call("PUT", "/api/admin/shop", boss, map[string]any{"enabled": true, "products": []map[string]any{{"id": "x", "name": "X", "items": []string{"car:x"}, "price": 500, "on": true}}}, 400)
-	call("PUT", "/api/admin/shop", boss, shop, 200)
+	call("PUT", "/api/admin/shop", ali, shop, 401)
+	call("PUT", "/api/admin/shop", adm, map[string]any{"enabled": true, "products": []map[string]any{{"id": "x", "name": "X", "items": []string{"car:x"}, "price": 500, "on": true}}}, 400)
+	call("PUT", "/api/admin/shop", adm, shop, 200)
 	if n := len(call("GET", "/api/shop", "", nil, 200)["products"].([]any)); n != 2 {
 		t.Fatalf("products on sale: %d", n)
 	}
 
 	// promo codes: 25% on the K5 only, limited to one use; a free one
-	call("POST", "/api/admin/promos", boss, map[string]any{"code": "k25", "kind": "percent", "value": 25, "products": []string{"car:kia-k5"}, "maxUses": 1, "active": true}, 200)
-	call("POST", "/api/admin/promos", boss, map[string]any{"code": "GIFT", "kind": "free", "active": true}, 200)
-	call("POST", "/api/admin/promos", boss, map[string]any{"code": "BAD", "kind": "percent", "value": 150, "active": true}, 400)
+	call("POST", "/api/admin/promos", adm, map[string]any{"code": "k25", "kind": "percent", "value": 25, "products": []string{"car:kia-k5"}, "maxUses": 1, "active": true}, 200)
+	call("POST", "/api/admin/promos", adm, map[string]any{"code": "GIFT", "kind": "free", "active": true}, 200)
+	call("POST", "/api/admin/promos", adm, map[string]any{"code": "BAD", "kind": "percent", "value": 150, "active": true}, 400)
 	q := call("POST", "/api/shop/quote", ali, map[string]any{"product": "car:kia-k5", "promo": "k25"}, 200)
 	if q["total"].(float64) != 15000 || q["discount"].(float64) != 5000 {
 		t.Fatalf("quote: %v", q)
@@ -498,14 +520,14 @@ func TestShop(t *testing.T) {
 	}
 
 	// the admin's orders list and the money
-	or := call("GET", "/api/admin/orders", boss, nil, 200)
+	or := call("GET", "/api/admin/orders", adm, nil, 200)
 	if or["paidTotal"].(float64) != 15000 || or["paidCount"].(float64) != 2 {
 		t.Fatalf("orders: %v %v", or["paidTotal"], or["paidCount"])
 	}
 
 	// selling off: nothing is paid, nothing can be bought
 	shop["enabled"] = false
-	call("PUT", "/api/admin/shop", boss, shop, 200)
+	call("PUT", "/api/admin/shop", adm, shop, 200)
 	if sh := call("GET", "/api/shop", "", nil, 200); len(sh["paid"].([]any)) != 0 {
 		t.Fatalf("off: %v", sh)
 	}
@@ -524,8 +546,8 @@ func TestAdminExtras(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer db.Close()
-	db.Exec(ctx, "TRUNCATE users, sessions, attempts, settings, plays, ad_views, purchases, promos, promo_uses, orders, audit RESTART IDENTITY CASCADE")
-	cfg := Config{DevLogin: true, UploadDir: t.TempDir(), Admins: map[string]bool{"dev:boss": true}}
+	db.Exec(ctx, "TRUNCATE users, sessions, attempts, settings, plays, ad_views, purchases, promos, promo_uses, orders, audit, admins, admin_sessions RESTART IDENTITY CASCADE")
+	cfg := Config{DevLogin: true, UploadDir: t.TempDir(), AdminLogin: "boss", AdminPassword: "secret123"}
 	srv := httptest.NewServer(newApp(cfg, db).routes())
 	defer srv.Close()
 	call := func(method, path, token string, body any, want int) map[string]any {
@@ -550,52 +572,53 @@ func TestAdminExtras(t *testing.T) {
 	login := func(name string) string {
 		return call("POST", "/api/auth/dev", "", map[string]string{"name": name}, 200)["token"].(string)
 	}
-	boss, ali := login("Boss"), login("Ali")
+	ali := login("Ali")
+	adm := call("POST", "/api/admin/login", "", map[string]string{"login": "Boss", "password": "secret123"}, 200)["token"].(string)
 
 	// maintenance and a banner; the game sees them in /api/config, an expired banner is not shown
-	call("PUT", "/api/admin/site", ali, map[string]any{"maintenance": true}, 403)
-	call("PUT", "/api/admin/site", boss, map[string]any{"maintenance": true, "maintenanceText": "Tez orada", "banner": "Yangi K5", "bannerKind": "promo"}, 200)
+	call("PUT", "/api/admin/site", ali, map[string]any{"maintenance": true}, 401)
+	call("PUT", "/api/admin/site", adm, map[string]any{"maintenance": true, "maintenanceText": "Tez orada", "banner": "Yangi K5", "bannerKind": "promo"}, 200)
 	site := call("GET", "/api/config", "", nil, 200)["site"].(map[string]any)
 	if site["maintenance"] != true || site["banner"] != "Yangi K5" || site["bannerKind"] != "promo" {
 		t.Fatalf("site: %v", site)
 	}
-	call("PUT", "/api/admin/site", boss, map[string]any{"banner": "Eski", "bannerUntil": 1000}, 200)
+	call("PUT", "/api/admin/site", adm, map[string]any{"banner": "Eski", "bannerUntil": 1000}, 200)
 	if _, ok := call("GET", "/api/config", "", nil, 200)["site"].(map[string]any)["banner"]; ok {
 		t.Fatal("expired banner shown")
 	}
 
 	// the log: both changes, newest first, a refused one not at all
-	items := call("GET", "/api/admin/audit", boss, nil, 200)["items"].([]any)
-	if len(items) != 2 || items[0].(map[string]any)["action"] != "PUT /api/admin/site" || items[0].(map[string]any)["admin"] != "Boss" {
+	items := call("GET", "/api/admin/audit", adm, nil, 200)["items"].([]any)
+	if len(items) != 2 || items[0].(map[string]any)["action"] != "PUT /api/admin/site" || items[0].(map[string]any)["admin"] != "boss" {
 		t.Fatalf("audit: %v", items)
 	}
-	call("GET", "/api/admin/audit", ali, nil, 403)
+	call("GET", "/api/admin/audit", ali, nil, 401)
 
 	// money: a paid and a pending order
 	now := time.Now().UnixMilli()
-	db.Exec(ctx, "INSERT INTO orders (user_id, product, name, items, days, price, amount, promo, status, created, paid_at) VALUES (2, 'all', 'Hammasi', '{all}', 30, 50000, 40000, 'X20', 'paid', $1, $1), (2, 'car:kia-k5', 'Kia K5', '{car:kia-k5}', 0, 20000, 20000, '', 'pending', $1, NULL)", now)
-	rev := call("GET", "/api/admin/revenue?days=7", boss, nil, 200)
+	db.Exec(ctx, "INSERT INTO orders (user_id, product, name, items, days, price, amount, promo, status, created, paid_at) VALUES (1, 'all', 'Hammasi', '{all}', 30, 50000, 40000, 'X20', 'paid', $1, $1), (1, 'car:kia-k5', 'Kia K5', '{car:kia-k5}', 0, 20000, 20000, '', 'pending', $1, NULL)", now)
+	rev := call("GET", "/api/admin/revenue?days=7", adm, nil, 200)
 	if rev["today"].(map[string]any)["sum"].(float64) != 40000 || rev["buyers"].(float64) != 1 || len(rev["daily"].([]any)) != 7 || rev["promos"].([]any)[0].(map[string]any)["sum"].(float64) != 10000 {
 		t.Fatalf("revenue: %v", rev)
 	}
-	if n := len(call("GET", "/api/admin/order-list?status=pending", boss, nil, 200)["items"].([]any)); n != 1 {
+	if n := len(call("GET", "/api/admin/order-list?status=pending", adm, nil, 200)["items"].([]any)); n != 1 {
 		t.Fatalf("pending orders: %d", n)
 	}
-	if n := len(call("GET", "/api/admin/order-list?q=hamma", boss, nil, 200)["items"].([]any)); n != 1 {
+	if n := len(call("GET", "/api/admin/order-list?q=hamma", adm, nil, 200)["items"].([]any)); n != 1 {
 		t.Fatalf("search: %d", n)
 	}
 
-	// CSV: a header row and the two users
+	// CSV: a header row and the one player (admins are not players)
 	req, _ := http.NewRequest("GET", srv.URL+"/api/admin/export/users", nil)
-	req.Header.Set("Authorization", "Bearer "+boss)
+	req.Header.Set("Authorization", "Bearer "+adm)
 	res, err := http.DefaultClient.Do(req)
 	if err != nil {
 		t.Fatal(err)
 	}
 	body, _ := io.ReadAll(res.Body)
 	res.Body.Close()
-	if res.StatusCode != 200 || !strings.HasPrefix(res.Header.Get("Content-Type"), "text/csv") || strings.Count(string(body), "\n") != 3 {
+	if res.StatusCode != 200 || !strings.HasPrefix(res.Header.Get("Content-Type"), "text/csv") || strings.Count(string(body), "\n") != 2 {
 		t.Fatalf("csv: %d %q", res.StatusCode, body)
 	}
-	call("GET", "/api/admin/export/nope", boss, nil, 404)
+	call("GET", "/api/admin/export/nope", adm, nil, 404)
 }

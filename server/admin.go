@@ -198,22 +198,14 @@ func (a *App) handlePatchUser(w http.ResponseWriter, r *http.Request) {
 	if u == nil {
 		return
 	}
-	var body struct{ Blocked, Admin *bool }
+	var body struct{ Blocked *bool }
 	if !readJSON(w, r, &body) {
-		return
-	}
-	me := userFrom(r)
-	if u.ID == me.ID && ((body.Blocked != nil && *body.Blocked) || (body.Admin != nil && !*body.Admin)) {
-		fail(w, 400, "you cannot block yourself or take your own admin rights")
 		return
 	}
 	if body.Blocked != nil {
 		u.Blocked = *body.Blocked
 	}
-	if body.Admin != nil {
-		u.Admin = *body.Admin
-	}
-	if _, err := a.db.Exec(r.Context(), "UPDATE users SET blocked = $1, admin = $2 WHERE id = $3", u.Blocked, u.Admin, u.ID); err != nil {
+	if _, err := a.db.Exec(r.Context(), "UPDATE users SET blocked = $1 WHERE id = $2", u.Blocked, u.ID); err != nil {
 		serverError(w, r, err)
 		return
 	}
@@ -227,10 +219,6 @@ func (a *App) handlePatchUser(w http.ResponseWriter, r *http.Request) {
 func (a *App) handleDeleteUser(w http.ResponseWriter, r *http.Request) {
 	u := a.pathUser(w, r)
 	if u == nil {
-		return
-	}
-	if u.ID == userFrom(r).ID {
-		fail(w, 400, "you cannot delete yourself")
 		return
 	}
 	if _, err := a.db.Exec(r.Context(), "DELETE FROM users WHERE id = $1", u.ID); err != nil {

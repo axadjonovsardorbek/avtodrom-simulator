@@ -66,36 +66,16 @@ func (a *App) authed(h http.HandlerFunc) http.HandlerFunc {
 	}
 }
 
-func (a *App) admin(h http.HandlerFunc) http.HandlerFunc {
-	return a.authed(func(w http.ResponseWriter, r *http.Request) {
-		if !userFrom(r).Admin {
-			fail(w, 403, "admins only")
-			return
-		}
-		h(w, r)
-	})
-}
-
-// login: the user is found or created (the ADMINS list makes them an admin), and a new session begins
+// login: the user is found or created, and a new session begins (players only: admins have their own login, admins.go)
 func (a *App) login(w http.ResponseWriter, r *http.Request, id *Identity) {
 	ctx, now := r.Context(), time.Now().UnixMilli()
-	adminKey := ""
-	switch id.Provider {
-	case "telegram":
-		adminKey = "tg:" + id.PID
-	case "google":
-		adminKey = "google:" + strings.ToLower(id.Email)
-	case "dev":
-		adminKey = "dev:" + strings.ToLower(id.PID)
-	}
-	makeAdmin := a.cfg.Admins[adminKey] && (id.Provider != "google" || id.Email != "")
 	u, err := scanUser(a.db.QueryRow(ctx, `INSERT INTO users (provider, pid, name, username, email, photo, created, seen, admin, phone)
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $7, $8, $9)
 		ON CONFLICT (provider, pid) DO UPDATE SET name = excluded.name, username = excluded.username,
 			email = CASE WHEN excluded.email <> '' THEN excluded.email ELSE users.email END,
-			photo = CASE WHEN excluded.photo <> '' THEN excluded.photo ELSE users.photo END, seen = excluded.seen, admin = users.admin OR excluded.admin,
+			photo = CASE WHEN excluded.photo <> '' THEN excluded.photo ELSE users.photo END, seen = excluded.seen,
 			phone = CASE WHEN excluded.phone <> '' THEN excluded.phone ELSE users.phone END
-		RETURNING `+userCols, id.Provider, id.PID, trim(id.Name, 100), trim(id.Username, 64), trim(id.Email, 200), trim(id.Photo, 500), now, makeAdmin, trim(id.Phone, 20)))
+		RETURNING `+userCols, id.Provider, id.PID, trim(id.Name, 100), trim(id.Username, 64), trim(id.Email, 200), trim(id.Photo, 500), now, false, trim(id.Phone, 20)))
 	if err != nil {
 		serverError(w, r, err)
 		return

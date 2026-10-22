@@ -18,7 +18,7 @@ export const carItem = car => "car:" + car.id;
 export function owns(item) {
   if (!apiOn) return true;
   const u = getUser();
-  return !!u && (u.admin || (u.owns || []).includes(item) || (u.owns || []).includes("all"));
+  return !!u && ((u.owns || []).includes(item) || (u.owns || []).includes("all"));
 }
 export const locked = item => apiOn && shop.enabled && shop.paid.includes(item) && !owns(item);
 export const carLocked = car => locked(carItem(car));

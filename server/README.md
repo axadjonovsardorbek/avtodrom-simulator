@@ -33,7 +33,7 @@ createdb avtodrom
 
 # 2. Server: Google va Telegramsiz, ism bilan kirish (faqat sinov uchun)
 cd server
-DATABASE_URL="postgres://localhost/avtodrom?sslmode=disable" DEV_LOGIN=1 ADMINS="dev:boss" ADDR=":8088" go run .
+DATABASE_URL="postgres://localhost/avtodrom?sslmode=disable" DEV_LOGIN=1 ADMIN_LOGIN=admin ADMIN_PASSWORD=parol1234 ADDR=":8088" go run .
 
 # 3. Simulyator shu serverga ulangan holda (boshqa terminalda, loyiha papkasida)
 VITE_API_URL=http://localhost:8088 npm run dev
@@ -116,16 +116,16 @@ Reklama fayllari `/var/lib/avtodrom/uploads` papkasida turadi. Ularni ham zaxira
 
 ## Adminlar
 
-Birinchi admin `.env` faylidagi `ADMINS` ro'yxati orqali beriladi. Masalan:
+Admin panel o'yinchilardan alohida: unga o'z login va paroli bilan kiriladi. O'yindagi Google yoki Telegram hisobi admin huquqini bermaydi, admin login esa o'yinda hech narsa ochmaydi.
+
+Birinchi admin `.env` faylida beriladi (server ishga tushganda bir marta yaratiladi):
 
 ```
-ADMINS=tg:123456789,google:axadjonovsardorbeck@gmail.com
+ADMIN_LOGIN=admin
+ADMIN_PASSWORD=kamida-8-belgili-kuchli-parol
 ```
 
-- Telegram ID'ingizni @userinfobot orqali bilib olsangiz bo'ladi.
-- Google uchun tasdiqlangan email yoziladi.
-
-Shu hisob bilan kirganingizda admin bo'lasiz. Keyin admin panelda boshqalarni ham "Admin qilish" tugmasi bilan admin qilish mumkin.
+Keyin admin panelda (yuqoridagi "Adminlar" tugmasi) yangi adminlar qo'shiladi, o'chiriladi va o'z parolingiz o'zgartiriladi. Kirgandan keyin parolni panelda o'zgartiring va `.env` dagi `ADMIN_PASSWORD` ni o'chirib qo'yishingiz mumkin.
 
 ## Saytni serverga ulash
 

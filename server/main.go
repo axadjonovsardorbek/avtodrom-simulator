@@ -22,9 +22,9 @@ import (
 
 type Config struct {
 	Addr, DatabaseURL, GoogleClientID, TelegramToken, TelegramBot, UploadDir, StaticDir, PublicURL string
-	InpayURL, InpayMerchant, InpayToken                                                            string          // payments (shop.go)
-	Admins                                                                                         map[string]bool // "tg:<id>", "google:<email>"
-	Origins                                                                                        []string        // allowed CORS origins; "*" any
+	InpayURL, InpayMerchant, InpayToken                                                            string   // payments (shop.go)
+	AdminLogin, AdminPassword                                                                      string   // the first admin of the admin panel (admins.go)
+	Origins                                                                                        []string // allowed CORS origins; "*" any
 	DevLogin, TrustProxy                                                                           bool
 }
 
@@ -42,12 +42,7 @@ func loadConfig() Config {
 		UploadDir: env("UPLOAD_DIR", "uploads"), StaticDir: env("STATIC_DIR", ""), PublicURL: strings.TrimRight(env("PUBLIC_URL", ""), "/"),
 		DevLogin: env("DEV_LOGIN", "") == "1", TrustProxy: env("TRUST_PROXY", "") == "1",
 		InpayURL: strings.TrimRight(env("INPAY_URL", "https://inpay.uz/api/v1"), "/"), InpayMerchant: env("INPAY_MERCHANT_ID", ""), InpayToken: env("INPAY_MERCHANT_TOKEN", ""),
-		Admins: map[string]bool{},
-	}
-	for _, a := range strings.Split(env("ADMINS", ""), ",") {
-		if a = strings.ToLower(strings.TrimSpace(a)); a != "" {
-			c.Admins[a] = true
-		}
+		AdminLogin: env("ADMIN_LOGIN", ""), AdminPassword: os.Getenv("ADMIN_PASSWORD"),
 	}
 	for _, o := range strings.Split(env("CORS_ORIGINS", "*"), ",") {
 		if o = strings.TrimRight(strings.TrimSpace(o), "/"); o != "" {
@@ -105,7 +100,9 @@ func newApp(cfg Config, db *DB) *App {
 	if err != nil {
 		tz = time.FixedZone("UZT", 5*3600)
 	}
-	return &App{cfg: cfg, db: db, tz: tz, limiter: newLimiter(40, time.Minute), tg: newTgLogins(), inpay: newInpay(cfg)}
+	a := &App{cfg: cfg, db: db, tz: tz, limiter: newLimiter(40, time.Minute), tg: newTgLogins(), inpay: newInpay(cfg)}
+	a.bootstrapAdmin(context.Background())
+	return a
 }
 
 func (a *App) routes() http.Handler {
@@ -151,6 +148,13 @@ func (a *App) routes() http.Handler {
 	mux.HandleFunc("DELETE /api/admin/ads/{id}", a.logged(a.handleDeleteAd))
 	mux.HandleFunc("GET /api/admin/cars", a.admin(a.handleGetCars))
 	mux.HandleFunc("PUT /api/admin/cars", a.logged(a.handlePutCars))
+	mux.HandleFunc("POST /api/admin/login", a.limited(a.handleAdminLogin))
+	mux.HandleFunc("POST /api/admin/logout", a.handleAdminLogout)
+	mux.HandleFunc("GET /api/admin/me", a.admin(a.handleAdminMe))
+	mux.HandleFunc("GET /api/admin/admins", a.admin(a.handleAdmins))
+	mux.HandleFunc("POST /api/admin/admins", a.logged(a.handleAddAdmin))
+	mux.HandleFunc("DELETE /api/admin/admins/{id}", a.logged(a.handleDeleteAdmin))
+	mux.HandleFunc("PUT /api/admin/password", a.admin(a.handleAdminPassword))
 	mux.HandleFunc("GET /api/admin/audit", a.admin(a.handleAudit))
 	mux.HandleFunc("GET /api/admin/site", a.admin(a.handleGetSite))
 	mux.HandleFunc("PUT /api/admin/site", a.logged(a.handlePutSite))

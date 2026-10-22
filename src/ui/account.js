@@ -77,7 +77,7 @@ export function renderAccount(el, { res, onChange }) {
     return;
   }
   el.innerHTML = `<div class="acct-me">${avatar(u)}<span><b>${esc(u.name || u.username || "Foydalanuvchi")}</b><small>${u.username ? "@" + esc(u.username) : esc(u.email || "")}</small></span>
-    ${u.admin ? `<a class="btn small" href="admin.html">Admin</a>` : ""}<button class="btn small" id="acctOut">Chiqish</button></div>`;
+    <button class="btn small" id="acctOut">Chiqish</button></div>`;
   el.querySelector("#acctOut").onclick = () => { logout(); onChange && onChange(null); };
 }
 

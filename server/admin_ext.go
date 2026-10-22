@@ -27,7 +27,13 @@ CREATE TABLE IF NOT EXISTS audit (
 CREATE INDEX IF NOT EXISTS audit_at ON audit (at);
 `
 
-func (db *DB) migrateExt(ctx context.Context) error { _, err := db.Exec(ctx, schemaExt); return err }
+func (db *DB) migrateExt(ctx context.Context) error {
+	if _, err := db.Exec(ctx, schemaExt); err != nil {
+		return err
+	}
+	_, err := db.Exec(ctx, schemaAdmins)
+	return err
+}
 
 // ---- the log
 
@@ -58,11 +64,14 @@ func (a *App) logged(h http.HandlerFunc) http.HandlerFunc {
 		if len(detail) > 2000 {
 			detail = detail[:2000] + "…"
 		}
-		me := userFrom(r)
+		me := adminFrom(r)
 		var id *int
 		name := ""
 		if me != nil {
 			id, name = &me.ID, me.Name
+			if name == "" {
+				name = me.Login
+			}
 		}
 		a.db.Exec(context.Background(), "INSERT INTO audit (at, admin_id, admin_name, action, detail) VALUES ($1, $2, $3, $4, $5)",
 			time.Now().UnixMilli(), id, name, r.Method+" "+r.URL.Path, detail)
@@ -272,12 +281,12 @@ func (a *App) handleOrderList(w http.ResponseWriter, r *http.Request) {
 // GET /api/admin/export/{what}: users, attempts or orders as CSV (opens in Excel: BOM, ";" separated)
 func (a *App) handleExport(w http.ResponseWriter, r *http.Request) {
 	queries := map[string]string{
-		"users":    "SELECT id, provider, name, username, email, phone, to_char(to_timestamp(created/1000) AT TIME ZONE 'Asia/Tashkent', 'YYYY-MM-DD HH24:MI'), to_char(to_timestamp(seen/1000) AT TIME ZONE 'Asia/Tashkent', 'YYYY-MM-DD HH24:MI'), blocked, admin FROM users ORDER BY id",
+		"users":    "SELECT id, provider, name, username, email, phone, to_char(to_timestamp(created/1000) AT TIME ZONE 'Asia/Tashkent', 'YYYY-MM-DD HH24:MI'), to_char(to_timestamp(seen/1000) AT TIME ZONE 'Asia/Tashkent', 'YYYY-MM-DD HH24:MI'), blocked FROM users ORDER BY id",
 		"attempts": "SELECT a.id, a.user_id, u.name, a.key, a.passed, a.total, a.t, a.car, to_char(to_timestamp(a.at/1000) AT TIME ZONE 'Asia/Tashkent', 'YYYY-MM-DD HH24:MI') FROM attempts a JOIN users u ON u.id = a.user_id ORDER BY a.id",
 		"orders":   "SELECT o.id, o.user_id, u.name, o.name, o.price, o.amount, o.promo, o.status, to_char(to_timestamp(o.created/1000) AT TIME ZONE 'Asia/Tashkent', 'YYYY-MM-DD HH24:MI'), COALESCE(to_char(to_timestamp(o.paid_at/1000) AT TIME ZONE 'Asia/Tashkent', 'YYYY-MM-DD HH24:MI'), '') FROM orders o JOIN users u ON u.id = o.user_id ORDER BY o.id",
 	}
 	heads := map[string][]string{
-		"users":    {"ID", "Kirish", "Ism", "Username", "Email", "Telefon", "Ro'yxatdan o'tgan", "Oxirgi kirish", "Bloklangan", "Admin"},
+		"users":    {"ID", "Kirish", "Ism", "Username", "Email", "Telefon", "Ro'yxatdan o'tgan", "Oxirgi kirish", "Bloklangan"},
 		"attempts": {"ID", "Foydalanuvchi ID", "Ism", "Mashq", "O'tdi", "Ball", "Vaqt, s", "Mashina", "Sana"},
 		"orders":   {"ID", "Foydalanuvchi ID", "Ism", "Mahsulot", "Narx", "To'langan", "Promokod", "Holat", "Yaratilgan", "To'langan vaqti"},
 	}

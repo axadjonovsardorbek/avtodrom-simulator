@@ -2,8 +2,9 @@
 // users, results, the leaderboard, the advertising on the cars (screen, rear window; per car) and
 // the cars the simulator offers. Talks to the server (server/).
 import "./admin.css";
-import { apiOn, apiBase, api, getUser, logout, refreshMe, leaderboard, authHeader } from "../net/api.js";
-import { renderLogin, esc, avatar, keyName } from "../ui/account.js";
+import { apiOn, apiBase, leaderboard } from "../net/api.js";
+import { api, authHeader, getAdmin, login, logout, refreshAdmin } from "./adminApi.js";
+import { esc, avatar, keyName } from "../ui/account.js";
 import { ELEMENTS } from "../world/tracks.js";
 import { ALL_CARS } from "../cars/index.js";
 import { NAME, logo } from "../ui/brand.js";
@@ -37,15 +38,16 @@ const failed = e => toast(e.message || "Xatolik", "bad");
 
 async function start() {
   if (!apiOn) return gate(`<h1>Server ulanmagan</h1><p>Sayt serversiz yig'ilgan. Admin panel uchun VITE_API_URL bilan qayta yig'ing (server/README.md).</p>`);
-  const u = await refreshMe();
-  if (!u) {
-    gate(`<h1>Admin panel</h1><p>Kirish uchun admin hisobingiz bilan kiring.</p><div id="loginBox"></div>`);
-    renderLogin($("#loginBox"), () => start());
-    return;
-  }
-  if (!u.admin) {
-    gate(`<h1>Ruxsat yo'q</h1><p>${esc(u.name)} hisobida admin huquqi yo'q. Admin qo'shish: serverdagi ADMINS ro'yxati yoki boshqa admin.</p><button class="btn" id="out">Boshqa hisob bilan kirish</button>`);
-    $("#out").onclick = () => { logout(); start(); };
+  const me = await refreshAdmin();
+  if (!me) {
+    // admins have their own login and password (not a player's Google / Telegram account)
+    gate(`<h1>Admin panel</h1><p>Admin login va parolingiz bilan kiring.</p>
+      <form id="alog" class="alog"><input id="aL" autocomplete="username" placeholder="Login" required><input id="aP" type="password" autocomplete="current-password" placeholder="Parol" required><button class="btn primary">Kirish</button></form>`);
+    $("#alog").onsubmit = async e => {
+      e.preventDefault(); const btn = $("#alog button"); btn.disabled = true;
+      try { await login($("#aL").value.trim(), $("#aP").value); start(); } catch (err) { failed(err); btn.disabled = false; }
+    };
+    $("#aL").focus();
     return;
   }
   shell();
@@ -54,7 +56,7 @@ async function start() {
 }
 
 function gate(html) {
-  root.innerHTML = `<div class="gate"><div class="card"><span class="mark" style="margin:auto">A</span>${html}<p><a href="./">← Simulyatorga qaytish</a></p></div></div>`;
+  root.innerHTML = `<div class="gate"><div class="card">${logo("mark")}${html}<p><a href="./">← Simulyatorga qaytish</a></p></div></div>`;
 }
 
 const NAV = [
@@ -72,7 +74,7 @@ const NAV = [
 ];
 
 function shell() {
-  const u = getUser();
+  const u = getAdmin();
   root.innerHTML = `<div class="layout">
     <nav class="side">
       <div class="brand">${logo("mark")}<div><b>${NAME}</b><small>Admin panel</small></div></div>
@@ -81,11 +83,11 @@ function shell() {
       <a class="back" href="./">← Simulyatorga qaytish</a>
     </nav>
     <main class="main">
-      <div class="top"><h1 id="title"></h1><div class="me">${avatar(u)}<b>${esc(u.name)}</b><button class="btn small" id="logout">Chiqish</button></div></div>
+      <div class="top"><h1 id="title"></h1><div class="me">${avatar({ name: u.name || u.login })}<b>${esc(u.name || u.login)}</b><button class="btn small" data-go="admins">Adminlar</button><button class="btn small" id="logout">Chiqish</button></div></div>
       <div id="view"></div>
     </main>
   </div>`;
-  root.querySelectorAll("[data-go]").forEach(b => b.onclick = () => go(b.dataset.go));
+  root.querySelectorAll("[data-go]").forEach(b => b.onclick = () => go(b.dataset.go));      // the side menu, and "Adminlar" by the name
   $("#logout").onclick = () => { logout(); start(); };
 }
 
@@ -94,12 +96,12 @@ function go(id) {
   current = id;
   history.replaceState(null, "", "#" + id);
   root.querySelectorAll("[data-go]").forEach(b => b.classList.toggle("on", b.dataset.go === id));
-  $("#title").textContent = NAV.find(n => n[0] === id)[1];
+  $("#title").textContent = (NAV.find(n => n[0] === id) || [0, "Adminlar"])[1];
   const v = $("#view"); v.innerHTML = `<p class="empty">Yuklanmoqda…</p>`;
   VIEWS[id](v).catch(e => { if (current === id) v.innerHTML = `<p class="empty">${esc(e.message)}</p>`; if (e.status === 401 || e.status === 403) start(); });
 }
 
-const VIEWS = { home, analytics, users, results, rating, ads, cars, shop, payments, site, audit };
+const VIEWS = { home, analytics, users, results, rating, ads, cars, shop, payments, site, audit, admins };
 
 // ---- the numbers at a glance
 
@@ -207,7 +209,7 @@ async function users(v, q = "", offset = 0, acc = []) {
           <td><div class="who">${avatar(u, "av sm")}<span><b>${esc(u.name || "—")}</b><small>${u.username ? "@" + esc(u.username) : esc(u.email)}</small></span></div></td>
           <td>${provider(u.provider)}</td><td class="when">${when(u.created)}</td><td class="when">${when(u.seen)}</td>
           <td class="num">${attempts}</td><td class="num">${bestExam ?? "—"}</td>
-          <td>${u.blocked ? `<span class="tag bad">Bloklangan</span>` : ""}${u.admin ? ` <span class="tag adm">Admin</span>` : ""}</td></tr>`).join("")}
+          <td>${u.blocked ? `<span class="tag bad">Bloklangan</span>` : ""}</td></tr>`).join("")}
         </tbody></table></div>` : `<p class="empty">Hech kim topilmadi.</p>`}
     </div>
     ${list.length < out.total ? `<div class="more"><button class="btn" id="more">Yana ko'rsatish</button></div>` : ""}`;
@@ -220,7 +222,6 @@ async function users(v, q = "", offset = 0, acc = []) {
 async function openUser(id, changed) {
   const { user: u, attempts, purchases = [] } = await api("/api/admin/users/" + id).catch(e => { failed(e); return {}; });
   if (!u) return;
-  const me = getUser();
   const bg = document.createElement("div"), d = document.createElement("aside");
   bg.className = "drawer-bg"; d.className = "drawer";
   const close = () => { bg.remove(); d.remove(); document.removeEventListener("keydown", esc_); };
@@ -228,7 +229,7 @@ async function openUser(id, changed) {
   bg.onclick = close; document.addEventListener("keydown", esc_);
   const passed = attempts.filter(a => a.passed).length;
   d.innerHTML = `
-    <div class="head">${avatar(u, "av lg")}<div><h2>${esc(u.name || "—")}</h2>${u.blocked ? `<span class="tag bad">Bloklangan</span> ` : ""}${u.admin ? `<span class="tag adm">Admin</span>` : ""}</div><button class="btn small x" data-a="close">Yopish</button></div>
+    <div class="head">${avatar(u, "av lg")}<div><h2>${esc(u.name || "—")}</h2>${u.blocked ? `<span class="tag bad">Bloklangan</span> ` : ""}</div><button class="btn small x" data-a="close">Yopish</button></div>
     <dl>
       <dt>Kirish</dt><dd>${provider(u.provider)}</dd>
       ${u.username ? `<dt>Telegram</dt><dd>@${esc(u.username)}</dd>` : ""}
@@ -239,10 +240,8 @@ async function openUser(id, changed) {
       <dt>Urinishlar</dt><dd>${attempts.length} ta, ${passed} tasi o'tgan</dd>
     </dl>
     <div class="acts">
-      ${u.id === me.id ? `<small class="tag">Bu siz</small>` : `
-        <button class="btn" data-a="block">${u.blocked ? "Blokdan chiqarish" : "Bloklash"}</button>
-        <button class="btn" data-a="admin">${u.admin ? "Admin huquqini olish" : "Admin qilish"}</button>
-        <button class="btn danger" data-a="delete">O'chirish</button>`}
+      <button class="btn" data-a="block">${u.blocked ? "Blokdan chiqarish" : "Bloklash"}</button>
+      <button class="btn danger" data-a="delete">O'chirish</button>
     </div>
     <h3>Pullik narsalar</h3>
     ${(() => {
@@ -265,7 +264,6 @@ async function openUser(id, changed) {
   d.querySelector('[data-a="close"]').onclick = close;
   const act = async (body, msg) => { try { await api("/api/admin/users/" + u.id, { method: "PATCH", body }); toast(msg, "good"); close(); changed(); openUser(u.id, changed); } catch (e) { failed(e); } };
   const b = d.querySelector('[data-a="block"]'); if (b) b.onclick = () => act({ blocked: !u.blocked }, u.blocked ? "Blokdan chiqarildi" : "Bloklandi");
-  const a = d.querySelector('[data-a="admin"]'); if (a) a.onclick = () => { if (u.admin || confirm(`${u.name} admin qilinsinmi? U hamma narsani boshqara oladi.`)) act({ admin: !u.admin }, u.admin ? "Admin huquqi olindi" : "Admin qilindi"); };
   const reopen = msg => { toast(msg, "good"); close(); openUser(u.id, changed); };
   d.querySelectorAll("[data-grant]").forEach(b => b.onclick = async () => {
     const item = b.dataset.grant, days = +d.querySelector(`[data-days="${item}"]`).value;
@@ -558,7 +556,7 @@ async function site(v) {
   const day = ms => { if (!ms) return ""; const d = new Date(ms); return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`; };
   v.innerHTML = `
     <div class="box"><h2>Texnik ishlar</h2>
-      <label class="carrow big"><span><b>Texnik ishlar rejimi</b><small>Yoqilsa, o'yinchilar menyu o'rniga xabarni ko'radi (adminlar o'ynay oladi)</small></span>
+      <label class="carrow big"><span><b>Texnik ishlar rejimi</b><small>Yoqilsa, o'yinchilar menyu o'rniga shu xabarni ko'radi</small></span>
         <span class="sw"><input type="checkbox" id="mOn"${S.maintenance ? " checked" : ""}><span></span></span></label>
       <textarea id="mText" rows="3" maxlength="500" placeholder="Masalan: Yangilanish ketmoqda, 20:00 da qaytamiz">${esc(S.maintenanceText || "")}</textarea></div>
     <div class="box"><h2>E'lon (menyu ustida)</h2>
@@ -591,6 +589,42 @@ async function audit(v, offset = 0, acc = []) {
       ${list.map(a => `<tr><td class="when">${when(a.at)}</td><td>${esc(a.admin || "—")}</td><td><b>${esc(what(a.action))}</b><small class="muted"> ${esc(a.action.split(" ")[1].replace("/api/admin/", ""))}</small></td><td><code class="detail">${esc(a.detail.slice(0, 220))}</code></td></tr>`).join("")}</tbody></table></div>
       ${out.items.length === 100 ? `<div class="acts"><button class="btn" id="more">Yana</button></div>` : ""}` : `<p class="empty">Hali hech narsa o'zgartirilmagan.</p>`}</div>`;
   const more = v.querySelector("#more"); if (more) more.onclick = () => audit(v, offset + 100, list).catch(failed);
+}
+
+// ---- the admins: their own logins (not players); add, remove, one's own password
+
+async function admins(v) {
+  const out = await api("/api/admin/admins"), me = getAdmin();
+  v.innerHTML = `
+    <div class="box"><h2>Adminlar</h2>
+      <p class="hint">Adminlar o'yinchilardan alohida: admin panelga faqat shu login va parol bilan kiriladi. O'yindagi Google/Telegram hisobi admin huquqini bermaydi.</p>
+      <div class="tblwrap"><table><thead><tr><th>Login</th><th>Ism</th><th>Qo'shilgan</th><th>Oxirgi kirish</th><th></th></tr></thead><tbody>
+      ${out.items.map(a => `<tr><td><b>${esc(a.login)}</b></td><td>${esc(a.name || "—")}</td><td class="when">${when(a.created)}</td><td class="when">${when(a.lastLogin)}</td>
+        <td>${a.id === me.id ? `<span class="tag">Siz</span>` : `<button class="btn small danger" data-adel="${a.id}" data-login="${esc(a.login)}">O'chirish</button>`}</td></tr>`).join("")}
+      </tbody></table></div></div>
+    <div class="grid2">
+      <div class="box"><h2>Yangi admin</h2>
+        <form id="addA" class="alog"><input id="nL" placeholder="Login (lotin harf, raqam)" required minlength="3" maxlength="32" autocomplete="off">
+          <input id="nN" placeholder="Ism" maxlength="80"><input id="nP" type="password" placeholder="Parol (kamida 8 belgi)" required minlength="8" autocomplete="new-password">
+          <button class="btn primary">Qo'shish</button></form></div>
+      <div class="box"><h2>Mening parolim</h2>
+        <form id="pwd" class="alog"><input id="oP" type="password" placeholder="Hozirgi parol" required autocomplete="current-password">
+          <input id="wP" type="password" placeholder="Yangi parol (kamida 8 belgi)" required minlength="8" autocomplete="new-password">
+          <button class="btn primary">O'zgartirish</button></form>
+        <p class="hint">O'zgartirilganda boshqa qurilmalardagi kirishlaringiz yopiladi.</p></div>
+    </div>`;
+  v.querySelector("#addA").onsubmit = async e => {
+    e.preventDefault();
+    try { await api("/api/admin/admins", { method: "POST", body: { login: v.querySelector("#nL").value.trim(), name: v.querySelector("#nN").value.trim(), password: v.querySelector("#nP").value } }); toast("Admin qo'shildi", "good"); admins(v); } catch (err) { failed(err); }
+  };
+  v.querySelector("#pwd").onsubmit = async e => {
+    e.preventDefault();
+    try { await api("/api/admin/password", { method: "PUT", body: { old: v.querySelector("#oP").value, new: v.querySelector("#wP").value } }); toast("Parol o'zgartirildi", "good"); e.target.reset(); } catch (err) { failed(err); }
+  };
+  v.querySelectorAll("[data-adel]").forEach(b => b.onclick = async () => {
+    if (!confirm(b.dataset.login + " adminlikdan o'chirilsinmi?")) return;
+    try { await api("/api/admin/admins/" + b.dataset.adel, { method: "DELETE" }); admins(v); } catch (err) { failed(err); }
+  });
 }
 
 start();

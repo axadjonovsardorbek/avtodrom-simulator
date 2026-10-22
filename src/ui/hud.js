@@ -142,9 +142,9 @@ export class Hud {
     // segmented control: [value, label] pairs
     const seg = (id, opts) => `<div class="seg" id="${id}">${opts.map(([v, t]) => `<button data-v="${v}">${t}</button>`).join("")}</div>`;
     const COLORS = [["original", "conic-gradient(#d33, #f3f4f2, #1b2b63, #3a3d41, #d33)", "Asl rangi"], ["white", "#f3f4f2", "Oq"], ["blue", "#1b2b63", "To'q ko'k"], ["graphite", "#3a3d41", "Grafit"]];
-    // the admin's switches (server /api/config): maintenance shows a notice instead of the menu (not to admins)
+    // the admin's switches (server /api/config): maintenance shows a notice instead of the menu
     const site = this.site || {};
-    if (site.maintenance && !(getUser() && getUser().admin)) {
+    if (site.maintenance) {
       m.innerHTML = `<div class="maint panel">${logo("spin")}<h2>Texnik ishlar</h2><p>${esc(site.maintenanceText || "Simulyator yangilanmoqda. Birozdan keyin qaytib keling.")}</p></div>`;
       m.hidden = false; this.menuOpen = true; this.menuState = state; this.root.classList.add("menu-open"); return;
     }
@@ -179,7 +179,7 @@ export class Hud {
           <div class="cars">${CARS.map(c => `<button class="carbtn${carLocked(c) ? " locked" : ""}" data-car="${c.id}">${carLocked(c) ? '<i class="lock" aria-label="Pullik">🔒</i>' : ""}<b>${c.name.replace("Chevrolet ", "")}</b><small>${c.info ? c.info.split(" · ")[0] : "Chevrolet"}</small></button>`).join("")}</div>
           <div class="row"><span class="lbl">Rangi</span><div class="swatches">${COLORS.map(([v, hex, t]) => `<button class="sw" data-color="${v}" title="${t}" style="--c:${hex}"></button>`).join("")}</div></div>
           <div class="row"><span class="lbl">Davlat raqami</span><span class="plate-in"><select id="optRegion" aria-label="Hudud kodi">${REGION_NAMES.map(([c, n]) => `<option value="${c}" title="${n}">${c}</option>`).join("")}</select><input id="optPlate" maxlength="8" spellcheck="false" autocomplete="off" placeholder="A070BJ" aria-label="Raqam: 6 ta harf va son"></span></div>
-          ${(() => { const all = shopInfo().products.find(p => p.items.includes("all")); return all && apiOn && shopInfo().enabled && !(getUser() && ((getUser().owns || []).includes("all") || getUser().admin)) ? `<button class="garagebtn tariff" id="tariffBtn"><svg viewBox="0 0 24 24"><path d="m12 3 2.7 5.6 6.1.9-4.4 4.3 1 6.1-5.4-2.9-5.4 2.9 1-6.1-4.4-4.3 6.1-.9z"/></svg><span><b>${all.name}</b><small>Barcha mashinalar va 18+ · ${all.days ? all.days + " kun" : "doimiy"}</small></span><i>›</i></button>` : ""; })()}
+          ${(() => { const all = shopInfo().products.find(p => p.items.includes("all")); return all && apiOn && shopInfo().enabled && !(getUser() && (getUser().owns || []).includes("all")) ? `<button class="garagebtn tariff" id="tariffBtn"><svg viewBox="0 0 24 24"><path d="m12 3 2.7 5.6 6.1.9-4.4 4.3 1 6.1-5.4-2.9-5.4 2.9 1-6.1-4.4-4.3 6.1-.9z"/></svg><span><b>${all.name}</b><small>Barcha mashinalar va 18+ · ${all.days ? all.days + " kun" : "doimiy"}</small></span><i>›</i></button>` : ""; })()}
           <button class="garagebtn" id="garageBtn"><svg viewBox="0 0 24 24"><path d="M3 21V9l9-5 9 5v12"/><path d="M7 21v-7h10v7M7 17h10"/></svg><span><b>Garaj</b><small>Mashinani ko'rib tanlang</small></span><i>›</i></button>
           <button class="ghost" id="statsBtn">${icon('<path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/>')} Natijalar va xatolar tahlili</button>
           ${apiOn ? `<button class="ghost" id="rankBtn">${icon('<path d="M8 21h8M12 17v4M7 4h10v5a5 5 0 0 1-10 0z"/><path d="M17 5h3v2a3 3 0 0 1-3 3M7 5H4v2a3 3 0 0 0 3 3"/>')} Reyting</button>` : ""}
