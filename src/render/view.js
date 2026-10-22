@@ -216,6 +216,7 @@ export class View {
     this.carView = cv;
     this.scene.add(cv.root);
     this.findMirrorHousings();
+    this.mirrorCullDirty = 1;
     cv.setCockpit(this.mode === "cockpit");
     if (this.instructor) this.setInstructor(this.instructor);
     if (this.driver) { this.driver.reset(); this.placeDriver(); }
@@ -434,9 +435,9 @@ export class View {
   adjustMirror(m, dx, dy) {
     const clamp = v => Math.min(0.4, Math.max(-0.4, v));
     m.adj.yaw = clamp(m.adj.yaw - dx * 0.003); m.adj.pitch = clamp(m.adj.pitch + dy * 0.003);
-    this.aimMirror(m);
+    this.aimMirror(m); m.cull = null; this.mirrorCullDirty = performance.now() + 400;   // found again once the hand stops
   }
-  resetMirror(m) { m.adj.yaw = m.adj.pitch = 0; this.aimMirror(m); this.saveMirrors(); }
+  resetMirror(m) { m.adj.yaw = m.adj.pitch = 0; this.aimMirror(m); m.cull = null; this.mirrorCullDirty = 1; this.saveMirrors(); }
   saveMirrors() {
     try { localStorage.setItem("avtodrom.mirrors", JSON.stringify(Object.fromEntries(this.mirrors.map(m => [m.key, m.adj])))); } catch (_) {}
   }
@@ -825,6 +826,36 @@ export class View {
     c.setPixelRatio(this.ratio); if (this.w) c.setSize(this.w, this.h);
   }
 
+  // The parts of one's own car a mirror cannot see (the bonnet, the engine, the dashboard, the front seats from
+  // a wing mirror): found once per car and mirror setting by drawing the car from the mirror's camera with every
+  // part in its own flat colour and reading back which colours show; the rest is hidden while that mirror is
+  // drawn. Glass is not drawn in that pass (what is behind it shows through) and people are never hidden.
+  findMirrorCull(m) {
+    const r = this.renderer, root = this.carView.root, W = 192, H = Math.max(48, Math.round(W * m.h / m.w));
+    if (!this.cullRT) this.cullRT = new THREE.WebGLRenderTarget(W, H);
+    if (this.cullRT.width !== W || this.cullRT.height !== H) this.cullRT.setSize(W, H);
+    const parts = [], saved = [];
+    root.traverse(o => {
+      if (!o.isMesh || !o.visible) return;
+      for (let p = o; p; p = p.parent) if (!p.visible) return;
+      const mats = [].concat(o.material), glass = mats.every(x => x.transparent || /glass/i.test(x.name || ""));
+      saved.push([o, o.material, o.visible]);
+      if (glass || o === m.quad) { o.visible = false; return; }
+      const id = o.isSkinnedMesh || (m.housing || []).includes(o) ? 0 : parts.push(o);
+      o.material = new THREE.MeshBasicMaterial({ color: new THREE.Color().setRGB((id >> 16 & 255) / 255, (id >> 8 & 255) / 255, (id & 255) / 255, THREE.LinearSRGBColorSpace), side: THREE.DoubleSide });   // linear: the bytes read back are the id
+    });
+    const sc = new THREE.Scene(); sc.background = new THREE.Color(0xffffff); const parent = root.parent; sc.add(root);
+    const tm = r.toneMapping, cs = r.outputColorSpace; r.toneMapping = THREE.NoToneMapping;
+    r.setRenderTarget(this.cullRT); r.render(sc, m.cam);
+    const px = new Uint8Array(W * H * 4); r.readRenderTargetPixels(this.cullRT, 0, 0, W, H, px);
+    r.toneMapping = tm; r.outputColorSpace = cs;
+    if (parent) parent.add(root);
+    for (const [o, mat, vis] of saved) { if (o.material !== mat) o.material.dispose(); o.material = mat; o.visible = vis; }
+    const seen = new Set();
+    for (let i = 0; i < px.length; i += 4) seen.add((px[i] << 16) | (px[i + 1] << 8) | px[i + 2]);
+    m.cull = parts.filter((o, i) => !seen.has(i + 1));
+  }
+
   // the small meshes around each wing-mirror camera (housing, glass, stalk): hidden while that mirror is drawn,
   // so the picture shows the road behind and not the car's own mirror a second time
   findMirrorHousings() {
@@ -857,8 +888,9 @@ export class View {
       const q = this.ft > 22 ? (this.quality === "high" ? "mid" : "low") : this.quality;
       const now = q === "high" ? [M[0], M[1 + f % 2]] : q === "mid" ? [M[f % 3]] : f % 2 ? [] : [M[(f >> 1) % 3]];
       if (now.length) this.carView.setCockpit(false);
+      if (this.mirrorCullDirty && performance.now() > this.mirrorCullDirty) { this.mirrorCullDirty = 0; for (const m of M) this.findMirrorCull(m); r.setRenderTarget(null); }
       for (const m of now) {
-        const hid = (m.housing || []).filter(o => o.visible); hid.forEach(o => { o.visible = false; });
+        const hid = (m.housing || []).concat(m.cull || []).filter(o => o.visible); hid.forEach(o => { o.visible = false; });
         r.setRenderTarget(m.rt); r.render(this.scene, m.cam);
         hid.forEach(o => { o.visible = true; });
       }
