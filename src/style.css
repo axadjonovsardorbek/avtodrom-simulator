@@ -713,3 +713,10 @@ table.lb em { color: var(--amber); font-style: normal; }
 }
 /* the control picked with a gamepad in the menus */
 .padfocus { outline: 3px solid var(--amber) !important; outline-offset: 3px; border-radius: 8px; }
+/* the admin's banner over the menu, and the maintenance notice */
+.site-banner { margin: 10px 0 0; padding: 9px 13px; border-radius: 10px; font-weight: 600; font-size: 14px; background: rgba(47, 111, 214, .18); border: 1px solid rgba(47, 111, 214, .55); }
+.site-banner.promo { background: rgba(242, 182, 50, .16); border-color: rgba(242, 182, 50, .6); }
+.site-banner.warn { background: rgba(255, 90, 60, .14); border-color: rgba(255, 90, 60, .55); }
+.maint { max-width: 460px; margin: 18vh auto 0; text-align: center; display: grid; justify-items: center; gap: 10px; padding: 32px 26px; }
+.maint .logo { width: 64px; height: 64px; }
+.maint p { color: var(--muted); margin: 0; }

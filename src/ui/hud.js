@@ -13,7 +13,7 @@ import { apiOn, getUser, updateUser } from "../net/api.js";
 import { NAME, TAGLINE, logo } from "./brand.js";
 import { REGIONS, REGION_NAMES, formatNumber, plateParts } from "../render/plates.js";
 import { carLocked, moodLocked, carItem, productsFor, shopInfo, quote, buy } from "../net/shop.js";
-import { renderAccount, showLeaderboard } from "./account.js";
+import { renderAccount, showLeaderboard, esc } from "./account.js";
 
 const $ = (sel, root = document) => root.querySelector(sel);
 const el = (tag, cls, html) => { const e = document.createElement(tag); if (cls) e.className = cls; if (html != null) e.innerHTML = html; return e; };
@@ -142,10 +142,18 @@ export class Hud {
     // segmented control: [value, label] pairs
     const seg = (id, opts) => `<div class="seg" id="${id}">${opts.map(([v, t]) => `<button data-v="${v}">${t}</button>`).join("")}</div>`;
     const COLORS = [["original", "conic-gradient(#d33, #f3f4f2, #1b2b63, #3a3d41, #d33)", "Asl rangi"], ["white", "#f3f4f2", "Oq"], ["blue", "#1b2b63", "To'q ko'k"], ["graphite", "#3a3d41", "Grafit"]];
+    // the admin's switches (server /api/config): maintenance shows a notice instead of the menu (not to admins)
+    const site = this.site || {};
+    if (site.maintenance && !(getUser() && getUser().admin)) {
+      m.innerHTML = `<div class="maint panel">${logo("spin")}<h2>Texnik ishlar</h2><p>${esc(site.maintenanceText || "Simulyator yangilanmoqda. Birozdan keyin qaytib keling.")}</p></div>`;
+      m.hidden = false; this.menuOpen = true; this.menuState = state; this.root.classList.add("menu-open"); return;
+    }
+    const banner = site.banner ? `<div class="site-banner ${esc(site.bannerKind || "info")}">${esc(site.banner)}</div>` : "";
     m.innerHTML = `
       <div class="menu-grid">
         <section class="panel menu-main">
           <div class="hero">${logo("hero-logo")}<div><h1 class="wordmark">${NAME}</h1><span class="eyebrow">${TAGLINE} · Avtodrom · B toifa</span></div></div>
+          ${banner}
           <p class="lead">Amaliy imtihonni to'liq avtodromda yoki alohida mashqlarda takrorlang. Jarima ballari rasmiy jadval bo'yicha.</p>
           ${state && state.canResume ? `<button class="resume" id="resume"><span>▶</span> Davom ettirish</button>` : ""}
           ${(() => { const d = dailyTask(new Date(), ELEMENTS), p = d.progress(loadHistory()), done = p >= d.goal; return `<div class="daily${done ? " done" : ""}"><span class="di">${done ? "✓" : "★"}</span><div><small>Kunlik vazifa</small><b>${d.text}</b><div class="dbar"><i style="width:${Math.round(p / d.goal * 100)}%"></i></div></div><em>${p}/${d.goal}</em></div>`; })()}

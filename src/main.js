@@ -551,6 +551,7 @@ if (apiOn) {
   config().then(c => {
     if (!c) return;
     setDisabledCars(c.disabledCars);
+    hud.site = c.site || null;                      // maintenance, the banner over the menu
     const picked = settings.car === "malibu" ? "malibu-premier" : settings.car;
     if (!CARS.some(x => x.id === picked)) { settings.car = CARS[0].id; saveSettings(); useCar(settings.car); }
     hud.refreshMenu();

@@ -131,7 +131,12 @@ func openDB(ctx context.Context, url string) (*DB, error) {
 		pool.Close()
 		return nil, err
 	}
-	return &DB{pool}, nil
+	db := &DB{pool}
+	if err := db.migrateExt(ctx); err != nil {
+		pool.Close()
+		return nil, err
+	}
+	return db, nil
 }
 
 // getSetting decodes a stored setting into v; false when it was never set

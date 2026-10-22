@@ -226,3 +226,11 @@ table.shop select, .promoform select, .promoform input { padding: 7px 9px; borde
 .promoform #pCode { text-transform: uppercase; width: 130px; }
 .promoform #pMax { width: 190px; }
 @media (max-width: 640px) { table.shop input[type=number] { width: 90px; } }
+
+/* the site page: the banner as the game shows it, the log's request bodies */
+textarea { width: 100%; box-sizing: border-box; background: var(--bg2, #12151a); color: inherit; border: 1px solid var(--rule, #2a2f37); border-radius: 8px; padding: 10px; font: inherit; resize: vertical; margin-top: 8px; }
+.banner-prev { margin-top: 12px; padding: 10px 14px; border-radius: 10px; font-weight: 600; background: rgba(47, 111, 214, .18); border: 1px solid rgba(47, 111, 214, .55); }
+.banner-prev.promo { background: rgba(242, 182, 50, .16); border-color: rgba(242, 182, 50, .6); }
+.banner-prev.warn { background: rgba(255, 90, 60, .14); border-color: rgba(255, 90, 60, .55); }
+code.detail { font-size: 11.5px; color: var(--muted, #9aa2ac); word-break: break-all; }
+.brand svg.mark { width: 34px; height: 34px; background: none; border: 0; padding: 0; }

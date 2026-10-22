@@ -6,6 +6,7 @@ import (
 	"crypto/hmac"
 	"crypto/sha256"
 	"encoding/json"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -509,4 +510,92 @@ func TestShop(t *testing.T) {
 		t.Fatalf("off: %v", sh)
 	}
 	call("POST", "/api/shop/buy", ali, map[string]any{"product": "all"}, 400)
+}
+
+// the site switches, the log of admin changes, the money summary, the order list and the CSV downloads
+func TestAdminExtras(t *testing.T) {
+	dbURL := os.Getenv("TEST_DATABASE_URL")
+	if dbURL == "" {
+		t.Skip("TEST_DATABASE_URL not set")
+	}
+	ctx := context.Background()
+	db, err := openDB(ctx, dbURL)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	db.Exec(ctx, "TRUNCATE users, sessions, attempts, settings, plays, ad_views, purchases, promos, promo_uses, orders, audit RESTART IDENTITY CASCADE")
+	cfg := Config{DevLogin: true, UploadDir: t.TempDir(), Admins: map[string]bool{"dev:boss": true}}
+	srv := httptest.NewServer(newApp(cfg, db).routes())
+	defer srv.Close()
+	call := func(method, path, token string, body any, want int) map[string]any {
+		t.Helper()
+		raw, _ := json.Marshal(body)
+		req, _ := http.NewRequest(method, srv.URL+path, bytes.NewReader(raw))
+		if token != "" {
+			req.Header.Set("Authorization", "Bearer "+token)
+		}
+		res, err := http.DefaultClient.Do(req)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer res.Body.Close()
+		out := map[string]any{}
+		json.NewDecoder(res.Body).Decode(&out)
+		if res.StatusCode != want {
+			t.Fatalf("%s %s: status %d, want %d (%v)", method, path, res.StatusCode, want, out)
+		}
+		return out
+	}
+	login := func(name string) string {
+		return call("POST", "/api/auth/dev", "", map[string]string{"name": name}, 200)["token"].(string)
+	}
+	boss, ali := login("Boss"), login("Ali")
+
+	// maintenance and a banner; the game sees them in /api/config, an expired banner is not shown
+	call("PUT", "/api/admin/site", ali, map[string]any{"maintenance": true}, 403)
+	call("PUT", "/api/admin/site", boss, map[string]any{"maintenance": true, "maintenanceText": "Tez orada", "banner": "Yangi K5", "bannerKind": "promo"}, 200)
+	site := call("GET", "/api/config", "", nil, 200)["site"].(map[string]any)
+	if site["maintenance"] != true || site["banner"] != "Yangi K5" || site["bannerKind"] != "promo" {
+		t.Fatalf("site: %v", site)
+	}
+	call("PUT", "/api/admin/site", boss, map[string]any{"banner": "Eski", "bannerUntil": 1000}, 200)
+	if _, ok := call("GET", "/api/config", "", nil, 200)["site"].(map[string]any)["banner"]; ok {
+		t.Fatal("expired banner shown")
+	}
+
+	// the log: both changes, newest first, a refused one not at all
+	items := call("GET", "/api/admin/audit", boss, nil, 200)["items"].([]any)
+	if len(items) != 2 || items[0].(map[string]any)["action"] != "PUT /api/admin/site" || items[0].(map[string]any)["admin"] != "Boss" {
+		t.Fatalf("audit: %v", items)
+	}
+	call("GET", "/api/admin/audit", ali, nil, 403)
+
+	// money: a paid and a pending order
+	now := time.Now().UnixMilli()
+	db.Exec(ctx, "INSERT INTO orders (user_id, product, name, items, days, price, amount, promo, status, created, paid_at) VALUES (2, 'all', 'Hammasi', '{all}', 30, 50000, 40000, 'X20', 'paid', $1, $1), (2, 'car:kia-k5', 'Kia K5', '{car:kia-k5}', 0, 20000, 20000, '', 'pending', $1, NULL)", now)
+	rev := call("GET", "/api/admin/revenue?days=7", boss, nil, 200)
+	if rev["today"].(map[string]any)["sum"].(float64) != 40000 || rev["buyers"].(float64) != 1 || len(rev["daily"].([]any)) != 7 || rev["promos"].([]any)[0].(map[string]any)["sum"].(float64) != 10000 {
+		t.Fatalf("revenue: %v", rev)
+	}
+	if n := len(call("GET", "/api/admin/order-list?status=pending", boss, nil, 200)["items"].([]any)); n != 1 {
+		t.Fatalf("pending orders: %d", n)
+	}
+	if n := len(call("GET", "/api/admin/order-list?q=hamma", boss, nil, 200)["items"].([]any)); n != 1 {
+		t.Fatalf("search: %d", n)
+	}
+
+	// CSV: a header row and the two users
+	req, _ := http.NewRequest("GET", srv.URL+"/api/admin/export/users", nil)
+	req.Header.Set("Authorization", "Bearer "+boss)
+	res, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	body, _ := io.ReadAll(res.Body)
+	res.Body.Close()
+	if res.StatusCode != 200 || !strings.HasPrefix(res.Header.Get("Content-Type"), "text/csv") || strings.Count(string(body), "\n") != 3 {
+		t.Fatalf("csv: %d %q", res.StatusCode, body)
+	}
+	call("GET", "/api/admin/export/nope", boss, nil, 404)
 }

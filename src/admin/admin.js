@@ -6,6 +6,7 @@ import { apiOn, apiBase, api, getUser, logout, refreshMe, leaderboard, authHeade
 import { renderLogin, esc, avatar, keyName } from "../ui/account.js";
 import { ELEMENTS } from "../world/tracks.js";
 import { ALL_CARS } from "../cars/index.js";
+import { NAME, logo } from "../ui/brand.js";
 
 const root = document.getElementById("admin");
 const $ = (s, el = root) => el.querySelector(s);
@@ -64,6 +65,9 @@ const NAV = [
   ["rating", "Reyting", '<path d="M8 21h8M12 17v4M7 4h10v5a5 5 0 0 1-10 0z"/><path d="M17 5h3v2a3 3 0 0 1-3 3M7 5H4v2a3 3 0 0 0 3 3"/>'],
   ["ads", "Reklama", '<rect x="3" y="5" width="18" height="12" rx="2"/><path d="M8 21h8M12 17v4"/>'],
   ["shop", "Do'kon", '<path d="M4 7h16l-1.5 11a2 2 0 0 1-2 1.8h-9a2 2 0 0 1-2-1.8z"/><path d="M9 10V6a3 3 0 0 1 6 0v4"/>'],
+  ["payments", "To'lovlar", '<rect x="2.5" y="5" width="19" height="14" rx="2"/><path d="M2.5 10h19M6 15h4"/>'],
+  ["site", "Sozlamalar", '<circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M2 12h3M19 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"/>'],
+  ["audit", "Jurnal", '<path d="M6 3h9l4 4v14H6z"/><path d="M14 3v5h5M9 12h7M9 16h7"/>'],
   ["cars", "Mashinalar", '<path d="M5 17h14v-5l-2-5H7l-2 5z"/><circle cx="8" cy="17" r="2"/><circle cx="16" cy="17" r="2"/>']
 ];
 
@@ -71,7 +75,7 @@ function shell() {
   const u = getUser();
   root.innerHTML = `<div class="layout">
     <nav class="side">
-      <div class="brand"><span class="mark">A</span><div><b>Avtodrom</b><small>Admin panel</small></div></div>
+      <div class="brand">${logo("mark")}<div><b>${NAME}</b><small>Admin panel</small></div></div>
       ${NAV.map(([id, t, d]) => `<button class="nav" data-go="${id}">${icon(d)}${t}</button>`).join("")}
       <div class="spacer"></div>
       <a class="back" href="./">← Simulyatorga qaytish</a>
@@ -95,12 +99,12 @@ function go(id) {
   VIEWS[id](v).catch(e => { if (current === id) v.innerHTML = `<p class="empty">${esc(e.message)}</p>`; if (e.status === 401 || e.status === 403) start(); });
 }
 
-const VIEWS = { home, analytics, users, results, rating, ads, cars, shop };
+const VIEWS = { home, analytics, users, results, rating, ads, cars, shop, payments, site, audit };
 
 // ---- the numbers at a glance
 
 async function home(v) {
-  const s = await api("/api/admin/stats");
+  const [s, R] = await Promise.all([api("/api/admin/stats"), api("/api/admin/revenue?days=14").catch(() => null)]);
   const U = s.users, A = s.attempts, max = Math.max(1, ...s.days.map(d => Math.max(d.attempts, d.joined)));
   const mmax = s.mistakes.length ? s.mistakes[0].pts : 1;
   v.innerHTML = `
@@ -110,6 +114,12 @@ async function home(v) {
       <div class="card"><small>Urinishlar</small><b>${A.total}</b><span>${A.today} ta bugun</span></div>
       <div class="card"><small>Imtihondan o'tish</small><b>${pct(A.examsPassed, A.exams)}</b><span>${A.examsPassed} / ${A.exams} imtihon</span></div>
     </div>
+    ${R ? `<div class="cards">
+      <div class="card"><small>Tushum bugun</small><b>${som(R.today.sum)}</b><span>${R.today.count} ta xarid</span></div>
+      <div class="card"><small>Tushum 7 kun</small><b>${som(R.week.sum)}</b><span>${R.week.count} ta xarid</span></div>
+      <div class="card"><small>Tushum 30 kun</small><b>${som(R.month.sum)}</b><span>${R.month.count} ta xarid</span></div>
+      <div class="card"><small>Xaridorlar</small><b>${R.buyers}</b><span>jami ${som(R.all.sum)}</span></div>
+    </div>` : ""}
     <div class="box"><h2>So'nggi 14 kun</h2>
       <div class="chart">${s.days.map(d => `<div class="col" title="${d.day}: ${d.attempts} urinish, ${d.people} kishi, ${d.joined} yangi"><div class="bars"><div class="bar" style="height:${d.attempts / max * 100}%"></div><div class="bar b2" style="height:${d.joined / max * 100}%"></div></div><small>${d.day.slice(8)}</small></div>`).join("")}</div>
       <div class="legend"><span><i></i>Urinishlar</span><span><i class="b2"></i>Yangi foydalanuvchilar</span></div>
@@ -190,7 +200,7 @@ async function users(v, q = "", offset = 0, acc = []) {
   const out = await api(`/api/admin/users?q=${encodeURIComponent(q)}&offset=${offset}&limit=50`);
   const list = acc.concat(out.items);
   v.innerHTML = `
-    <div class="toolbar"><input type="search" id="q" placeholder="Ism, @username, email yoki telefon" value="${esc(q)}"><span class="tag">${out.total} ta</span></div>
+    <div class="toolbar"><input type="search" id="q" placeholder="Ism, @username, email yoki telefon" value="${esc(q)}"><span class="tag">${out.total} ta</span><button class="btn small" data-export="users">⬇ CSV</button></div>
     <div class="box" style="padding:6px 8px">
       ${list.length ? `<div class="tblwrap"><table><thead><tr><th>Foydalanuvchi</th><th>Kirish</th><th>Ro'yxatdan o'tgan</th><th>Oxirgi faollik</th><th class="num">Urinish</th><th class="num">Eng yaxshi imtihon</th><th></th></tr></thead><tbody>
         ${list.map(({ user: u, attempts, bestExam }) => `<tr class="click" data-u="${u.id}">
@@ -279,7 +289,7 @@ async function results(v, key = "", offset = 0, acc = []) {
   const list = acc.concat(out.items);
   const top = m => Object.values(m || {}).sort((a, b) => b.pts - a.pts).slice(0, 2).map(x => `${esc(x.n)}. ${esc(x.text)}`).join("; ");
   v.innerHTML = `
-    <div class="toolbar"><select id="key"><option value="">Hammasi</option>${KEYS.map(([k, t]) => `<option value="${k}"${k === key ? " selected" : ""}>${esc(t)}</option>`).join("")}</select><span class="tag">${out.total} ta</span></div>
+    <div class="toolbar"><select id="key"><option value="">Hammasi</option>${KEYS.map(([k, t]) => `<option value="${k}"${k === key ? " selected" : ""}>${esc(t)}</option>`).join("")}</select><span class="tag">${out.total} ta</span><button class="btn small" data-export="attempts">⬇ CSV</button></div>
     <div class="box" style="padding:6px 8px">
       ${list.length ? `<div class="tblwrap"><table><thead><tr><th>Vaqt</th><th>Foydalanuvchi</th><th>Mashq</th><th>Natija</th><th class="num">Ball</th><th class="num">Vaqt</th><th>Mashina</th><th>Asosiy xatolar</th></tr></thead><tbody>
         ${list.map(a => `<tr class="click" data-u="${a.user.id}"><td class="when">${when(a.at)}</td><td><div class="who">${avatar(a.user, "av sm")}<span>${esc(a.user.name || "—")}</span></div></td>
@@ -489,6 +499,98 @@ async function shop(v) {
     v.querySelectorAll("[data-pdel]").forEach(b => b.onclick = async () => { if (!confirm(b.dataset.pdel + " o'chirilsinmi?")) return; try { promos.items = (await api("/api/admin/promos/" + encodeURIComponent(b.dataset.pdel), { method: "DELETE" })).items; render(); } catch (e) { failed(e); } });
   };
   render();
+}
+
+// ---- CSV downloads (the token goes in a header, so the file is fetched and handed to the browser)
+async function download(what) {
+  try {
+    const r = await fetch(apiBase + "/api/admin/export/" + what, { headers: authHeader() });
+    if (!r.ok) throw new Error("HTTP " + r.status);
+    const url = URL.createObjectURL(await r.blob()), a = document.createElement("a");
+    a.href = url; a.download = `${what}-${new Date().toISOString().slice(0, 10)}.csv`; document.body.append(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 5000);
+  } catch (e) { failed(e); }
+}
+root.addEventListener("click", e => { const b = e.target.closest("[data-export]"); if (b) download(b.dataset.export); });
+
+// ---- payments: the money by day, product and promo code; every order, filtered
+
+const STATUS = { paid: ["To'langan", "ok"], pending: ["Kutilmoqda", ""], failed: ["Xato", "bad"], cancelled: ["Bekor", "bad"] };
+async function payments(v, days = 30, status = "", q = "", offset = 0, acc = []) {
+  const [R, out] = await Promise.all([api("/api/admin/revenue?days=" + days), api(`/api/admin/order-list?status=${status}&q=${encodeURIComponent(q)}&offset=${offset}`)]);
+  const list = acc.concat(out.items), max = Math.max(1, ...R.daily.map(d => d.sum));
+  const st = Object.fromEntries(R.status.map(x => [x.key, x])), started = R.status.reduce((n, x) => n + x.count, 0);
+  v.innerHTML = `
+    <div class="toolbar">${[7, 30, 90, 365].map(d => `<button class="btn small${d === days ? " primary" : ""}" data-days="${d}">${d === 365 ? "1 yil" : d + " kun"}</button>`).join("")}<button class="btn small" data-export="orders">⬇ CSV</button></div>
+    <div class="cards">
+      <div class="card"><small>Bugun</small><b>${som(R.today.sum)}</b><span>${R.today.count} ta xarid</span></div>
+      <div class="card"><small>7 kun</small><b>${som(R.week.sum)}</b><span>${R.week.count} ta xarid</span></div>
+      <div class="card"><small>30 kun</small><b>${som(R.month.sum)}</b><span>${R.month.count} ta xarid</span></div>
+      <div class="card"><small>Jami</small><b>${som(R.all.sum)}</b><span>${R.all.count} ta · ${R.buyers} xaridor</span></div>
+      <div class="card"><small>O'rtacha chek</small><b>${som(R.all.count ? Math.round(R.all.sum / R.all.count) : 0)}</b><span>hamma vaqt</span></div>
+      <div class="card"><small>To'lovni tugatganlar</small><b>${pct((st.paid || {}).count || 0, started)}</b><span>${days} kunda boshlangan ${started} ta to'lovdan</span></div>
+    </div>
+    <div class="box"><h2>Kunlik tushum <small>${days} kun</small></h2>
+      <div class="chart">${R.daily.map(d => `<div class="col" title="${d.day}: ${som(d.sum)}, ${d.count} ta"><div class="bars"><div class="bar" style="height:${d.sum / max * 100}%"></div></div><small>${days <= 31 ? d.day.slice(8) : ""}</small></div>`).join("")}</div></div>
+    <div class="grid2">
+      <div class="box"><h2>Mahsulotlar <small>${days} kun</small></h2>${R.products.length ? `<div class="tblwrap"><table><thead><tr><th>Mahsulot</th><th class="num">Soni</th><th class="num">Tushum</th></tr></thead><tbody>${R.products.map(p => `<tr><td>${esc(p.key)}</td><td class="num">${p.count}</td><td class="num">${som(p.sum)}</td></tr>`).join("")}</tbody></table></div>` : `<p class="empty">Sotuv yo'q.</p>`}</div>
+      <div class="box"><h2>Promokodlar <small>${days} kun</small></h2>${R.promos.length ? `<div class="tblwrap"><table><thead><tr><th>Kod</th><th class="num">Ishlatilgan</th><th class="num">Berilgan chegirma</th></tr></thead><tbody>${R.promos.map(p => `<tr><td><b>${esc(p.key)}</b></td><td class="num">${p.count}</td><td class="num">${som(p.sum)}</td></tr>`).join("")}</tbody></table></div>` : `<p class="empty">Promokod bilan xarid yo'q.</p>`}</div>
+    </div>
+    <div class="toolbar"><input type="search" id="oq" placeholder="Ism, mahsulot, promokod yoki #" value="${esc(q)}">
+      <select id="ost"><option value="">Hamma holat</option>${Object.entries(STATUS).map(([k, [t]]) => `<option value="${k}"${k === status ? " selected" : ""}>${t}</option>`).join("")}</select></div>
+    <div class="box" style="padding:6px 8px">
+      ${list.length ? `<div class="tblwrap"><table><thead><tr><th>#</th><th>Yaratilgan</th><th>To'langan</th><th>Kim</th><th>Nima</th><th class="num">Narx</th><th class="num">To'langan</th><th>Promokod</th><th>Holat</th></tr></thead><tbody>
+        ${list.map(o => `<tr class="click" data-u="${o.user}"><td>${o.id}</td><td class="when">${when(o.created)}</td><td class="when">${when(o.paidAt)}</td><td>${esc(o.userName)}</td><td>${esc(o.name)}</td><td class="num">${som(o.price)}</td><td class="num">${som(o.amount)}</td><td>${esc(o.promo || "—")}</td>
+          <td><span class="tag ${(STATUS[o.status] || [])[1] || ""}">${(STATUS[o.status] || [o.status])[0]}</span></td></tr>`).join("")}</tbody></table></div>
+        ${out.items.length === 100 ? `<div class="acts"><button class="btn" id="more">Yana</button></div>` : ""}` : `<p class="empty">Buyurtma topilmadi.</p>`}
+    </div>`;
+  v.querySelectorAll("[data-days]").forEach(b => b.onclick = () => payments(v, +b.dataset.days, status, q).catch(failed));
+  let t; v.querySelector("#oq").oninput = e => { clearTimeout(t); t = setTimeout(() => payments(v, days, status, e.target.value.trim()).then(() => { const i = v.querySelector("#oq"); i.focus(); i.setSelectionRange(i.value.length, i.value.length); }).catch(failed), 350); };
+  v.querySelector("#ost").onchange = e => payments(v, days, e.target.value, q).catch(failed);
+  v.querySelectorAll("[data-u]").forEach(r => r.onclick = () => openUser(+r.dataset.u));
+  const more = v.querySelector("#more"); if (more) more.onclick = () => payments(v, days, status, q, offset + 100, list).catch(failed);
+}
+
+// ---- site switches: maintenance and the banner over the game's menu
+
+async function site(v) {
+  let { site: S } = await api("/api/admin/site");
+  const day = ms => { if (!ms) return ""; const d = new Date(ms); return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`; };
+  v.innerHTML = `
+    <div class="box"><h2>Texnik ishlar</h2>
+      <label class="carrow big"><span><b>Texnik ishlar rejimi</b><small>Yoqilsa, o'yinchilar menyu o'rniga xabarni ko'radi (adminlar o'ynay oladi)</small></span>
+        <span class="sw"><input type="checkbox" id="mOn"${S.maintenance ? " checked" : ""}><span></span></span></label>
+      <textarea id="mText" rows="3" maxlength="500" placeholder="Masalan: Yangilanish ketmoqda, 20:00 da qaytamiz">${esc(S.maintenanceText || "")}</textarea></div>
+    <div class="box"><h2>E'lon (menyu ustida)</h2>
+      <p class="hint">Bo'sh qoldirilsa, e'lon ko'rsatilmaydi.</p>
+      <textarea id="bText" rows="2" maxlength="300" placeholder="Masalan: Yangi Kia K5 qo'shildi! Promokod: K5YANGI">${esc(S.banner || "")}</textarea>
+      <div class="promoform">
+        <select id="bKind">${[["info", "Ma'lumot"], ["promo", "Aksiya"], ["warn", "Ogohlantirish"]].map(([k, t]) => `<option value="${k}"${k === S.bannerKind ? " selected" : ""}>${t}</option>`).join("")}</select>
+        <input id="bUntil" type="date" value="${day(S.bannerUntil)}" title="Qachongacha (bo'sh = o'chirguncha)">
+      </div>
+      <div class="banner-prev ${esc(S.bannerKind || "info")}" id="bPrev">${esc(S.banner || "Ko'rinishi shu yerda")}</div>
+      <div class="acts"><button class="btn primary" id="siteSave">Saqlash</button></div></div>`;
+  const prev = () => { const p = v.querySelector("#bPrev"); p.className = "banner-prev " + v.querySelector("#bKind").value; p.textContent = v.querySelector("#bText").value || "Ko'rinishi shu yerda"; };
+  v.querySelector("#bText").oninput = prev; v.querySelector("#bKind").onchange = prev;
+  const read = () => { const u = v.querySelector("#bUntil").value; return { maintenance: v.querySelector("#mOn").checked, maintenanceText: v.querySelector("#mText").value, banner: v.querySelector("#bText").value, bannerKind: v.querySelector("#bKind").value, bannerUntil: u ? new Date(u + "T23:59:59").getTime() : null }; };
+  const save = async () => { try { ({ site: S } = await api("/api/admin/site", { method: "PUT", body: read() })); toast("Saqlandi", "good"); } catch (e) { failed(e); } };
+  v.querySelector("#siteSave").onclick = save;
+  v.querySelector("#mOn").onchange = e => { if (e.target.checked && !confirm("Texnik ishlar rejimi yoqilsinmi? O'yinchilar o'ynay olmaydi.")) { e.target.checked = false; return; } save(); };
+}
+
+// ---- the log of what the admins changed
+
+const ACTIONS = [[/PUT \/api\/admin\/shop/, "Do'kon sozlamalari"], [/POST \/api\/admin\/promos/, "Promokod saqlandi"], [/DELETE \/api\/admin\/promos/, "Promokod o'chirildi"],
+  [/POST .*\/grant/, "Narsa berildi"], [/DELETE .*\/grant/, "Narsa qaytarib olindi"], [/PATCH \/api\/admin\/users/, "Foydalanuvchi o'zgardi"], [/DELETE \/api\/admin\/users/, "Foydalanuvchi o'chirildi"],
+  [/PUT \/api\/admin\/ads/, "Reklama sozlamalari"], [/POST \/api\/admin\/ads/, "Reklama yuklandi"], [/DELETE \/api\/admin\/ads/, "Reklama o'chirildi"], [/PUT \/api\/admin\/cars/, "Mashinalar"], [/PUT \/api\/admin\/site/, "Sayt sozlamalari"]];
+async function audit(v, offset = 0, acc = []) {
+  const out = await api("/api/admin/audit?offset=" + offset), list = acc.concat(out.items);
+  const what = a => (ACTIONS.find(([re]) => re.test(a)) || [0, a])[1];
+  v.innerHTML = `<div class="box" style="padding:6px 8px">
+    ${list.length ? `<div class="tblwrap"><table><thead><tr><th>Vaqt</th><th>Admin</th><th>Nima qildi</th><th>Tafsilot</th></tr></thead><tbody>
+      ${list.map(a => `<tr><td class="when">${when(a.at)}</td><td>${esc(a.admin || "—")}</td><td><b>${esc(what(a.action))}</b><small class="muted"> ${esc(a.action.split(" ")[1].replace("/api/admin/", ""))}</small></td><td><code class="detail">${esc(a.detail.slice(0, 220))}</code></td></tr>`).join("")}</tbody></table></div>
+      ${out.items.length === 100 ? `<div class="acts"><button class="btn" id="more">Yana</button></div>` : ""}` : `<p class="empty">Hali hech narsa o'zgartirilmagan.</p>`}</div>`;
+  const more = v.querySelector("#more"); if (more) more.onclick = () => audit(v, offset + 100, list).catch(failed);
 }
 
 start();

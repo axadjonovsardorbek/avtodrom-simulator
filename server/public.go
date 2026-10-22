@@ -76,6 +76,9 @@ func (a *App) handleConfig(w http.ResponseWriter, r *http.Request) {
 		cars.Disabled = []string{}
 	}
 	out["disabledCars"] = cars.Disabled
+	if site, err := a.site(ctx); err == nil {
+		out["site"] = site.public(time.Now().UnixMilli())
+	}
 	writeJSON(w, 200, out)
 }
 
