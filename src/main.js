@@ -488,6 +488,15 @@ function loadTrain() {
   return trainLoading;
 }
 
+// while the menu is shown: the train and (with real traffic) the other cars' light models load in the
+// background, so the first drive starts without waiting for them (once, a few seconds after the menu is up)
+let preloaded = false;
+function preloadDrive() {
+  if (preloaded) return; preloaded = true;
+  const idle = window.requestIdleCallback || (f => setTimeout(f, 1));
+  setTimeout(() => idle(() => { loadTrain(); if ((settings.traffic || "simple") === "real") loadTrafficModels(); }, { timeout: 4000 }), 3000);
+}
+
 // light models for the traffic, loaded once when they are first needed
 let trafficLoading = null;
 function loadTrafficModels() {
@@ -523,6 +532,7 @@ function useCar(id) {
     audio.setProfile(car.sound);
     view.setCarModel(cv, car);
     boot.done();
+    preloadDrive();
   }).catch(e => { clearTimeout(slow); boot.done(); hud.toast(`${car.name} yuklanmadi`, "bad"); console.warn("car model not loaded, using the built-in one:", e.message); });
 }
 useCar(settings.car);

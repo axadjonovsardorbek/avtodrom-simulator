@@ -331,6 +331,8 @@ export class View {
     // lighter mirrors and shadows on the light setting
     const T = TIER[quality] || TIER.high;
     for (const m of this.mirrors) m.rt.setSize(Math.round(m.w * T.mirror), Math.round(m.h * T.mirror));
+    // what a mirror shows far behind is a few pixels: below "high" it stops at 250 m (fewer buildings and trees drawn)
+    for (const m of this.mirrors) { m.cam.far = quality === "high" ? 700 : 250; m.cam.updateProjectionMatrix(); }
     this.sun.shadow.mapSize.set(T.shadow, T.shadow);
     if (this.sun.shadow.map) { this.sun.shadow.map.dispose(); this.sun.shadow.map = null; }
     this.ratio = this.maxRatio = Math.min(window.devicePixelRatio || 1, (this.weak ? MAXRATIO_WEAK : MAXRATIO)[quality] || 1.75); this.tooSlow = 0;
