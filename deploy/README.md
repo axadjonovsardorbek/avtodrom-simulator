@@ -7,6 +7,10 @@ The server runs two copies of the simulator side by side, each a git clone start
 | prod | `/root/simulator/prod` | `main` | https://simulator.207-180-221-193.sslip.io | 127.0.0.1:8092 |
 | dev | `/root/simulator/dev` | `backup-current` | https://dev.simulator.207-180-221-193.sslip.io | 127.0.0.1:8091 |
 
+The admin panels have their own addresses (the same app; `/` opens admin.html, and `/admin.html` on the game's address redirects there):
+https://admin.simulator.207-180-221-193.sslip.io (prod) and https://admin.dev.simulator.207-180-221-193.sslip.io (dev),
+nginx site `/etc/nginx/sites-available/simulator-admin`.
+
 Each has its own Postgres container, database volume and uploads volume (compose project `simulator-prod` / `simulator-dev`).
 The host's nginx (`/etc/nginx/sites-available/simulator`) proxies the two addresses to the local ports; HTTPS is from certbot.
 

@@ -11,6 +11,8 @@ import { NAME, logo } from "../ui/brand.js";
 
 const root = document.getElementById("admin");
 const $ = (s, el = root) => el.querySelector(s);
+// the simulator: on the panel's own address (admin.<site>) it is the site without "admin."
+const SIM = location.hostname.startsWith("admin.") ? `${location.protocol}//${location.host.slice(6)}/` : "./";
 const icon = d => `<svg viewBox="0 0 24 24" aria-hidden="true">${d}</svg>`;
 const KEYS = [["exam", "Imtihon"], ["training", "Trening"], ...ELEMENTS.map(e => ["practice:" + e.id, "Mashq: " + e.name])];
 const pad = n => String(n).padStart(2, "0");
@@ -72,7 +74,7 @@ function firstPassword() {
 }
 
 function gate(html) {
-  root.innerHTML = `<div class="gate"><div class="card">${logo("mark")}${html}<p><a href="./">← Simulyatorga qaytish</a></p></div></div>`;
+  root.innerHTML = `<div class="gate"><div class="card">${logo("mark")}${html}<p><a href="${SIM}">← Simulyatorga qaytish</a></p></div></div>`;
 }
 
 const NAV = [
@@ -96,7 +98,7 @@ function shell() {
       <div class="brand">${logo("mark")}<div><b>${NAME}</b><small>Admin panel</small></div></div>
       ${NAV.map(([id, t, d]) => `<button class="nav" data-go="${id}">${icon(d)}${t}</button>`).join("")}
       <div class="spacer"></div>
-      <a class="back" href="./">← Simulyatorga qaytish</a>
+      <a class="back" href="${SIM}">← Simulyatorga qaytish</a>
     </nav>
     <main class="main">
       <div class="top"><h1 id="title"></h1><div class="me">${avatar({ name: u.name || u.login })}<b>${esc(u.name || u.login)}</b><button class="btn small" data-go="admins">Adminlar</button><button class="btn small" id="logout">Chiqish</button></div></div>
