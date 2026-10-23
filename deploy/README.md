@@ -12,7 +12,12 @@ The host's nginx (`/etc/nginx/sites-available/simulator`) proxies the two addres
 
 ## Updating
 
-Push the branch, then:
+Automatic: GitHub Actions (`.github/workflows/deploy.yml`) runs the tests on every push, then deploys:
+a push to `backup-current` updates dev, a push to `main` updates prod. A failing test stops the deploy.
+It logs in with the `DEPLOY_SSH_KEY` secret, which the server lets run only `/root/simulator/deploy.sh dev|prod`
+(forced command in `/root/.ssh/authorized_keys`); that script pulls the branch, rebuilds and waits for the app to answer.
+
+By hand, the same:
 
 ```
 deploy/deploy.sh dev     # pulls backup-current, rebuilds, restarts

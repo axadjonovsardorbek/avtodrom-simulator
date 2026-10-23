@@ -1,0 +1,61 @@
+# Tests, then deploys to the VPS: a push to backup-current updates dev, a push to main updates prod.
+# The server pulls the branch and rebuilds with docker compose (/root/simulator/deploy.sh there).
+# Secrets: DEPLOY_SSH_KEY (a key the server lets run only that script), DEPLOY_KNOWN_HOSTS.
+name: Deploy
+
+on:
+  push:
+    branches: [main, backup-current]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-${{ github.ref_name }}
+  cancel-in-progress: false
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: pg
+        ports: ["5432:5432"]
+        options: --health-cmd pg_isready --health-interval 5s --health-timeout 5s --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm test
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: server/go.mod
+          cache-dependency-path: server/go.sum
+      - run: go test ./...
+        working-directory: server
+        env:
+          TEST_DATABASE_URL: postgres://postgres:pg@localhost:5432/postgres?sslmode=disable
+
+  deploy:
+    needs: test
+    runs-on: ubuntu-latest
+    environment:
+      name: ${{ github.ref_name == 'main' && 'prod' || 'dev' }}
+      url: ${{ github.ref_name == 'main' && 'https://simulator.207-180-221-193.sslip.io' || 'https://dev.simulator.207-180-221-193.sslip.io' }}
+    steps:
+      - name: Deploy over SSH
+        env:
+          KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          KNOWN: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+          TARGET: ${{ github.ref_name == 'main' && 'prod' || 'dev' }}
+        run: |
+          mkdir -p ~/.ssh && chmod 700 ~/.ssh
+          printf '%s\n' "$KEY" > ~/.ssh/id_ed25519 && chmod 600 ~/.ssh/id_ed25519
+          printf '%s\n' "$KNOWN" > ~/.ssh/known_hosts
+          ssh -o BatchMode=yes root@207.180.221.193 "$TARGET"
