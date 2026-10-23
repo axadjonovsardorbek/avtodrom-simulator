@@ -15,6 +15,7 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"syscall"
 	"time"
 	_ "time/tzdata" // Asia/Tashkent without the system's zone files
@@ -23,7 +24,7 @@ import (
 type Config struct {
 	Addr, DatabaseURL, GoogleClientID, TelegramToken, TelegramBot, UploadDir, StaticDir, PublicURL string
 	InpayURL, InpayMerchant, InpayToken                                                            string   // payments (shop.go)
-	AdminLogin, AdminPassword                                                                      string   // the first admin of the admin panel (admins.go)
+	AdminLogin, AdminPassword                                                                      string   // tests only: the first admin (otherwise admin / 1234, changed at first login)
 	Origins                                                                                        []string // allowed CORS origins; "*" any
 	DevLogin, TrustProxy                                                                           bool
 }
@@ -41,8 +42,7 @@ func loadConfig() Config {
 		GoogleClientID: env("GOOGLE_CLIENT_ID", ""), TelegramToken: env("TELEGRAM_BOT_TOKEN", ""), TelegramBot: strings.TrimPrefix(env("TELEGRAM_BOT_NAME", ""), "@"),
 		UploadDir: env("UPLOAD_DIR", "uploads"), StaticDir: env("STATIC_DIR", ""), PublicURL: strings.TrimRight(env("PUBLIC_URL", ""), "/"),
 		DevLogin: env("DEV_LOGIN", "") == "1", TrustProxy: env("TRUST_PROXY", "") == "1",
-		InpayURL: strings.TrimRight(env("INPAY_URL", "https://inpay.uz/api/v1"), "/"), InpayMerchant: env("INPAY_MERCHANT_ID", ""), InpayToken: env("INPAY_MERCHANT_TOKEN", ""),
-		AdminLogin: env("ADMIN_LOGIN", ""), AdminPassword: os.Getenv("ADMIN_PASSWORD"),
+		InpayURL: strings.TrimRight(env("INPAY_URL", inpayDefaultURL), "/"), InpayMerchant: env("INPAY_MERCHANT_ID", ""), InpayToken: env("INPAY_MERCHANT_TOKEN", ""),
 	}
 	for _, o := range strings.Split(env("CORS_ORIGINS", "*"), ",") {
 		if o = strings.TrimRight(strings.TrimSpace(o), "/"); o != "" {
@@ -60,6 +60,7 @@ type App struct {
 	tg      *tgLogins
 	tgOut   func(chat int64, text string) // tests: catches what the bot would send
 	inpay   *inpayClient
+	ig      atomic.Pointer[Integrations] // keys of Google, Telegram, inPAY: kept in Postgres, set in the admin panel
 }
 
 func main() {
@@ -101,6 +102,7 @@ func newApp(cfg Config, db *DB) *App {
 		tz = time.FixedZone("UZT", 5*3600)
 	}
 	a := &App{cfg: cfg, db: db, tz: tz, limiter: newLimiter(40, time.Minute), tg: newTgLogins(), inpay: newInpay(cfg)}
+	a.loadIntegrations(context.Background())
 	a.bootstrapAdmin(context.Background())
 	return a
 }
@@ -154,8 +156,10 @@ func (a *App) routes() http.Handler {
 	mux.HandleFunc("GET /api/admin/admins", a.admin(a.handleAdmins))
 	mux.HandleFunc("POST /api/admin/admins", a.logged(a.handleAddAdmin))
 	mux.HandleFunc("DELETE /api/admin/admins/{id}", a.logged(a.handleDeleteAdmin))
-	mux.HandleFunc("PUT /api/admin/password", a.admin(a.handleAdminPassword))
+	mux.HandleFunc("PUT /api/admin/password", a.logged(a.handleAdminPassword))
 	mux.HandleFunc("GET /api/admin/audit", a.admin(a.handleAudit))
+	mux.HandleFunc("GET /api/admin/integrations", a.admin(a.handleGetIntegrations))
+	mux.HandleFunc("PUT /api/admin/integrations", a.logged(a.handlePutIntegrations))
 	mux.HandleFunc("GET /api/admin/site", a.admin(a.handleGetSite))
 	mux.HandleFunc("PUT /api/admin/site", a.logged(a.handlePutSite))
 	mux.HandleFunc("GET /api/admin/revenue", a.admin(a.handleRevenue))

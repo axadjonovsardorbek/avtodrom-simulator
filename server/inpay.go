@@ -32,7 +32,29 @@ func newInpay(cfg Config) *inpayClient {
 	return &inpayClient{base: cfg.InpayURL, merchant: cfg.InpayMerchant, secret: cfg.InpayToken, http: &http.Client{Timeout: 20 * time.Second}}
 }
 
-func (c *inpayClient) on() bool { return c != nil && c.merchant != "" && c.secret != "" }
+func (c *inpayClient) on() bool {
+	if c == nil {
+		return false
+	}
+	_, m, k := c.creds()
+	return m != "" && k != ""
+}
+
+func (c *inpayClient) creds() (base, merchant, secret string) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return c.base, c.merchant, c.secret
+}
+
+// set: new kassa details from the admin panel; the cached token goes when they change
+func (c *inpayClient) set(base, merchant, secret string) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if c.merchant != merchant || c.secret != secret || c.base != base {
+		c.token = ""
+	}
+	c.base, c.merchant, c.secret = base, merchant, secret
+}
 
 // find a field by name at the top of a reply or one level down ("data", "result", ...)
 func field(m map[string]any, names ...string) any {
@@ -65,7 +87,8 @@ func str(v any) string {
 }
 
 func (c *inpayClient) do(ctx context.Context, method, path string, q url.Values, body any, auth bool) (map[string]any, error) {
-	u := c.base + path
+	base, _, _ := c.creds()
+	u := base + path
 	if q != nil {
 		u += "?" + q.Encode()
 	}
@@ -119,7 +142,8 @@ func (c *inpayClient) bearer(ctx context.Context) (string, error) {
 		return t, nil
 	}
 	c.mu.Unlock()
-	out, err := c.do(ctx, "GET", "/authorization/", url.Values{"merchant_id": {c.merchant}, "merchant_token": {c.secret}}, nil, false)
+	_, merchant, secret := c.creds()
+	out, err := c.do(ctx, "GET", "/authorization/", url.Values{"merchant_id": {merchant}, "merchant_token": {secret}}, nil, false)
 	if err != nil {
 		return "", err
 	}
@@ -140,7 +164,8 @@ func (c *inpayClient) create(ctx context.Context, amount int, desc, callback, ba
 	if err != nil {
 		return nil, err
 	}
-	body := map[string]any{"merchant_id": c.merchant, "token": tok, "amount": amount, "description": desc, "callback_url": callback, "return_url": back}
+	_, merchant, _ := c.creds()
+	body := map[string]any{"merchant_id": merchant, "token": tok, "amount": amount, "description": desc, "callback_url": callback, "return_url": back}
 	if ip != "" {
 		body["client_ip"] = ip
 	}

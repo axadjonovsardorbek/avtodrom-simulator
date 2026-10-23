@@ -55,7 +55,7 @@ var nonceRe = regexp.MustCompile(`^[a-f0-9]{32}$`)
 
 // POST /api/auth/tg-start: { nonce, link }
 func (a *App) handleTgStart(w http.ResponseWriter, r *http.Request) {
-	if a.cfg.TelegramToken == "" || a.cfg.TelegramBot == "" {
+	if a.ig.Load().TelegramToken == "" || a.ig.Load().TelegramBot == "" {
 		fail(w, 404, "telegram login is off")
 		return
 	}
@@ -70,7 +70,7 @@ func (a *App) handleTgStart(w http.ResponseWriter, r *http.Request) {
 	}
 	l.pending[nonce] = &tgPending{created: time.Now()}
 	l.mu.Unlock()
-	writeJSON(w, 200, map[string]any{"nonce": nonce, "link": "https://t.me/" + a.cfg.TelegramBot + "?start=" + nonce, "ttl": int(tgLoginTTL.Seconds())})
+	writeJSON(w, 200, map[string]any{"nonce": nonce, "link": "https://t.me/" + a.ig.Load().TelegramBot + "?start=" + nonce, "ttl": int(tgLoginTTL.Seconds())})
 }
 
 // POST /api/auth/tg-poll { nonce }: 202 while waiting, the login once confirmed, 410 when expired
@@ -129,7 +129,7 @@ type tgUpdate struct {
 
 func (a *App) tgCall(ctx context.Context, method string, params any, out any) error {
 	raw, _ := json.Marshal(params)
-	req, err := http.NewRequestWithContext(ctx, "POST", "https://api.telegram.org/bot"+a.cfg.TelegramToken+"/"+method, bytes.NewReader(raw))
+	req, err := http.NewRequestWithContext(ctx, "POST", "https://api.telegram.org/bot"+a.ig.Load().TelegramToken+"/"+method, bytes.NewReader(raw))
 	if err != nil {
 		return err
 	}
@@ -170,30 +170,38 @@ func (a *App) tgSend(ctx context.Context, chat int64, text string, markup any) {
 	}
 }
 
-// runTelegramBot answers the bot's messages until ctx ends
+// runTelegramBot answers the bot's messages until ctx ends; a token set or changed in the admin panel is
+// picked up within a few seconds (polling starts again with it)
 func (a *App) runTelegramBot(ctx context.Context) {
-	if a.cfg.TelegramToken == "" {
-		return
+	wait := func(d time.Duration) {
+		select {
+		case <-ctx.Done():
+		case <-time.After(d):
+		}
 	}
-	// a webhook set earlier would stop getUpdates
-	_ = a.tgCall(ctx, "deleteWebhook", map[string]any{}, nil)
-	log.Print("telegram bot: polling")
-	var offset int64
 	for ctx.Err() == nil {
-		var ups []tgUpdate
-		if err := a.tgCall(ctx, "getUpdates", map[string]any{"offset": offset, "timeout": 50, "allowed_updates": []string{"message"}}, &ups); err != nil {
-			if ctx.Err() == nil {
-				log.Print(err)
-				select {
-				case <-ctx.Done():
-				case <-time.After(5 * time.Second):
-				}
-			}
+		tok := a.ig.Load().TelegramToken
+		if tok == "" {
+			wait(5 * time.Second)
 			continue
 		}
-		for _, u := range ups {
-			offset = u.UpdateID + 1
-			a.tgHandle(ctx, u)
+		// a webhook set earlier would stop getUpdates
+		_ = a.tgCall(ctx, "deleteWebhook", map[string]any{}, nil)
+		log.Print("telegram bot: polling")
+		var offset int64
+		for ctx.Err() == nil && a.ig.Load().TelegramToken == tok {
+			var ups []tgUpdate
+			if err := a.tgCall(ctx, "getUpdates", map[string]any{"offset": offset, "timeout": 20, "allowed_updates": []string{"message"}}, &ups); err != nil {
+				if ctx.Err() == nil {
+					log.Print(err)
+					wait(5 * time.Second)
+				}
+				continue
+			}
+			for _, u := range ups {
+				offset = u.UpdateID + 1
+				a.tgHandle(ctx, u)
+			}
 		}
 	}
 }

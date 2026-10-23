@@ -23,17 +23,10 @@ services:
         condition: service_healthy
     environment:
       DATABASE_URL: postgres://avtodrom:${DB_PASSWORD:-avtodrom}@db:5432/avtodrom?sslmode=disable
-      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
-      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
-      TELEGRAM_BOT_NAME: ${TELEGRAM_BOT_NAME:-}
-      ADMIN_LOGIN: ${ADMIN_LOGIN:-}
-      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-}
       CORS_ORIGINS: ${CORS_ORIGINS:-*}
       PUBLIC_URL: ${PUBLIC_URL:-}
       TRUST_PROXY: ${TRUST_PROXY:-}
       DEV_LOGIN: ${DEV_LOGIN:-}
-      INPAY_MERCHANT_ID: ${INPAY_MERCHANT_ID:-}
-      INPAY_MERCHANT_TOKEN: ${INPAY_MERCHANT_TOKEN:-}
     ports:
       - "${PORT:-8080}:8080"
     volumes:

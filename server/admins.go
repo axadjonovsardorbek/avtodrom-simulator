@@ -2,7 +2,8 @@ package main
 
 // Admins are not players: they have their own table, log in to the admin panel with a login and password
 // (bcrypt), and hold their own sessions. A player account gives no admin rights, an admin login none in the game.
-// The first admin comes from ADMIN_LOGIN / ADMIN_PASSWORD in the server's .env (made once, if missing).
+// When there is no admin yet, admin / 1234 is made, and that admin must change the password at the first login:
+// until then every other admin call is refused. Logins and passwords live only in Postgres, not in .env.
 
 import (
 	"context"
@@ -25,6 +26,7 @@ CREATE TABLE IF NOT EXISTS admins (
   created BIGINT NOT NULL,
   last_login BIGINT
 );
+ALTER TABLE admins ADD COLUMN IF NOT EXISTS must_change BOOLEAN NOT NULL DEFAULT FALSE;
 CREATE TABLE IF NOT EXISTS admin_sessions (
   hash TEXT PRIMARY KEY,                 -- sha256 of the token
   admin_id INTEGER NOT NULL REFERENCES admins(id) ON DELETE CASCADE,
@@ -37,11 +39,12 @@ UPDATE users SET admin = FALSE WHERE admin;  -- player accounts no longer carry 
 const adminTTL = 12 * time.Hour
 
 type Admin struct {
-	ID        int    `json:"id"`
-	Login     string `json:"login"`
-	Name      string `json:"name"`
-	Created   int64  `json:"created"`
-	LastLogin *int64 `json:"lastLogin"`
+	ID         int    `json:"id"`
+	Login      string `json:"login"`
+	Name       string `json:"name"`
+	Created    int64  `json:"created"`
+	LastLogin  *int64 `json:"lastLogin"`
+	MustChange bool   `json:"mustChange"` // the password is the default one: it is changed before anything else
 }
 
 type adminKey struct{}
@@ -52,23 +55,25 @@ func adminFrom(r *http.Request) *Admin { a, _ := r.Context().Value(adminKey{}).(
 
 var loginRe = regexp.MustCompile(`^[a-zA-Z0-9_.-]{3,32}$`)
 
-// the first admin, from the environment
+// the first admin: admin / 1234, to be changed at once (tests give their own)
 func (a *App) bootstrapAdmin(ctx context.Context) {
-	login, pass := strings.TrimSpace(a.cfg.AdminLogin), a.cfg.AdminPassword
-	if login == "" || pass == "" {
+	if a.db == nil {
 		return
 	}
-	if !loginRe.MatchString(login) || len(pass) < 8 {
-		log.Printf("ADMIN_LOGIN / ADMIN_PASSWORD ignored: login 3-32 letters/digits, password at least 8 characters")
+	var n int
+	if a.db.QueryRow(ctx, "SELECT COUNT(*) FROM admins").Scan(&n) != nil || n > 0 {
 		return
+	}
+	login, pass, must := strings.ToLower(strings.TrimSpace(a.cfg.AdminLogin)), a.cfg.AdminPassword, false
+	if login == "" || pass == "" {
+		login, pass, must = "admin", "1234", true
 	}
 	h, err := bcrypt.GenerateFromPassword([]byte(pass), bcrypt.DefaultCost)
 	if err != nil {
 		return
 	}
-	tag, err := a.db.Exec(ctx, "INSERT INTO admins (login, name, pass, created) VALUES ($1, $1, $2, $3) ON CONFLICT (login) DO NOTHING", strings.ToLower(login), string(h), time.Now().UnixMilli())
-	if err == nil && tag.RowsAffected() == 1 {
-		log.Printf("admin %q created", login)
+	if _, err := a.db.Exec(ctx, "INSERT INTO admins (login, name, pass, created, must_change) VALUES ($1, $1, $2, $3, $4) ON CONFLICT (login) DO NOTHING", login, string(h), time.Now().UnixMilli(), must); err == nil {
+		log.Printf("admin %q created (change its password at the first login)", login)
 	}
 }
 
@@ -81,10 +86,14 @@ func (a *App) admin(h http.HandlerFunc) http.HandlerFunc {
 			return
 		}
 		var ad Admin
-		err := a.db.QueryRow(r.Context(), `SELECT d.id, d.login, d.name, d.created, d.last_login FROM admin_sessions s JOIN admins d ON d.id = s.admin_id
-			WHERE s.hash = $1 AND s.expires > $2`, tokenHash(tok), time.Now().UnixMilli()).Scan(&ad.ID, &ad.Login, &ad.Name, &ad.Created, &ad.LastLogin)
+		err := a.db.QueryRow(r.Context(), `SELECT d.id, d.login, d.name, d.created, d.last_login, d.must_change FROM admin_sessions s JOIN admins d ON d.id = s.admin_id
+			WHERE s.hash = $1 AND s.expires > $2`, tokenHash(tok), time.Now().UnixMilli()).Scan(&ad.ID, &ad.Login, &ad.Name, &ad.Created, &ad.LastLogin, &ad.MustChange)
 		if err != nil {
 			fail(w, 401, "admin login required")
+			return
+		}
+		if ad.MustChange && r.URL.Path != "/api/admin/me" && r.URL.Path != "/api/admin/password" {
+			fail(w, 403, "avval parolni o'zgartiring")
 			return
 		}
 		h(w, r.WithContext(context.WithValue(r.Context(), adminKey{}, &ad)))
@@ -100,8 +109,8 @@ func (a *App) handleAdminLogin(w http.ResponseWriter, r *http.Request) {
 	ctx, now := r.Context(), time.Now().UnixMilli()
 	var ad Admin
 	var hash string
-	err := a.db.QueryRow(ctx, "SELECT id, login, name, created, last_login, pass FROM admins WHERE login = $1", strings.ToLower(strings.TrimSpace(body.Login))).
-		Scan(&ad.ID, &ad.Login, &ad.Name, &ad.Created, &ad.LastLogin, &hash)
+	err := a.db.QueryRow(ctx, "SELECT id, login, name, created, last_login, must_change, pass FROM admins WHERE login = $1", strings.ToLower(strings.TrimSpace(body.Login))).
+		Scan(&ad.ID, &ad.Login, &ad.Name, &ad.Created, &ad.LastLogin, &ad.MustChange, &hash)
 	if err != nil {
 		hash = string(dummyHash) // the same work for an unknown login
 	}
@@ -214,12 +223,16 @@ func (a *App) handleAdminPassword(w http.ResponseWriter, r *http.Request) {
 		fail(w, 400, "yangi parol kamida 8 belgi")
 		return
 	}
+	if body.New == body.Old {
+		fail(w, 400, "yangi parol eskisidan farq qilsin")
+		return
+	}
 	h, err := bcrypt.GenerateFromPassword([]byte(body.New), bcrypt.DefaultCost)
 	if err != nil {
 		serverError(w, r, err)
 		return
 	}
-	a.db.Exec(r.Context(), "UPDATE admins SET pass = $1 WHERE id = $2", string(h), me.ID)
+	a.db.Exec(r.Context(), "UPDATE admins SET pass = $1, must_change = FALSE WHERE id = $2", string(h), me.ID)
 	a.db.Exec(r.Context(), "DELETE FROM admin_sessions WHERE admin_id = $1 AND hash <> $2", me.ID, tokenHash(bearer(r)))
 	writeJSON(w, 200, map[string]any{"ok": true})
 }

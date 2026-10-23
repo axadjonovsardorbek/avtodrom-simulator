@@ -33,7 +33,7 @@ createdb avtodrom
 
 # 2. Server: Google va Telegramsiz, ism bilan kirish (faqat sinov uchun)
 cd server
-DATABASE_URL="postgres://localhost/avtodrom?sslmode=disable" DEV_LOGIN=1 ADMIN_LOGIN=admin ADMIN_PASSWORD=parol1234 ADDR=":8088" go run .
+DATABASE_URL="postgres://localhost/avtodrom?sslmode=disable" DEV_LOGIN=1 ADDR=":8088" go run .
 
 # 3. Simulyator shu serverga ulangan holda (boshqa terminalda, loyiha papkasida)
 VITE_API_URL=http://localhost:8088 npm run dev
@@ -106,11 +106,11 @@ Reklama fayllari `/var/lib/avtodrom/uploads` papkasida turadi. Ularni ham zaxira
 2. **APIs & Services → OAuth consent screen**ni to'ldiring. Turi: External, ilova nomi: Avtodrom simulyatori.
 3. **Credentials → Create credentials → OAuth client ID** ni bosing. Turi: **Web application**.
 4. **Authorized JavaScript origins** ga sayt manzilini qo'shing, masalan `https://axadjonovsardorbek.github.io`. Kompyuterda sinash uchun `http://localhost:5173` ni ham qo'shing.
-5. Chiqqan Client ID'ni `.env` faylidagi `GOOGLE_CLIENT_ID` ga yozing.
+5. Chiqqan Client ID'ni admin panelda Sozlamalar → Integratsiyalar ga yozing.
 
 ## Telegram orqali kirish
 
-1. @BotFather'da `/newbot` buyrug'i bilan bot oching. Token'ni `TELEGRAM_BOT_TOKEN` ga, bot nomini (@ siz) `TELEGRAM_BOT_NAME` ga yozing.
+1. @BotFather'da `/newbot` buyrug'i bilan bot oching. Token va bot nomini admin panelda Sozlamalar → Integratsiyalar ga yozing.
 2. @BotFather'da `/setdomain` buyrug'ini bering, botni tanlang va sayt domenini kiriting: `axadjonovsardorbek.github.io` (yoki o'z domeningiz). Telegram tugmasi faqat shu domenda ishlaydi.
 3. Mini-ilova ham kerak bo'lsa: `/newapp` (yoki bot sozlamalarida Menu Button) orqali sayt manzilini bering. Mini-ilova ichida foydalanuvchi o'zi kiradi.
 
@@ -118,14 +118,15 @@ Reklama fayllari `/var/lib/avtodrom/uploads` papkasida turadi. Ularni ham zaxira
 
 Admin panel o'yinchilardan alohida: unga o'z login va paroli bilan kiriladi. O'yindagi Google yoki Telegram hisobi admin huquqini bermaydi, admin login esa o'yinda hech narsa ochmaydi.
 
-Birinchi admin `.env` faylida beriladi (server ishga tushganda bir marta yaratiladi):
+Login va parollar faqat PostgreSQL'da saqlanadi (bcrypt), `.env` da emas. Baza bo'sh bo'lsa, server birinchi ishga tushganda `admin` / `1234` adminini yaratadi. Shu bilan birinchi marta kirilganda panel darhol yangi parol so'raydi (kamida 8 belgi) va parol o'zgarmaguncha boshqa hech narsa ochilmaydi.
 
-```
-ADMIN_LOGIN=admin
-ADMIN_PASSWORD=kamida-8-belgili-kuchli-parol
-```
+Keyin admin panelda (yuqoridagi "Adminlar" tugmasi) yangi adminlar qo'shiladi, o'chiriladi va o'z parolingiz o'zgartiriladi.
 
-Keyin admin panelda (yuqoridagi "Adminlar" tugmasi) yangi adminlar qo'shiladi, o'chiriladi va o'z parolingiz o'zgartiriladi. Kirgandan keyin parolni panelda o'zgartiring va `.env` dagi `ADMIN_PASSWORD` ni o'chirib qo'yishingiz mumkin.
+## Integratsiyalar (Google, Telegram, inPAY)
+
+Google Client ID, Telegram bot nomi va tokeni, inPAY merchant ID va tokeni admin panelda **Sozlamalar → Integratsiyalar** bo'limida kiritiladi. Ular bazada saqlanadi va saqlangan zahoti ishlaydi, serverni qayta ishga tushirish kerak emas. Maxfiy kalitlar panelda qayta ko'rsatilmaydi (faqat oxirgi 4 belgisi), jurnalga ham yozilmaydi. Maydon bo'sh qoldirilsa, eski kalit saqlanib qoladi.
+
+Eski o'rnatishda bu qiymatlar `.env` da bo'lsa, server birinchi ishga tushganda ularni bir marta bazaga ko'chiradi. Shundan keyin ularni `.env` dan o'chirib qo'yish mumkin.
 
 ## Saytni serverga ulash
 
@@ -158,8 +159,8 @@ So'rovlarda token `Authorization: Bearer <token>` sarlavhasida yuboriladi.
 
 ## To'lovlar (inPAY)
 
-1. inpay.uz kabinetida kassa oching; merchant ID va merchant token'ni serverdagi `.env` ga yozing:
-   `INPAY_MERCHANT_ID=...`, `INPAY_MERCHANT_TOKEN=...` (chatga yozmang).
+1. inpay.uz kabinetida kassa oching; merchant ID va merchant token'ni admin panelda Sozlamalar → Integratsiyalar ga yozing
+   (chatga yozmang).
 2. `PUBLIC_URL` saytning https manzili bo'lishi shart: inPAY to'lov natijasini `PUBLIC_URL/api/shop/inpay` ga yuboradi,
    xaridor `PUBLIC_URL/?order=<id>` ga qaytadi. Kassa sozlamalarida shu domenni ruxsat etilganlarga qo'shing.
 3. Admin panel → Do'kon: to'lovlarni yoqish/o'chirish, qaysi narsa pullik, narxlar va muddatlar, tariflar, promokodlar,

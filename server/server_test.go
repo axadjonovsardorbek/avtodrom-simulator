@@ -6,6 +6,7 @@ import (
 	"crypto/hmac"
 	"crypto/sha256"
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -621,4 +622,70 @@ func TestAdminExtras(t *testing.T) {
 		t.Fatalf("csv: %d %q", res.StatusCode, body)
 	}
 	call("GET", "/api/admin/export/nope", adm, nil, 404)
+}
+
+// the default admin (admin / 1234) must change the password first; the keys set in the panel take effect at once
+func TestDefaultAdminAndIntegrations(t *testing.T) {
+	dbURL := os.Getenv("TEST_DATABASE_URL")
+	if dbURL == "" {
+		t.Skip("TEST_DATABASE_URL is not set")
+	}
+	ctx := context.Background()
+	db, err := openDB(ctx, dbURL)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	db.Exec(ctx, "TRUNCATE users, sessions, attempts, settings, plays, ad_views, purchases, promos, promo_uses, orders, audit, admins, admin_sessions RESTART IDENTITY CASCADE")
+	srv := httptest.NewServer(newApp(Config{UploadDir: t.TempDir(), GoogleClientID: "env-id"}, db).routes())
+	defer srv.Close()
+	call := func(method, path, token string, body any, want int) map[string]any {
+		t.Helper()
+		raw, _ := json.Marshal(body)
+		req, _ := http.NewRequest(method, srv.URL+path, bytes.NewReader(raw))
+		if token != "" {
+			req.Header.Set("Authorization", "Bearer "+token)
+		}
+		res, err := http.DefaultClient.Do(req)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer res.Body.Close()
+		out := map[string]any{}
+		json.NewDecoder(res.Body).Decode(&out)
+		if res.StatusCode != want {
+			t.Fatalf("%s %s: status %d, want %d (%v)", method, path, res.StatusCode, want, out)
+		}
+		return out
+	}
+	out := call("POST", "/api/admin/login", "", map[string]string{"login": "admin", "password": "1234"}, 200)
+	adm := out["token"].(string)
+	if out["admin"].(map[string]any)["mustChange"] != true {
+		t.Fatal("the default admin is not asked to change the password")
+	}
+	call("GET", "/api/admin/stats", adm, nil, 403)
+	call("PUT", "/api/admin/password", adm, map[string]string{"old": "1234", "new": "short"}, 400)
+	call("PUT", "/api/admin/password", adm, map[string]string{"old": "1234", "new": "yangi-parol"}, 200)
+	call("GET", "/api/admin/stats", adm, nil, 200)
+	call("POST", "/api/admin/login", "", map[string]string{"login": "admin", "password": "1234"}, 401)
+
+	// copied once from the environment, then changed in the panel; secrets come back only as their tail
+	if g := call("GET", "/api/admin/integrations", adm, nil, 200)["integrations"].(map[string]any); g["googleClientId"] != "env-id" || g["payments"] != false {
+		t.Fatalf("integrations: %v", g)
+	}
+	g := call("PUT", "/api/admin/integrations", adm, map[string]any{"googleClientId": "new-id", "telegramBot": "@rulda_bot", "telegramToken": "123:abcdWXYZ", "inpayMerchant": "m1", "inpayToken": "tok-secret"}, 200)["integrations"].(map[string]any)
+	if g["telegramBot"] != "rulda_bot" || g["telegramToken"].(map[string]any)["tail"] != "WXYZ" || g["payments"] != true || g["inpayUrl"] != inpayDefaultURL {
+		t.Fatalf("saved: %v", g)
+	}
+	if c := call("GET", "/api/config", "", nil, 200); c["googleClientId"] != "new-id" || c["telegramBot"] != "rulda_bot" {
+		t.Fatalf("config: %v", c)
+	}
+	// an empty secret keeps the stored one; clear removes it
+	g = call("PUT", "/api/admin/integrations", adm, map[string]any{"googleClientId": "new-id", "inpayMerchant": "m1", "clear": []string{"telegramToken"}}, 200)["integrations"].(map[string]any)
+	if g["telegramToken"].(map[string]any)["set"] != false || g["payments"] != true {
+		t.Fatalf("kept / cleared: %v", g)
+	}
+	if items := call("GET", "/api/admin/audit", adm, nil, 200)["items"].([]any); strings.Contains(fmt.Sprint(items), "tok-secret") || strings.Contains(fmt.Sprint(items), "yangi-parol") {
+		t.Fatal("a secret went into the log")
+	}
 }

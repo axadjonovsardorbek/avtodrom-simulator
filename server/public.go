@@ -50,7 +50,7 @@ type CarSettings struct {
 
 func (a *App) handleConfig(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-	out := map[string]any{"googleClientId": a.cfg.GoogleClientID, "telegramBot": a.cfg.TelegramBot, "devLogin": a.cfg.DevLogin}
+	out := map[string]any{"googleClientId": a.ig.Load().GoogleClientID, "telegramBot": a.ig.Load().TelegramBot, "devLogin": a.cfg.DevLogin}
 	var ads []Ad
 	set, err := a.db.getSetting(ctx, "ads", &ads)
 	if err != nil {

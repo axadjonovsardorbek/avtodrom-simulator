@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/csv"
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
@@ -57,7 +58,7 @@ func (a *App) logged(h http.HandlerFunc) http.HandlerFunc {
 		if sw.status >= 400 {
 			return
 		}
-		detail := string(body)
+		detail := redact(body)
 		if detail == "" && r.MultipartForm != nil {
 			detail = "(fayl yuklandi)"
 		}
@@ -326,4 +327,20 @@ func (a *App) handleExport(w http.ResponseWriter, r *http.Request) {
 		c.Write(rec)
 	}
 	c.Flush()
+}
+
+// redact: passwords and secret keys never go into the log
+func redact(body []byte) string {
+	var m map[string]any
+	if json.Unmarshal(body, &m) != nil {
+		return string(body)
+	}
+	for k, v := range m {
+		l := strings.ToLower(k)
+		if s, ok := v.(string); ok && s != "" && (strings.Contains(l, "pass") || strings.Contains(l, "token") || strings.Contains(l, "secret") || l == "old" || l == "new") {
+			m[k] = "***"
+		}
+	}
+	out, _ := json.Marshal(m)
+	return string(out)
 }

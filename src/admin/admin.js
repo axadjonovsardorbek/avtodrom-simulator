@@ -50,9 +50,25 @@ async function start() {
     $("#aL").focus();
     return;
   }
+  if (me.mustChange) return firstPassword();
   shell();
   const tab = location.hash.slice(1);
   go(VIEWS[tab] ? tab : "home");
+}
+
+// the default admin (admin / 1234): a new password before anything else
+function firstPassword() {
+  gate(`<h1>Yangi parol</h1><p>Siz standart parol bilan kirdingiz. Davom etish uchun yangi parol qo'ying (kamida 8 belgi).</p>
+    <form id="fp" class="alog"><input id="f1" type="password" autocomplete="new-password" placeholder="Yangi parol" required minlength="8">
+      <input id="f2" type="password" autocomplete="new-password" placeholder="Yangi parolni takrorlang" required minlength="8">
+      <button class="btn primary">Saqlash</button><button type="button" class="btn" id="fpOut">Chiqish</button></form>`);
+  $("#fpOut").onclick = () => { logout(); start(); };
+  $("#fp").onsubmit = async e => {
+    e.preventDefault();
+    if ($("#f1").value !== $("#f2").value) return toast("Parollar bir xil emas", "bad");
+    try { await api("/api/admin/password", { method: "PUT", body: { old: "1234", new: $("#f1").value } }); toast("Parol o'zgartirildi", "good"); start(); } catch (err) { failed(err); }
+  };
+  $("#f1").focus();
 }
 
 function gate(html) {
@@ -555,6 +571,7 @@ async function site(v) {
   let { site: S } = await api("/api/admin/site");
   const day = ms => { if (!ms) return ""; const d = new Date(ms); return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`; };
   v.innerHTML = `
+    <div id="integ"></div>
     <div class="box"><h2>Texnik ishlar</h2>
       <label class="carrow big"><span><b>Texnik ishlar rejimi</b><small>Yoqilsa, o'yinchilar menyu o'rniga shu xabarni ko'radi</small></span>
         <span class="sw"><input type="checkbox" id="mOn"${S.maintenance ? " checked" : ""}><span></span></span></label>
@@ -574,13 +591,41 @@ async function site(v) {
   const save = async () => { try { ({ site: S } = await api("/api/admin/site", { method: "PUT", body: read() })); toast("Saqlandi", "good"); } catch (e) { failed(e); } };
   v.querySelector("#siteSave").onclick = save;
   v.querySelector("#mOn").onchange = e => { if (e.target.checked && !confirm("Texnik ishlar rejimi yoqilsinmi? O'yinchilar o'ynay olmaydi.")) { e.target.checked = false; return; } save(); };
+  integrations(v.querySelector("#integ"));
+}
+
+// ---- the keys of Google sign-in, the Telegram bot and the inPAY kassa: kept in the database, in force at once.
+// Secrets are never shown: only whether one is set and its last 4 characters; empty on saving = unchanged.
+async function integrations(box) {
+  let { integrations: G } = await api("/api/admin/integrations");
+  const secret = (id, s, label) => `<label class="fld"><span>${label}</span><input id="${id}" type="password" autocomplete="off" placeholder="${s.set ? "saqlangan ••••" + esc(s.tail) + " (o'zgartirish uchun yangisini yozing)" : "kiritilmagan"}">
+    ${s.set ? `<label class="chk"><input type="checkbox" data-clear="${id}"> o'chirish</label>` : ""}</label>`;
+  const field = (id, val, label, ph = "") => `<label class="fld"><span>${label}</span><input id="${id}" autocomplete="off" value="${esc(val || "")}" placeholder="${ph}"></label>`;
+  const draw = () => {
+    box.innerHTML = `<div class="box"><h2>Integratsiyalar</h2>
+      <p class="hint">Kalitlar bazada saqlanadi va saqlangan zahoti ishlaydi, serverni qayta ishga tushirish shart emas. Maxfiy kalitlar qayta ko'rsatilmaydi.</p>
+      <h3>Google orqali kirish</h3>${field("gId", G.googleClientId, "Client ID", "xxxx.apps.googleusercontent.com")}
+      <h3>Telegram bot</h3>${field("tBot", G.telegramBot, "Bot nomi", "rulda_bot")}${secret("tTok", G.telegramToken, "Bot token (BotFather)")}
+      <h3>To'lovlar: inPAY ${G.payments ? `<span class="tag ok">ulangan</span>` : `<span class="tag">ulanmagan</span>`}</h3>
+      ${field("iMer", G.inpayMerchant, "Merchant ID")}${secret("iTok", G.inpayToken, "Merchant token")}${field("iUrl", G.inpayUrl, "API manzili")}
+      <div class="acts"><button class="btn primary" id="igSave">Saqlash</button></div></div>`;
+    box.querySelector("#igSave").onclick = async () => {
+      const val = id => box.querySelector("#" + id).value;
+      const clear = [...box.querySelectorAll("[data-clear]:checked")].map(c => ({ tTok: "telegramToken", iTok: "inpayToken" })[c.dataset.clear]);
+      try {
+        ({ integrations: G } = await api("/api/admin/integrations", { method: "PUT", body: { googleClientId: val("gId"), telegramBot: val("tBot"), telegramToken: val("tTok"), inpayMerchant: val("iMer"), inpayToken: val("iTok"), inpayUrl: val("iUrl"), clear } }));
+        toast("Integratsiyalar saqlandi", "good"); draw();
+      } catch (e) { failed(e); }
+    };
+  };
+  draw();
 }
 
 // ---- the log of what the admins changed
 
 const ACTIONS = [[/PUT \/api\/admin\/shop/, "Do'kon sozlamalari"], [/POST \/api\/admin\/promos/, "Promokod saqlandi"], [/DELETE \/api\/admin\/promos/, "Promokod o'chirildi"],
   [/POST .*\/grant/, "Narsa berildi"], [/DELETE .*\/grant/, "Narsa qaytarib olindi"], [/PATCH \/api\/admin\/users/, "Foydalanuvchi o'zgardi"], [/DELETE \/api\/admin\/users/, "Foydalanuvchi o'chirildi"],
-  [/PUT \/api\/admin\/ads/, "Reklama sozlamalari"], [/POST \/api\/admin\/ads/, "Reklama yuklandi"], [/DELETE \/api\/admin\/ads/, "Reklama o'chirildi"], [/PUT \/api\/admin\/cars/, "Mashinalar"], [/PUT \/api\/admin\/site/, "Sayt sozlamalari"]];
+  [/PUT \/api\/admin\/ads/, "Reklama sozlamalari"], [/POST \/api\/admin\/ads/, "Reklama yuklandi"], [/DELETE \/api\/admin\/ads/, "Reklama o'chirildi"], [/PUT \/api\/admin\/cars/, "Mashinalar"], [/PUT \/api\/admin\/site/, "Sayt sozlamalari"], [/PUT \/api\/admin\/integrations/, "Integratsiyalar"], [/PUT \/api\/admin\/password/, "Parol o'zgartirildi"]];
 async function audit(v, offset = 0, acc = []) {
   const out = await api("/api/admin/audit?offset=" + offset), list = acc.concat(out.items);
   const what = a => (ACTIONS.find(([re]) => re.test(a)) || [0, a])[1];

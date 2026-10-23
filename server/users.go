@@ -106,7 +106,7 @@ func (a *App) handleGoogle(w http.ResponseWriter, r *http.Request) {
 	if !readJSON(w, r, &body) {
 		return
 	}
-	id, err := checkGoogle(r.Context(), body.Credential, a.cfg.GoogleClientID)
+	id, err := checkGoogle(r.Context(), body.Credential, a.ig.Load().GoogleClientID)
 	if err != nil {
 		serverError(w, r, err)
 		return
@@ -132,7 +132,7 @@ func (a *App) handleTelegram(w http.ResponseWriter, r *http.Request) {
 			data[k] = x.String()
 		}
 	}
-	id := checkTelegramWidget(data, a.cfg.TelegramToken, time.Now())
+	id := checkTelegramWidget(data, a.ig.Load().TelegramToken, time.Now())
 	if id == nil {
 		fail(w, 401, "telegram login failed")
 		return
@@ -147,7 +147,7 @@ func (a *App) handleTelegramWebApp(w http.ResponseWriter, r *http.Request) {
 	if !readJSON(w, r, &body) {
 		return
 	}
-	id := checkTelegramWebApp(body.InitData, a.cfg.TelegramToken, time.Now())
+	id := checkTelegramWebApp(body.InitData, a.ig.Load().TelegramToken, time.Now())
 	if id == nil {
 		fail(w, 401, "telegram login failed")
 		return
