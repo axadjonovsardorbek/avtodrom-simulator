@@ -1,6 +1,7 @@
 // Boot screen (index.html #boot): progress while the first car model loads, a friendly
 // message when the device cannot run the simulator, and the offline cache registration.
 const el = () => document.getElementById("boot");
+const touch = matchMedia("(pointer: coarse)").matches;
 let finished = false;
 const t0 = performance.now();
 
@@ -19,21 +20,33 @@ const tip = () => { const t = document.getElementById("bootTip"); if (!t || fini
 tip(); const tipTimer = setInterval(tip, 3800);
 
 // the intro's sound (public/audio/intro.m4a: a soft whoosh as the mark comes in, two notes as the name rises) and a
-// short rising chord on the "Boshlash" tap (start.m4a). Plain audio files, not Web Audio: Safari's "allow auto-play"
-// and Chrome's allowance for often visited sites apply to them, so the intro plays at once there; elsewhere it
-// plays on the first tap or key while the boot screen is up. Silent when the player turned the sound off.
+// short rising chord as the boot screen gives way (start.m4a). Browsers play sound only after a tap, unless the site
+// is allowed to (Safari's "allow auto-play", Chrome for often visited sites): there the intro starts at once; elsewhere
+// the screen waits still (.wait) with a "Boshlash" button, and the intro starts with its sound on the first tap or key.
+// Silent, and without the wait, when the player turned the sound off.
 const muted = (() => { try { return !!JSON.parse(localStorage.getItem("avtodrom.settings") || "{}").muted; } catch (_) { return false; } })();
 const clip = name => { const a = new Audio(`audio/${name}.m4a`); a.preload = "auto"; a.volume = 0.6; return a; };
 const introClip = muted ? null : clip("intro"), startClip = muted ? null : clip("start");
-let introPlayed = muted;
-function intro() {
-  if (introPlayed) return;
-  const p = introClip.play();
-  if (p && p.then) p.then(() => { introPlayed = true; }, () => {}); else introPlayed = true;
+let started = 0, onStart = null;
+function start() {
+  if (started) return; started = performance.now();
+  const b = el(); if (b) { b.classList.remove("wait"); b.querySelector("#bootGo").hidden = true; }
+  if (onStart) onStart();
 }
-intro();
-// (not on the "Boshlash" tap itself: that one has its own sound)
-for (const ev of ["pointerdown", "keydown"]) addEventListener(ev, e => { if (e.target.id !== "bootGo" && el() && !el().classList.contains("done")) intro(); }, { capture: true });
+function askTap() {
+  const b = el(); if (!b || started) return;
+  const go = b.querySelector("#bootGo"); go.hidden = false; go.focus();
+  const tap = e => {
+    if (started) return;
+    removeEventListener("pointerdown", tap, true); removeEventListener("keydown", tap, true);
+    if (introClip) { introClip.currentTime = 0; introClip.play().catch(() => {}); }
+    if (touch) landscape();
+    start();
+  };
+  addEventListener("pointerdown", tap, true); addEventListener("keydown", tap, true);
+}
+if (muted) start();
+else { const p = introClip.play(); if (p && p.then) p.then(start, askTap); else start(); }
 
 // phones: full screen and turned on its side, as a game opens (the browser allows both only on a tap)
 export function landscape() {
@@ -41,7 +54,6 @@ export function landscape() {
   try { const p = (d.requestFullscreen || d.webkitRequestFullscreen || (() => null)).call(d, { navigationUI: "hide" }); if (p && p.catch) p.catch(() => {}); } catch (_) {}
   try { const o = screen.orientation; if (o && o.lock) o.lock("landscape").catch(() => {}); } catch (_) {}
 }
-const touch = matchMedia("(pointer: coarse)").matches;
 
 export const boot = {
   isDone: () => finished,
@@ -50,24 +62,19 @@ export const boot = {
     b.querySelector("#bootText").textContent = text;
     b.querySelector("#bootBar").style.width = Math.round(Math.max(0.05, Math.min(1, f)) * 100) + "%";
   },
-  // ready: the intro plays to its end (about two seconds), then a "Boshlash" button (or Enter) waits for the tap
-  // that lets the browser play sound; on a phone the same tap turns the screen on its side and fills it
+  // ready: the boot screen goes once the intro has played to its end (about two seconds after it started)
   done() {
     if (finished) return; finished = true; clearInterval(tipTimer);
     const b = el(); if (!b) return;
     b.querySelector("#bootBar").style.width = "100%";
-    const hide = () => { b.classList.add("done"); setTimeout(() => b.remove(), 650); };
-    const wait = Math.max(0, 2200 - (performance.now() - t0));
-    setTimeout(() => {
-      b.classList.add("ready");
-      const go = b.querySelector("#bootGo"); go.hidden = false; go.focus();
-      go.onclick = () => { introPlayed = true; if (introClip) introClip.pause(); if (startClip) startClip.play().catch(() => {}); if (touch) landscape(); hide(); };
-    }, wait);
+    const hide = () => { if (startClip) startClip.play().catch(() => {}); b.classList.add("done"); setTimeout(() => b.remove(), 650); };
+    const go = () => setTimeout(hide, Math.max(0, 2200 - (performance.now() - started)));
+    if (started) go(); else onStart = go;
   },
   fail(text) {
     const b = el(); if (!b) return;
     finished = true; clearInterval(tipTimer);
-    b.classList.add("err"); b.classList.remove("done");
+    b.classList.add("err"); b.classList.remove("done", "wait"); b.querySelector("#bootGo").hidden = true;
     b.querySelector("#bootText").textContent = text;
   }
 };
