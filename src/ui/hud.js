@@ -171,7 +171,6 @@ export class Hud {
           </div>
           <h2>Alohida mashq <small>raqam — xaritadagi element</small></h2>
           <div class="els">${els}</div>
-          <details class="credit"><summary>Mualliflar</summary>${CARS.map(c => !c.credit ? "" : c.creditUrl ? `<a href="${c.creditUrl}" target="_blank" rel="noopener">${c.credit}</a>` : `<span>${c.credit}</span>`).join("<br>")}</details>
         </section>
         <aside class="panel menu-side">
           <div class="acct" id="acct" hidden></div>
