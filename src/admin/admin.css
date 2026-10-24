@@ -6,7 +6,7 @@
   --rule: #2d333b;
   --fg: #eef0f2;
   --muted: #9aa2ac;
-  --amber: #f2b632;
+  --amber: #2ecc71;
   --red: #ff5a3c;
   --green: #3ddc84;
   --blue: #2f6fd6;
@@ -48,7 +48,7 @@ a { color: var(--amber); }
 
 .btn { border: 1px solid var(--rule); background: var(--raise); border-radius: 8px; padding: 8px 14px; cursor: pointer; font-weight: 600; white-space: nowrap; }
 .btn:hover { border-color: #4a525d; }
-.btn.primary { background: var(--amber); border-color: var(--amber); color: #1b1606; }
+.btn.primary { background: var(--amber); border-color: var(--amber); color: #04210f; }
 .btn.danger { color: var(--red); }
 .btn.danger:hover { border-color: var(--red); }
 .btn.small { padding: 5px 10px; font-size: 13px; }
@@ -91,7 +91,7 @@ td.when { color: var(--muted); white-space: nowrap; font-variant-numeric: tabula
 .tag { display: inline-block; padding: 2px 8px; border-radius: 99px; font-size: 12px; font-weight: 600; background: var(--raise); color: var(--muted); white-space: nowrap; }
 .tag.ok { background: rgba(61, 220, 132, .14); color: var(--green); }
 .tag.bad { background: rgba(255, 90, 60, .14); color: var(--red); }
-.tag.adm { background: rgba(242, 182, 50, .16); color: var(--amber); }
+.tag.adm { background: rgba(46, 204, 113, .16); color: var(--amber); }
 .mbar { position: relative; min-width: 120px; height: 20px; background: #12151a; border-radius: 4px; overflow: hidden; }
 .mbar i { position: absolute; inset: 0 auto 0 0; background: rgba(255, 90, 60, .45); }
 .mbar b { position: relative; padding: 0 6px; font-size: 12px; line-height: 20px; }
@@ -182,7 +182,7 @@ td.when { color: var(--muted); white-space: nowrap; font-variant-numeric: tabula
 .seg button.on { background: var(--raise); color: var(--fg); }
 .chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
 .chips button { border: 1px solid var(--rule); border-radius: 99px; padding: 3px 10px; }
-.chips button.on { border-color: var(--amber); color: var(--amber); background: rgba(242, 182, 50, .1); }
+.chips button.on { border-color: var(--amber); color: var(--amber); background: rgba(46, 204, 113, .1); }
 .ad .meta .seg { margin-top: 8px; }
 .seg button:focus-visible, .chips button:focus-visible { outline: 2px solid var(--amber); outline-offset: 1px; }
 
@@ -230,7 +230,7 @@ table.shop select, .promoform select, .promoform input { padding: 7px 9px; borde
 /* the site page: the banner as the game shows it, the log's request bodies */
 textarea { width: 100%; box-sizing: border-box; background: var(--bg2, #12151a); color: inherit; border: 1px solid var(--rule, #2a2f37); border-radius: 8px; padding: 10px; font: inherit; resize: vertical; margin-top: 8px; }
 .banner-prev { margin-top: 12px; padding: 10px 14px; border-radius: 10px; font-weight: 600; background: rgba(47, 111, 214, .18); border: 1px solid rgba(47, 111, 214, .55); }
-.banner-prev.promo { background: rgba(242, 182, 50, .16); border-color: rgba(242, 182, 50, .6); }
+.banner-prev.promo { background: rgba(46, 204, 113, .16); border-color: rgba(46, 204, 113, .6); }
 .banner-prev.warn { background: rgba(255, 90, 60, .14); border-color: rgba(255, 90, 60, .55); }
 code.detail { font-size: 11.5px; color: var(--muted, #9aa2ac); word-break: break-all; }
 .brand svg.mark { width: 34px; height: 34px; background: none; border: 0; padding: 0; }
@@ -244,3 +244,4 @@ code.detail { font-size: 11.5px; color: var(--muted, #9aa2ac); word-break: break
 .fld > span { font-size: 12px; color: var(--muted); }
 .fld input { width: 100%; min-width: 0; }
 .chk { display: inline-flex; gap: 6px; align-items: center; font-size: 12px; color: var(--muted); }
+.we { text-transform: none; color: var(--amber); }

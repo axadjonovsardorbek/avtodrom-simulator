@@ -1,4 +1,4 @@
-# Avtodrom simulyatori
+# eAvtodrom — avtodrom simulyatori
 
 B toifa haydovchilik guvohnomasi amaliy imtihoniga (avtodrom qismi) tayyorlanish uchun 3D simulyator. Mashqlar ketma-ketligi Toshkent imtihon markazi normasiga, jarima ballari esa rasmiy jadvalga asoslangan.
 

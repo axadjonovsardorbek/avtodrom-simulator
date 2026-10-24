@@ -10,7 +10,7 @@ import { ACHIEVEMENTS, loadAchievements } from "../sim/achievements.js";
 import { ELEMENTS } from "../world/tracks.js";
 import { CARS } from "../cars/index.js";
 import { apiOn, getUser, updateUser } from "../net/api.js";
-import { NAME, TAGLINE, logo } from "./brand.js";
+import { NAME, TAGLINE, WORDMARK, logo } from "./brand.js";
 import { REGIONS, REGION_NAMES, formatNumber, plateParts } from "../render/plates.js";
 import { carLocked, moodLocked, carItem, productsFor, shopInfo, quote, buy } from "../net/shop.js";
 import { renderAccount, showLeaderboard, esc } from "./account.js";
@@ -43,7 +43,7 @@ export class Hud {
     root.innerHTML = `
       <canvas id="gl"></canvas>
       <header class="topbar">
-        <div class="brand">${logo("mark-logo")}<div><b>${NAME}</b><small id="modeLabel">Simulyator</small></div></div>
+        <div class="brand">${logo("mark-logo")}<div><b>${WORDMARK}</b><small id="modeLabel">Simulyator</small></div></div>
         <div class="tb-btns">
           <button class="tb" data-a="camera" title="Kamera (C)"><span id="camLabel">Kabina</span></button>
           <button class="tb" data-a="map" title="Xarita (M)">Xarita</button>
@@ -152,7 +152,7 @@ export class Hud {
     m.innerHTML = `
       <div class="menu-grid">
         <section class="panel menu-main">
-          <div class="hero">${logo("hero-logo")}<div><h1 class="wordmark">${NAME}</h1><span class="eyebrow">${TAGLINE} · Avtodrom · B toifa</span></div></div>
+          <div class="hero">${logo("hero-logo")}<div><h1 class="wordmark" aria-label="${NAME}">${WORDMARK}</h1><span class="eyebrow">${TAGLINE} · Avtodrom · B toifa</span></div></div>
           ${banner}
           <p class="lead">Amaliy imtihonni to'liq avtodromda yoki alohida mashqlarda takrorlang. Jarima ballari rasmiy jadval bo'yicha.</p>
           ${state && state.canResume ? `<button class="resume" id="resume"><span>▶</span> Davom ettirish</button>` : ""}

@@ -7,7 +7,7 @@ import { api, authHeader, getAdmin, login, logout, refreshAdmin } from "./adminA
 import { esc, avatar, keyName } from "../ui/account.js";
 import { ELEMENTS } from "../world/tracks.js";
 import { ALL_CARS } from "../cars/index.js";
-import { NAME, logo } from "../ui/brand.js";
+import { WORDMARK, logo } from "../ui/brand.js";
 
 const root = document.getElementById("admin");
 const $ = (s, el = root) => el.querySelector(s);
@@ -95,7 +95,7 @@ function shell() {
   const u = getAdmin();
   root.innerHTML = `<div class="layout">
     <nav class="side">
-      <div class="brand">${logo("mark")}<div><b>${NAME}</b><small>Admin panel</small></div></div>
+      <div class="brand">${logo("mark")}<div><b>${WORDMARK}</b><small>Admin panel</small></div></div>
       ${NAV.map(([id, t, d]) => `<button class="nav" data-go="${id}">${icon(d)}${t}</button>`).join("")}
       <div class="spacer"></div>
       <a class="back" href="${SIM}">← Simulyatorga qaytish</a>

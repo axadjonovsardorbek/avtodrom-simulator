@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 680">
+  <defs><path id="road" d="M100 300 C196 206 318 324 414 236 C424 150 344 82 256 82 C156 82 82 160 82 256 C82 352 158 430 258 430 C322 430 368 402 402 358"/></defs>
+  <rect width="1200" height="680" fill="#0A0A0A"/>
+  <g transform="translate(390 50) scale(0.82)" fill="none" stroke-linecap="round" stroke-linejoin="round">
+    <use href="#road" stroke="#FFFFFF" stroke-width="70"/>
+    <use href="#road" stroke="#0A0A0A" stroke-width="54"/>
+    <use href="#road" stroke="#2ECC71" stroke-width="6" stroke-dasharray="26 22"/>
+  </g>
+  <text x="600" y="580" text-anchor="middle" fill="#FFFFFF" font-family="Montserrat, 'Helvetica Neue', Arial, sans-serif" font-weight="300" font-size="96" letter-spacing="14"><tspan fill="#2ECC71">e</tspan>AVTODROM</text>
+</svg>

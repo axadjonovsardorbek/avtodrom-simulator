@@ -1,7 +1,7 @@
 // Offline cache. Models, sounds and hashed bundles never change under the same URL, so they
 // are served from the cache first; the page itself is fetched from the network first so an
 // update shows up on the next visit.
-const CACHE = "avtodrom-v1";
+const CACHE = "avtodrom-v2";
 self.addEventListener("install", e => { self.skipWaiting(); });
 self.addEventListener("activate", e => {
   e.waitUntil(caches.keys().then(ks => Promise.all(ks.filter(k => k !== CACHE).map(k => caches.delete(k)))).then(() => self.clients.claim()));
