@@ -297,10 +297,6 @@ tr:last-child td { border-bottom: 0; }
 .boot-tip { margin: 6px 0 0; max-width: 46ch; color: #6f7884; font-size: 13px; min-height: 2.6em; transition: opacity .4s; }
 .boot-go { margin-top: 8px; border: 0; border-radius: 999px; padding: 14px 44px; background: #2ecc71; color: #04210f; font: 700 20px var(--f-display, sans-serif); letter-spacing: .12em; text-transform: uppercase; cursor: pointer; box-shadow: 0 0 0 0 rgba(46, 204, 113, .6); animation: pulse 1.6s infinite; }
 @keyframes pulse { 70% { box-shadow: 0 0 0 18px rgba(46, 204, 113, 0); } 100% { box-shadow: 0 0 0 0 rgba(46, 204, 113, 0); } }
-/* waiting for the first tap (the browser plays sound only after one): the intro holds still until then */
-.boot.wait *, .boot.wait *::after { animation-play-state: paused !important; }
-.boot.wait .boot-go, .boot.wait .boot-glow { animation-play-state: running !important; }
-.boot.wait .boot-bar, .boot.wait #bootText, .boot.wait .boot-tip { visibility: hidden; }
 .boot.ready .boot-bar, .boot.ready #bootText { display: none; }
 .boot.err .boot-bar { display: none; }
 .boot.err small { color: #ff8a7a; max-width: 40ch; }

@@ -19,41 +19,28 @@ let tipN = Math.floor(Math.random() * TIPS.length);
 const tip = () => { const t = document.getElementById("bootTip"); if (!t || finished) return; t.style.opacity = 0; setTimeout(() => { t.textContent = TIPS[tipN++ % TIPS.length]; t.style.opacity = 1; }, 350); };
 tip(); const tipTimer = setInterval(tip, 3800);
 
-// the intro's sound (public/audio/intro.m4a: a soft whoosh as the mark comes in, two notes as the name rises) and a
-// short rising chord as the boot screen gives way (start.m4a). Browsers play sound only after a tap, unless the site
-// is allowed to (Safari's "allow auto-play", Chrome for often visited sites): there the intro starts at once; elsewhere
-// the screen waits still (.wait) with a "Boshlash" button, and the intro starts with its sound on the first tap or key.
-// Silent, and without the wait, when the player turned the sound off.
+// the intro's sound (public/audio/intro.m4a: a soft whoosh as the mark comes in, two notes as the name rises), a
+// shimmer each time the light sweeps across the name, and a short rising chord as the boot screen gives way
+// (start.m4a). The intro plays at once where the browser allows sound before a tap (Safari's "allow auto-play",
+// Chrome for often visited sites); elsewhere on the first tap or key while the boot screen is up. Silent when the
+// player turned the sound off.
 const muted = (() => { try { return !!JSON.parse(localStorage.getItem("avtodrom.settings") || "{}").muted; } catch (_) { return false; } })();
 const clip = name => { const a = new Audio(`audio/${name}.m4a`); a.preload = "auto"; a.volume = 0.6; return a; };
 const introClip = muted ? null : clip("intro"), startClip = muted ? null : clip("start"), shimmerClip = muted ? null : clip("shimmer");
-// a soft shimmer each time the light sweeps across the name (the .boot-name::after "sweep" animation) while loading
+let introPlayed = muted, hidden = false;
+function intro() {
+  if (introPlayed) return;
+  const p = introClip.play();
+  if (p && p.then) p.then(() => { introPlayed = true; }, () => {}); else introPlayed = true;
+}
+intro();
+for (const ev of ["pointerdown", "keydown"]) addEventListener(ev, e => { if (e.target.id !== "bootGo" && !hidden) intro(); }, { capture: true });
 if (shimmerClip) {
   shimmerClip.volume = 0.35;
   const name = document.querySelector("#boot .boot-name");
-  const ring = e => { if (e.animationName !== "sweep" || !started || finished) return; shimmerClip.currentTime = 0; shimmerClip.play().catch(() => {}); };
+  const ring = e => { if (e.animationName !== "sweep" || hidden) return; shimmerClip.currentTime = 0; shimmerClip.play().catch(() => {}); };
   if (name) { name.addEventListener("animationstart", ring); name.addEventListener("animationiteration", ring); }
 }
-let started = 0, onStart = null;
-function start() {
-  if (started) return; started = performance.now();
-  const b = el(); if (b) { b.classList.remove("wait"); b.querySelector("#bootGo").hidden = true; }
-  if (onStart) onStart();
-}
-function askTap() {
-  const b = el(); if (!b || started) return;
-  const go = b.querySelector("#bootGo"); go.hidden = false; go.focus();
-  const tap = e => {
-    if (started) return;
-    removeEventListener("pointerdown", tap, true); removeEventListener("keydown", tap, true);
-    if (introClip) { introClip.currentTime = 0; introClip.play().catch(() => {}); }
-    if (touch) landscape();
-    start();
-  };
-  addEventListener("pointerdown", tap, true); addEventListener("keydown", tap, true);
-}
-if (muted) start();
-else { const p = introClip.play(); if (p && p.then) p.then(start, askTap); else start(); }
 
 // phones: full screen and turned on its side, as a game opens (the browser allows both only on a tap)
 export function landscape() {
@@ -69,19 +56,24 @@ export const boot = {
     b.querySelector("#bootText").textContent = text;
     b.querySelector("#bootBar").style.width = Math.round(Math.max(0.05, Math.min(1, f)) * 100) + "%";
   },
-  // ready: the boot screen goes once the intro has played to its end (about two seconds after it started)
+  // ready: the intro plays to its end (about two seconds); on a phone a "Boshlash" button waits for the tap that
+  // may turn the screen on its side and fill it
   done() {
     if (finished) return; finished = true; clearInterval(tipTimer);
     const b = el(); if (!b) return;
     b.querySelector("#bootBar").style.width = "100%";
-    const hide = () => { if (startClip) startClip.play().catch(() => {}); b.classList.add("done"); setTimeout(() => b.remove(), 650); };
-    const go = () => setTimeout(hide, Math.max(0, 2200 - (performance.now() - started)));
-    if (started) go(); else onStart = go;
+    const hide = () => { hidden = true; if (startClip) startClip.play().catch(() => {}); b.classList.add("done"); setTimeout(() => b.remove(), 650); };
+    setTimeout(() => {
+      if (!touch) return hide();
+      b.classList.add("ready");
+      const go = b.querySelector("#bootGo"); go.hidden = false;
+      go.onclick = () => { if (introClip) introClip.pause(); landscape(); hide(); };
+    }, Math.max(0, 2200 - (performance.now() - t0)));
   },
   fail(text) {
     const b = el(); if (!b) return;
     finished = true; clearInterval(tipTimer);
-    b.classList.add("err"); b.classList.remove("done", "wait"); b.querySelector("#bootGo").hidden = true;
+    b.classList.add("err"); b.classList.remove("done"); b.querySelector("#bootGo").hidden = true;
     b.querySelector("#bootText").textContent = text;
   }
 };
