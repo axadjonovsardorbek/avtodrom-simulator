@@ -230,10 +230,22 @@ func (a *App) tgHandle(ctx context.Context, u tgUpdate) {
 		}
 		l.mu.Unlock()
 		if !ok {
-			a.tgSend(ctx, chat, "👋 Salom! Bu <b>Avtodrom simulyatori</b> boti.\n\nKirish uchun saytda <b>«Telegram orqali kirish»</b> tugmasini bosing: shu yerga qaytasiz va raqamingizni yuborasiz.", noKeyboard)
+			a.tgSend(ctx, chat, "👋 Salom! Bu <b>eAvtodrom</b> boti.\n\nKirish uchun saytda <b>«Telegram orqali kirish»</b> tugmasini bosing: shu yerga qaytasiz va raqamingizni yuborasiz.", noKeyboard)
 			return
 		}
-		a.tgSend(ctx, chat, "🔐 Avtodrom simulyatoriga kirish.\n\nTasdiqlash uchun pastdagi tugma bilan <b>o'z raqamingizni</b> yuboring.", askPhone)
+		a.tgSend(ctx, chat, "🔐 eAvtodrom saytiga kirish.\n\nTasdiqlash uchun pastdagi tugma bilan <b>o'z raqamingizni</b> yuboring.", askPhone)
+	case strings.HasPrefix(m.Text, "/help"):
+		site := ""
+		if a.cfg.PublicURL != "" {
+			site = "\n\n🌐 " + a.cfg.PublicURL
+		}
+		a.tgSend(ctx, chat, "ℹ️ <b>eAvtodrom</b> — avtodrom amaliy imtihoniga 3D simulyatorda tayyorlanish.\n\n"+
+			"<b>Saytga qanday kiriladi:</b>\n"+
+			"1. Saytda <b>«Telegram orqali kirish»</b> tugmasini bosing.\n"+
+			"2. Shu botga qaytasiz: <b>Start</b>ni bosing.\n"+
+			"3. <b>«📲 Raqamni yuborish»</b> tugmasi bilan o'z raqamingizni yuboring.\n"+
+			"4. Saytga qayting: siz kirgan bo'lasiz.\n\n"+
+			"Raqamni qo'lda yozish qabul qilinmaydi, faqat tugma orqali. Kirish so'rovi bir necha daqiqa amal qiladi: muddati o'tsa, saytda tugmani qayta bosing."+site, noKeyboard)
 	case m.Contact != nil:
 		// only the sender's own number: a contact card of someone else carries their user_id, not the sender's
 		if m.Contact.UserID != m.From.ID {

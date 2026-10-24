@@ -365,6 +365,11 @@ func TestTelegramBotLogin(t *testing.T) {
 	if !strings.Contains(said[3], "Salom") {
 		t.Fatalf("unknown start: %q", said[3])
 	}
+	// /help explains the steps
+	a.tgHandle(ctx, msg("/help", 0))
+	if !strings.Contains(said[4], "Raqamni yuborish") {
+		t.Fatalf("help: %q", said[4])
+	}
 }
 
 // the shop: prices and the switch set by the admin, promo codes, a payment through a stand-in for inPAY whose
