@@ -39,6 +39,12 @@
       </div>
     </div>
     <noscript><p style="color:#fff;padding:24px;font-family:sans-serif">Simulyator uchun JavaScript yoqilgan bo'lishi kerak.</p></noscript>
-    <script type="module" src="/src/main.js"></script>
+    <script type="module">
+      // the boot screen first, the simulator a moment later: building the 3D world keeps the page busy for a while,
+      // and Safari stops the intro's animation meanwhile (boot.done() waits for the intro to finish anyway)
+      import "/src/style.css";
+      import "/src/ui/boot.js";
+      setTimeout(() => import("/src/main.js"), 1500);
+    </script>
   </body>
 </html>

@@ -18,54 +18,20 @@ let tipN = Math.floor(Math.random() * TIPS.length);
 const tip = () => { const t = document.getElementById("bootTip"); if (!t || finished) return; t.style.opacity = 0; setTimeout(() => { t.textContent = TIPS[tipN++ % TIPS.length]; t.style.opacity = 1; }, 350); };
 tip(); const tipTimer = setInterval(tip, 3800);
 
-// the intro's sound, made on the spot (no file to wait for): a soft whoosh as the mark comes in, two notes as the
-// name rises; the "Boshlash" tap gets a short rising chord. Browsers let a page sound only after a tap or a key
-// (some allow it at once on sites a person visits often): it plays at once when allowed, otherwise on the first
-// tap or key while the boot screen is up. Silent when the player turned the sound off.
+// the intro's sound (public/audio/intro.m4a: a soft whoosh as the mark comes in, two notes as the name rises) and a
+// short rising chord on the "Boshlash" tap (start.m4a). Plain audio files, not Web Audio: Safari's "allow auto-play"
+// and Chrome's allowance for often visited sites apply to them, so the intro plays at once there; elsewhere it
+// plays on the first tap or key while the boot screen is up. Silent when the player turned the sound off.
 const muted = (() => { try { return !!JSON.parse(localStorage.getItem("avtodrom.settings") || "{}").muted; } catch (_) { return false; } })();
-let ac = null, introPlayed = false;
-function tone(f, at, len, vol, out) {
-  for (const [type, mul, v] of [["sine", 1, 1], ["triangle", 2, 0.25]]) {
-    const o = ac.createOscillator(), g = ac.createGain();
-    o.type = type; o.frequency.value = f * mul;
-    g.gain.setValueAtTime(0, at); g.gain.linearRampToValueAtTime(vol * v, at + 0.02); g.gain.exponentialRampToValueAtTime(0.0001, at + len);
-    o.connect(g).connect(out); o.start(at); o.stop(at + len + 0.05);
-  }
+const clip = name => { const a = new Audio(`audio/${name}.m4a`); a.preload = "auto"; a.volume = 0.6; return a; };
+const introClip = muted ? null : clip("intro"), startClip = muted ? null : clip("start");
+let introPlayed = muted;
+function intro() {
+  if (introPlayed) return;
+  const p = introClip.play();
+  if (p && p.then) p.then(() => { introPlayed = true; }, () => {}); else introPlayed = true;
 }
-function whoosh(at, len, from, to, vol, out) {
-  const n = Math.ceil(ac.sampleRate * len), b = ac.createBuffer(1, n, ac.sampleRate), d = b.getChannelData(0);
-  for (let i = 0; i < n; i++) d[i] = Math.random() * 2 - 1;
-  const src = ac.createBufferSource(), bp = ac.createBiquadFilter(), g = ac.createGain();
-  src.buffer = b; bp.type = "bandpass"; bp.Q.value = 1.2;
-  bp.frequency.setValueAtTime(from, at); bp.frequency.exponentialRampToValueAtTime(to, at + len);
-  g.gain.setValueAtTime(0, at); g.gain.linearRampToValueAtTime(vol, at + len * 0.45); g.gain.linearRampToValueAtTime(0, at + len);
-  src.connect(bp).connect(g).connect(out); src.start(at);
-}
-function play(kind) {
-  const t = ac.currentTime + 0.03, out = ac.createGain();
-  out.gain.value = 0.55; out.connect(ac.destination);
-  if (kind === "intro") {
-    // in step with the screen when it plays from the start, all at once when it waited for a tap
-    const late = Math.min(0.9, Math.max(0, 0.9 - (performance.now() - t0) / 1000));
-    whoosh(t, 0.8, 250, 2600, 0.22, out);
-    tone(659.25, t + late, 1.4, 0.16, out); tone(987.77, t + late + 0.22, 1.8, 0.14, out);
-  } else {
-    whoosh(t, 0.5, 400, 3200, 0.18, out);
-    [523.25, 659.25, 783.99, 1046.5].forEach((f, i) => tone(f, t + i * 0.07, 0.9, 0.12, out));
-  }
-}
-function sound(kind) {
-  if (muted) return;
-  try {
-    ac = ac || new (window.AudioContext || window.webkitAudioContext)();
-    if (ac.state === "running") play(kind); else ac.resume().then(() => play(kind)).catch(() => {});
-  } catch (_) {}
-}
-function intro() { if (introPlayed || muted) return; introPlayed = true; sound("intro"); }
-try {
-  ac = muted ? null : new (window.AudioContext || window.webkitAudioContext)();
-  if (ac && ac.state === "running") intro();
-} catch (_) {}
+intro();
 // (not on the "Boshlash" tap itself: that one has its own sound)
 for (const ev of ["pointerdown", "keydown"]) addEventListener(ev, e => { if (e.target.id !== "bootGo" && el() && !el().classList.contains("done")) intro(); }, { capture: true });
 
@@ -90,13 +56,13 @@ export const boot = {
     if (finished) return; finished = true; clearInterval(tipTimer);
     const b = el(); if (!b) return;
     b.querySelector("#bootBar").style.width = "100%";
-    const hide = () => { b.classList.add("done"); setTimeout(() => { b.remove(); if (ac) setTimeout(() => ac.close().catch(() => {}), 2500); }, 650); };
+    const hide = () => { b.classList.add("done"); setTimeout(() => b.remove(), 650); };
     const wait = Math.max(0, 2200 - (performance.now() - t0));
     setTimeout(() => {
       if (!touch) return hide();
       b.classList.add("ready");
       const go = b.querySelector("#bootGo"); go.hidden = false;
-      go.onclick = () => { introPlayed = true; sound("start"); landscape(); hide(); };
+      go.onclick = () => { introPlayed = true; if (introClip) introClip.pause(); if (startClip) startClip.play().catch(() => {}); landscape(); hide(); };
     }, wait);
   },
   fail(text) {
