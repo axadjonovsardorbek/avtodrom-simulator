@@ -265,26 +265,29 @@ tr:last-child td { border-bottom: 0; }
 @media (prefers-reduced-motion: reduce) { .toast, .rotate svg { animation: none; } }
 
 /* boot screen: shown until the car model has loaded */
-/* ---------- boot: the wheel draws itself and turns in, the name comes up letter by letter, a light runs over it ---------- */
+/* ---------- boot: the mark comes in, the name comes up letter by letter, a light runs over it ----------
+   Only transform and opacity move here: those run on the compositor and keep going while the page is busy
+   loading the car and compiling shaders (an SVG dash offset or a `left` waits for the main thread and stalls). */
 .boot { position: fixed; inset: 0; z-index: 50; display: grid; place-items: center; background: #07080a; overflow: hidden; transition: opacity .6s, transform .6s; }
 .boot.done { opacity: 0; transform: scale(1.04); pointer-events: none; }
 .boot-glow { position: absolute; inset: -20%; background: radial-gradient(40% 35% at 50% 45%, rgba(46, 204, 113, .16), transparent 70%), radial-gradient(60% 50% at 50% 110%, rgba(40, 90, 200, .18), transparent 70%); animation: glow 6s ease-in-out infinite alternate; }
 @keyframes glow { to { transform: scale(1.08) translateY(-2%); } }
 .boot-card { position: relative; display: grid; justify-items: center; gap: 10px; color: #e9edf2; font-family: var(--f-body, sans-serif); text-align: center; padding: 24px; }
-.boot-logo { width: 96px; height: 96px; animation: wheelIn .7s cubic-bezier(.2, .8, .2, 1) both; filter: drop-shadow(0 0 22px rgba(46, 204, 113, .35)); }
-.boot-logo .lg-dash { animation: dashIn .4s .5s backwards, roadRun 1.2s .5s linear infinite; }
+.boot-logo { width: 96px; height: 96px; will-change: transform; animation: wheelIn .7s cubic-bezier(.2, .8, .2, 1) both, breathe 2.6s .7s ease-in-out infinite; filter: drop-shadow(0 0 22px rgba(46, 204, 113, .35)); }
+.boot-logo .lg-dash { animation: dashIn .4s .5s backwards; }
+@keyframes breathe { 50% { transform: scale(1.06); } }
 @keyframes wheelIn { from { transform: scale(.6); opacity: 0; } to { transform: none; opacity: 1; } }
 @keyframes dashIn { from { opacity: 0; } }
 @keyframes draw { to { stroke-dashoffset: 0; } }
 @keyframes fadeIn { to { opacity: 1; } }
 .boot-name { margin: 6px 0 0; font: 700 clamp(36px, 9vw, 60px)/1 var(--f-display, sans-serif); letter-spacing: .18em; position: relative; overflow: hidden; padding-left: .18em; }
-.boot-name span { display: inline-block; opacity: 0; transform: translateY(60%); animation: letter .5s cubic-bezier(.2, .8, .2, 1) forwards; }
+.boot-name span { display: inline-block; will-change: transform, opacity; opacity: 0; transform: translateY(60%); animation: letter .5s cubic-bezier(.2, .8, .2, 1) forwards; }
 .boot-name span:nth-child(1) { animation-delay: .9s; } .boot-name span:nth-child(2) { animation-delay: .98s; } .boot-name span:nth-child(3) { animation-delay: 1.06s; }
 .boot-name span:nth-child(4) { animation-delay: 1.14s; } .boot-name span:nth-child(5) { animation-delay: 1.22s; } .boot-name span:nth-child(6) { animation-delay: 1.3s; }
 .boot-name span:nth-child(7) { animation-delay: 1.38s; } .boot-name span:nth-child(8) { animation-delay: 1.46s; } .boot-name span:nth-child(9) { animation-delay: 1.54s; }
-.boot-name::after { content: ""; position: absolute; top: 0; bottom: 0; width: 40%; left: -60%; background: linear-gradient(100deg, transparent, rgba(255, 255, 255, .55), transparent); mix-blend-mode: overlay; animation: sweep 2.8s 1.6s ease-in-out infinite; }
+.boot-name::after { content: ""; position: absolute; top: 0; bottom: 0; width: 40%; left: 0; transform: translateX(-150%); will-change: transform; background: linear-gradient(100deg, transparent, rgba(255, 255, 255, .55), transparent); mix-blend-mode: overlay; animation: sweep 2.8s 1.6s ease-in-out infinite; }
 @keyframes letter { to { opacity: 1; transform: none; } }
-@keyframes sweep { 0% { left: -60%; } 45%, 100% { left: 130%; } }
+@keyframes sweep { 0% { transform: translateX(-150%); } 45%, 100% { transform: translateX(325%); } }
 .boot-tag { margin: 0 0 14px; color: #2ecc71; font: 600 14px var(--f-display, sans-serif); letter-spacing: .32em; text-transform: uppercase; opacity: 0; animation: fadeIn .6s 1.4s forwards; }
 .boot-bar { width: min(320px, 72vw); height: 4px; border-radius: 2px; background: #1c1f25; overflow: hidden; position: relative; }
 .boot-bar i { display: block; height: 100%; width: 5%; background: linear-gradient(90deg, #2ecc71, #8ef0b4); transition: width .35s; position: relative; }
