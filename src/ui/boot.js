@@ -26,7 +26,14 @@ tip(); const tipTimer = setInterval(tip, 3800);
 // Silent, and without the wait, when the player turned the sound off.
 const muted = (() => { try { return !!JSON.parse(localStorage.getItem("avtodrom.settings") || "{}").muted; } catch (_) { return false; } })();
 const clip = name => { const a = new Audio(`audio/${name}.m4a`); a.preload = "auto"; a.volume = 0.6; return a; };
-const introClip = muted ? null : clip("intro"), startClip = muted ? null : clip("start");
+const introClip = muted ? null : clip("intro"), startClip = muted ? null : clip("start"), shimmerClip = muted ? null : clip("shimmer");
+// a soft shimmer each time the light sweeps across the name (the .boot-name::after "sweep" animation) while loading
+if (shimmerClip) {
+  shimmerClip.volume = 0.35;
+  const name = document.querySelector("#boot .boot-name");
+  const ring = e => { if (e.animationName !== "sweep" || !started || finished) return; shimmerClip.currentTime = 0; shimmerClip.play().catch(() => {}); };
+  if (name) { name.addEventListener("animationstart", ring); name.addEventListener("animationiteration", ring); }
+}
 let started = 0, onStart = null;
 function start() {
   if (started) return; started = performance.now();
