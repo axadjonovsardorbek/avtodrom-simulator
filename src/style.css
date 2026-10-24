@@ -271,10 +271,10 @@ tr:last-child td { border-bottom: 0; }
 .boot-glow { position: absolute; inset: -20%; background: radial-gradient(40% 35% at 50% 45%, rgba(46, 204, 113, .16), transparent 70%), radial-gradient(60% 50% at 50% 110%, rgba(40, 90, 200, .18), transparent 70%); animation: glow 6s ease-in-out infinite alternate; }
 @keyframes glow { to { transform: scale(1.08) translateY(-2%); } }
 .boot-card { position: relative; display: grid; justify-items: center; gap: 10px; color: #e9edf2; font-family: var(--f-body, sans-serif); text-align: center; padding: 24px; }
-.boot-logo { width: 96px; height: 96px; animation: wheelIn 1.3s cubic-bezier(.2, .8, .2, 1) both; filter: drop-shadow(0 0 22px rgba(46, 204, 113, .35)); }
-.boot-logo .lg-edge { stroke-dasharray: 100; stroke-dashoffset: 100; animation: draw 1.1s .15s ease-out forwards; }
-.boot-logo .lg-dash { opacity: 0; animation: fadeIn .4s .8s forwards; }
+.boot-logo { width: 96px; height: 96px; animation: wheelIn .7s cubic-bezier(.2, .8, .2, 1) both; filter: drop-shadow(0 0 22px rgba(46, 204, 113, .35)); }
+.boot-logo .lg-dash { animation: dashIn .4s .5s backwards, roadRun 1.2s .5s linear infinite; }
 @keyframes wheelIn { from { transform: scale(.6); opacity: 0; } to { transform: none; opacity: 1; } }
+@keyframes dashIn { from { opacity: 0; } }
 @keyframes draw { to { stroke-dashoffset: 0; } }
 @keyframes fadeIn { to { opacity: 1; } }
 .boot-name { margin: 6px 0 0; font: 700 clamp(36px, 9vw, 60px)/1 var(--f-display, sans-serif); letter-spacing: .18em; position: relative; overflow: hidden; padding-left: .18em; }
