@@ -84,7 +84,7 @@ export const CARS = [
     mirrors: { center: [2.1, 1.55, 0], left: [2.16, 1.4, -0.82], right: [2.16, 1.4, 0.82] },
     spec: { mass: 900, wb: DAMAS.wheelbase, rOh: DAMAS.rOh, fOh: DAMAS.fOh, width: 1.5, track: DAMAS.track, wheelR: DAMAS.wheelR, torque: NA08_DAMAS, clutchCap: 110, autoForce: 2300, maxRpm: 5800 },
     sound: { ...NA, filter: [800, 2800] },
-    voice: { url: "damas.mp3", from: 33, dur: 4.3 }
+    voice: { url: "damas.mp3", from: 33, dur: 4.6 }
   },
   {
     id: "kia-k5", plateY: [0.53, 0.46], paid: true, name: "Kia K5", model: "models/kia-k5.glb", info: "1.6 Turbo · 180 o.k. · 4,91 m",
