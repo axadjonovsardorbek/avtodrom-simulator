@@ -126,7 +126,7 @@ function goFullscreen() {
 }
 
 const TITLES = { exam: "To'liq avtodrom · Imtihon", training: "To'liq avtodrom · Trening", learn: "Qadamma-qadam o'quv" };
-let greeted = false, bumpT = 0, tutorial = null, replay = null, lastResult = null;
+let greeted = false, greetPending = false, afterPrep = null, bumpT = 0, tutorial = null, replay = null, lastResult = null;
 const rec = new Recorder();
 
 // Building the ground (roads, buildings, trees, signs) and making its shaders ready takes seconds on a slow phone;
@@ -144,7 +144,7 @@ function start(m, el) {
   preparing = true; prepCard(true); hud.hideMenu();
   requestAnimationFrame(() => requestAnimationFrame(() => {
     try { startNow(m, el); } catch (e) { preparing = false; prepCard(false); throw e; }
-    const done = () => { preparing = false; prepCard(false); };
+    const done = () => { preparing = false; prepCard(false); const f = afterPrep; afterPrep = null; if (f) f(); };
     Promise.all([warmUp(view.renderer, view.scene, view.cam, view.scene), view.warmHud()]).then(done, done);       // the whole scene (ground, people, cabin) and the mirrors
   }));
 }
@@ -174,14 +174,11 @@ function startNow(m, el) {
   view.setMode(settings.camera || "cockpit");
   useCar(settings.car);                            // the model variant follows the quality setting
   if (m !== "practice" && settings.boarding !== false) { view.drag = { yaw: 0, pitch: 0 }; view.startBoarding(); }
-  // the first time he sits down, the driver says hello (once per visit)
-  if (m !== "practice" && !greeted && settings.voice !== false && !settings.muted) { greeted = true; carVoice = audio.carClip("salom.mp3", 0, 0); }
   hud.reset(session, m === "practice" ? ELEMENTS.find(e => e.id === el).name : TITLES[m]);
   session.on(handleEvent);
   hud.hideMenu();
   paused = false;
   bump.reset(); countdown = -1;
-  audio.chime();
   audio.preload(Object.keys(PHRASES.phrases).concat(["clips/fayzulla", "clips/balandku"]));
   balandFor = null;
   if (moodLocked(settings.instructor)) settings.instructor = "angry";
@@ -189,8 +186,15 @@ function startNow(m, el) {
   kidShow.reset(session, m === "training");
   view.setInstructorVisible(instructor.on);
   if (instructor.on) audio.preload(lineIds(instructor.mood));
-  if (m === "practice") audio.prompt("task_" + el, ELEMENTS.find(e => e.id === el).name);
-  else audio.prompt("wait_start", "Start ishorasini kuting");
+  // the first time the learner sits down beside an instructor, he says hello (once per visit; frame() plays it
+  // once he is in his seat)
+  greetPending = m !== "practice" && !greeted && instructor.on && settings.voice !== false && !settings.muted;
+  // the sounds wait for the "Tayyorlanmoqda" card to go: the drive starts then
+  afterPrep = () => {
+    audio.chime();
+    if (m === "practice") audio.prompt("task_" + el, ELEMENTS.find(e => e.id === el).name);
+    else audio.prompt("wait_start", "Start ishorasini kuting");
+  };
 }
 
 // 360-degree showroom: the car parked, camera driven by mouse/touch
@@ -716,6 +720,7 @@ function frame(now) {
       const c = session.car;
       if (prevCar !== c) { prevCar = c; prevPose = {}; for (const k of POSE) prevPose[k] = c[k] || 0; }
       if (view.boarding) acc = 0;                  // the clock (and the start signal) waits until both are in their seats
+      else if (greetPending) { greetPending = false; greeted = true; carVoice = audio.carClip("salom.mp3", 0, 0); }
       while (acc >= H && n < 60) { for (const k of POSE) prevPose[k] = c[k] || 0; session.step(H); acc -= H; n++; }
       rec.sample(session);
       countDrive(settings.car, dt);
