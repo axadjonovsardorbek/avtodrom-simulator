@@ -420,16 +420,23 @@ function sendFile(file, onProgress) {
 // ---- cars
 
 async function cars(v) {
-  let { disabled } = await api("/api/admin/cars");
+  let { disabled, noVoice } = await api("/api/admin/cars");
+  const put = async body => ({ disabled, noVoice } = await api("/api/admin/cars", { method: "PUT", body: { disabled, noVoice, ...body } }));
   const render = () => {
     v.innerHTML = `<div class="box"><h2>Mashinalar</h2>
-      <p class="hint">O'chirilgan mashina menyuda, garajda va yo'ldagi boshqa mashinalar orasida ko'rinmaydi. Kamida bittasi yoqilgan qoladi.</p>
-      <div class="cars">${ALL_CARS.map(c => { const on = !disabled.includes(c.id); return `<label class="carrow${on ? "" : " off"}"><span><b>${esc(c.name)}</b><small>${esc(c.info || "")}</small></span>
-        <span class="sw"><input type="checkbox" data-car="${c.id}"${on ? " checked" : ""}><span></span></span></label>`; }).join("")}</div></div>`;
+      <p class="hint">O'chirilgan mashina menyuda, garajda va yo'ldagi boshqa mashinalar orasida ko'rinmaydi. Kamida bittasi yoqilgan qoladi. "Ovoz": mashina tanlanganda uning ovozi yangraydimi.</p>
+      <div class="cars">${ALL_CARS.map(c => { const on = !disabled.includes(c.id); return `<div class="carrow${on ? "" : " off"}"><span><b>${esc(c.name)}</b><small>${esc(c.info || "")}</small></span>
+        ${c.voice ? `<span class="vtog">Ovoz <span class="sw"><input type="checkbox" data-voice="${c.id}"${noVoice.includes(c.id) ? "" : " checked"}><span></span></span></span>` : ""}
+        <span class="sw"><input type="checkbox" data-car="${c.id}"${on ? " checked" : ""}><span></span></span></div>`; }).join("")}</div></div>`;
     v.querySelectorAll("[data-car]").forEach(i => i.onchange = async () => {
       const next = i.checked ? disabled.filter(x => x !== i.dataset.car) : [...disabled, i.dataset.car];
       if (next.length >= ALL_CARS.length) { toast("Kamida bitta mashina yoqilgan bo'lishi kerak", "bad"); i.checked = true; return; }
-      try { ({ disabled } = await api("/api/admin/cars", { method: "PUT", body: { disabled: next } })); toast(i.checked ? "Yoqildi" : "O'chirildi", "good"); } catch (e) { failed(e); }
+      try { await put({ disabled: next }); toast(i.checked ? "Yoqildi" : "O'chirildi", "good"); } catch (e) { failed(e); }
+      render();
+    });
+    v.querySelectorAll("[data-voice]").forEach(i => i.onchange = async () => {
+      const next = i.checked ? noVoice.filter(x => x !== i.dataset.voice) : [...noVoice, i.dataset.voice];
+      try { await put({ noVoice: next }); toast(i.checked ? "Ovoz yoqildi" : "Ovoz o'chirildi", "good"); } catch (e) { failed(e); }
       render();
     });
   };

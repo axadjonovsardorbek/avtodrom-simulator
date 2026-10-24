@@ -78,7 +78,7 @@ export const CARS = [
     voice: { url: "matiz.m4a", from: 0, dur: 4 }
   },
   {
-    id: "damas", plateY: [0.57, 0.61], name: "Chevrolet Damas", model: "models/damas.glb", info: "0.8 · 38 o.k. · 3,50 m",
+    id: "damas", plateY: [0.57, 0.83], name: "Chevrolet Damas", model: "models/damas.glb", info: "0.8 · 38 o.k. · 3,50 m",
     credit: "3D model: \"Chevrolet Damas\" (Sketchfab), modified", creditUrl: "",
     dims: DAMAS, eye: [1.5, 1.4, -0.332], seat: [1.48, 0.66, 0.332],
     mirrors: { center: [2.1, 1.55, 0], left: [2.16, 1.4, -0.82], right: [2.16, 1.4, 0.82] },
@@ -87,7 +87,7 @@ export const CARS = [
     voice: { url: "damas.mp3", from: 33, dur: 4.3 }
   },
   {
-    id: "kia-k5", plateY: [0.53, 0.67], paid: true, name: "Kia K5", model: "models/kia-k5.glb", info: "1.6 Turbo · 180 o.k. · 4,91 m",
+    id: "kia-k5", plateY: [0.53, 0.46], paid: true, name: "Kia K5", model: "models/kia-k5.glb", info: "1.6 Turbo · 180 o.k. · 4,91 m",
     credit: "3D model: \"Kia K5 2025\" (Sketchfab), modified", creditUrl: "",
     dims: K5, eye: [1.2, 1.12, -0.386], seat: [1.33, 0.44, 0.386],
     screen: { at: { c: [2.032, 0.938, 0.006], n: [-0.985, 0.172, 0], w: 0.262, h: 0.09 } },      // the centre screen, measured from the seat

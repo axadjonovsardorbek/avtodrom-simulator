@@ -46,6 +46,7 @@ func cleanCars(in []string) []string {
 
 type CarSettings struct {
 	Disabled []string `json:"disabled"`
+	NoVoice  []string `json:"noVoice"` // cars whose voice clip does not play when picked
 }
 
 func (a *App) handleConfig(w http.ResponseWriter, r *http.Request) {
@@ -76,6 +77,10 @@ func (a *App) handleConfig(w http.ResponseWriter, r *http.Request) {
 		cars.Disabled = []string{}
 	}
 	out["disabledCars"] = cars.Disabled
+	if cars.NoVoice == nil {
+		cars.NoVoice = []string{}
+	}
+	out["noVoiceCars"] = cars.NoVoice
 	if site, err := a.site(ctx); err == nil {
 		out["site"] = site.public(time.Now().UnixMilli())
 	}

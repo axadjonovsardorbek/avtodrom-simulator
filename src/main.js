@@ -511,12 +511,12 @@ function loadTrafficModels() {
 }
 
 // the car's own voice clip, played when the player picks it (menu or garage); not at load
-let carVoice = null;
+let carVoice = null, noVoiceCars = new Set();
 function stopCarVoice(fade = 0.4) { if (carVoice) { carVoice.stop(fade); carVoice = null; } }
 function playCarVoice(id) {
   stopCarVoice();
   const v = carById(id).voice;
-  if (v && settings.voice !== false && !settings.muted) carVoice = audio.carClip(v.url, v.from, v.dur, e => hud.toast("Mashina ovozi chalinmadi: " + ((e && (e.name || e.message)) || "xato"), "bad"));
+  if (v && !noVoiceCars.has(id) && settings.voice !== false && !settings.muted) carVoice = audio.carClip(v.url, v.from, v.dur, e => hud.toast("Mashina ovozi chalinmadi: " + ((e && (e.name || e.message)) || "xato"), "bad"));
 }
 function selectCar(id) { useCar(id); playCarVoice(id); }
 function useCar(id) {
@@ -555,6 +555,7 @@ if (apiOn) {
   config().then(c => {
     if (!c) return;
     setDisabledCars(c.disabledCars);
+    noVoiceCars = new Set(c.noVoiceCars || []);       // the cars the admin silenced
     hud.site = c.site || null;                      // maintenance, the banner over the menu
     const picked = settings.car === "malibu" ? "malibu-premier" : settings.car;
     if (!CARS.some(x => x.id === picked)) { settings.car = CARS[0].id; saveSettings(); useCar(settings.car); }

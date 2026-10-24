@@ -435,22 +435,29 @@ func (a *App) handleGetCars(w http.ResponseWriter, r *http.Request) {
 	if c.Disabled == nil {
 		c.Disabled = []string{}
 	}
+	if c.NoVoice == nil {
+		c.NoVoice = []string{}
+	}
 	writeJSON(w, 200, c)
 }
 
-// PUT /api/admin/cars: { disabled: [car ids] } (the simulator keeps at least one car whatever this says)
+// PUT /api/admin/cars: { disabled: [car ids], noVoice: [car ids] } (the simulator keeps at least one car whatever
+// this says)
 func (a *App) handlePutCars(w http.ResponseWriter, r *http.Request) {
 	var c CarSettings
 	if !readJSON(w, r, &c) {
 		return
 	}
-	out := []string{}
-	for _, id := range c.Disabled {
-		if carIDRe.MatchString(id) {
-			out = append(out, id)
+	ids := func(in []string) []string {
+		out := []string{}
+		for _, id := range in {
+			if carIDRe.MatchString(id) {
+				out = append(out, id)
+			}
 		}
+		return out
 	}
-	c.Disabled = out
+	c.Disabled, c.NoVoice = ids(c.Disabled), ids(c.NoVoice)
 	if err := a.db.setSetting(r.Context(), "cars", c); err != nil {
 		serverError(w, r, err)
 		return
