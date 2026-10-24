@@ -589,7 +589,7 @@ export class View {
         const at = new THREE.Vector3(seatX + 0.05, 0, 1.15);
         if (up && t < 4.7) w.sit(this.instructor, 1 - (t - 2.5) / 2.2, at, 1, true);
         else if (up) { const wk = smooth((t - 4.7) / 2.2); w.root.position.set(seatX + 0.05, 0, 1.15 + (5.6 - 1.15) * wk); w.root.rotation.y = -Math.PI / 2; w.update(dt, true); }
-      }
+      } else if (this.walker) this.walker.root.visible = false;
       if (!x.thud && u > 0.92) { x.thud = true; if (this.onDoor) this.onDoor(); }
       if (w && !x.thud2 && t > 5.5) { x.thud2 = true; if (this.onDoor) this.onDoor(); }
       if (t >= (w ? 7 : 5.2)) this.finishExit();
@@ -629,7 +629,7 @@ export class View {
         w.root.visible = !seated;
         if (t < 3.5) { w.root.position.set(walkTo(ix, t / 2.9), 0, iz); w.root.rotation.y = 0.5 * Math.PI * smooth((t - 2.9) / 0.5); w.update(dt, t < 2.9); }
         else if (!seated) w.sit(this.instructor, (t - 3.5) / 2.5, new THREE.Vector3(ix, 0, iz), 1);
-      }
+      } else if (this.walker) this.walker.root.visible = false;        // no instructor chosen: nobody walks to his door
       if (this.instructor) this.instructor.visible = !w || t >= 6.0 ? !!this.instructorWanted : false;
       // the learner walks up to the driver's door on the left, the door opens, and he sits down
       const inside = L > 6.23;       // the outside of the car shows until the camera is through the door
