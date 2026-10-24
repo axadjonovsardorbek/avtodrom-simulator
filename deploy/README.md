@@ -14,6 +14,15 @@ nginx site `/etc/nginx/sites-available/simulator-admin`.
 Each has its own Postgres container, database volume and uploads volume (compose project `simulator-prod` / `simulator-dev`).
 The host's nginx (`/etc/nginx/sites-available/simulator`) proxies the two addresses to the local ports; HTTPS is from certbot.
 
+## eavtodrom.uz
+
+The domain's names (eavtodrom.uz, www, dev, admin, dev-admin) go to the same two servers through the nginx site
+`eavtodrom` (`deploy/nginx-eavtodrom.conf`). Until the .uz registry activates the domain it is served over
+plain HTTP only; `deploy/eavtodrom-switch.sh` (in root's crontab every 15 minutes, copied to
+`/root/simulator/`) waits until all five names resolve to the server, then gets the certificate, points
+`PUBLIC_URL` and `CORS_ORIGINS` of prod and dev at the new addresses, restarts both and removes its cron line.
+Log: `/root/simulator/eavtodrom-switch.log`. The sslip.io addresses keep working.
+
 ## Updating
 
 Automatic: GitHub Actions (`.github/workflows/deploy.yml`) runs the tests on every push, then deploys:

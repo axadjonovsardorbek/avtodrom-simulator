@@ -11,8 +11,9 @@ import { WORDMARK, logo } from "../ui/brand.js";
 
 const root = document.getElementById("admin");
 const $ = (s, el = root) => el.querySelector(s);
-// the simulator: on the panel's own address (admin.<site>) it is the site without "admin."
-const SIM = location.hostname.startsWith("admin.") ? `${location.protocol}//${location.host.slice(6)}/` : "./";
+// the simulator: on the panel's own address it is the site the panel belongs to (admin.<site> is <site>,
+// dev-admin.<site> is dev.<site>)
+const SIM = (h => h.startsWith("admin.") ? `${location.protocol}//${h.slice(6)}/` : h.startsWith("dev-admin.") ? `${location.protocol}//dev.${h.slice(10)}/` : "./")(location.host);
 const icon = d => `<svg viewBox="0 0 24 24" aria-hidden="true">${d}</svg>`;
 const KEYS = [["exam", "Imtihon"], ["training", "Trening"], ...ELEMENTS.map(e => ["practice:" + e.id, "Mashq: " + e.name])];
 const pad = n => String(n).padStart(2, "0");
