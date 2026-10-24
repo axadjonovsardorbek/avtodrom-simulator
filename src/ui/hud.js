@@ -171,7 +171,7 @@ export class Hud {
           </div>
           <h2>Alohida mashq <small>raqam — xaritadagi element</small></h2>
           <div class="els">${els}</div>
-          <p class="credit">${CARS.map(c => !c.credit ? "" : c.creditUrl ? `<a href="${c.creditUrl}" target="_blank" rel="noopener">${c.credit}</a>` : `<span>${c.credit}</span>`).join("<br>")}</p>
+          <details class="credit"><summary>Mualliflar</summary>${CARS.map(c => !c.credit ? "" : c.creditUrl ? `<a href="${c.creditUrl}" target="_blank" rel="noopener">${c.credit}</a>` : `<span>${c.credit}</span>`).join("<br>")}</details>
         </section>
         <aside class="panel menu-side">
           <div class="acct" id="acct" hidden></div>
@@ -192,7 +192,7 @@ export class Hud {
           <h3>Boshqa</h3>
           <div class="row2">
             <div><span class="lbl">Ovozli ko'rsatma</span>${seg("optVoice", [["on", "Ha"], ["off", "Yo'q"]])}</div>
-            <div><span class="lbl">Boshqa mashinalar</span>${seg("optTraffic", [["off", "Yo'q"], ["simple", "Oddiy"], ["real", "Real"]])}</div>
+            <div><span class="lbl">Boshqa mashinalar</span>${seg("optTraffic", [["real", "Ha"], ["off", "Yo'q"]])}</div>
             <div><span class="lbl">Grafika</span>${seg("optQuality", [["high", "Yuqori"], ["mid", "O'rta"], ["low", "Yengil"]])}</div>
             <div><span class="lbl">Kadr tezligi (FPS)</span>${seg("optFps", [["30", "30"], ["60", "60"], ["max", "Maks"]])}</div>
             <div class="full"><span class="lbl">Ob-havo</span>${seg("optWeather", [["clear", "Quyoshli"], ["cloudy", "Bulutli"], ["rain", "Yomg'ir"], ["fog", "Tuman"]])}</div>
@@ -219,7 +219,7 @@ export class Hud {
     bindSeg("optWeather", S.weather || "clear", v => { S.weather = v; this.h.atmosphere && this.h.atmosphere(); });
     bindSeg("optTime", S.time || "day", v => { S.time = v; this.h.atmosphere && this.h.atmosphere(); });
     bindSeg("optFps", S.fps || (matchMedia("(pointer: coarse)").matches ? "60" : "max"), v => S.fps = v);
-    bindSeg("optTraffic", S.traffic || "simple", v => S.traffic = v);
+    bindSeg("optTraffic", S.traffic === "off" ? "off" : "real", v => S.traffic = v);
     const markCar = () => m.querySelectorAll(".carbtn").forEach(b => b.classList.toggle("on", b.dataset.car === (S.car === "malibu" ? "malibu-premier" : S.car || CARS[0].id)));
     markCar();
     m.querySelectorAll(".carbtn").forEach(b => b.onclick = () => { const car = CARS.find(c => c.id === b.dataset.car); if (car && carLocked(car)) { this.showBuy(carItem(car), car.name); return; } S.car = b.dataset.car; markCar(); this.h.useCar && this.h.useCar(S.car); this.h.save && this.h.save(); });

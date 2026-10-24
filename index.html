@@ -11,8 +11,31 @@
     <meta name="description" content="eAvtodrom — 3D haydash simulyatori. Avtodrom amaliy imtihoniga tayyorlaning: to'liq marshrut, 13 mashq, rasmiy jarima ballari, o'zbek tilida ovozli ko'rsatmalar. Kompyuter va telefonda ishlaydi." />
     <meta property="og:title" content="eAvtodrom — haydash simulyatori" />
     <meta property="og:description" content="B toifa avtodrom imtihoniga 3D simulyatorda tayyorlaning: haqiqiy mashinalar, instruktor, rasmiy jarima ballari." />
+    <meta name="robots" content="index, follow, max-image-preview:large" />
+    <link rel="canonical" href="https://eavtodrom.uz/" />
     <meta property="og:type" content="website" />
-    <meta property="og:image" content="icons/icon-512.png?v=2" />
+    <meta property="og:site_name" content="eAvtodrom" />
+    <meta property="og:locale" content="uz_UZ" />
+    <meta property="og:url" content="https://eavtodrom.uz/" />
+    <meta property="og:image" content="https://eavtodrom.uz/icons/icon-512.png?v=2" />
+    <meta name="twitter:card" content="summary" />
+    <meta name="twitter:title" content="eAvtodrom — haydash simulyatori" />
+    <meta name="twitter:description" content="B toifa avtodrom imtihoniga 3D simulyatorda tayyorlaning." />
+    <meta name="twitter:image" content="https://eavtodrom.uz/icons/icon-512.png?v=2" />
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "WebApplication",
+        "name": "eAvtodrom",
+        "url": "https://eavtodrom.uz/",
+        "description": "Avtodrom amaliy imtihoniga tayyorlanish uchun 3D haydash simulyatori: to'liq marshrut, 13 mashq, rasmiy jarima ballari, o'zbek tilida ovozli ko'rsatmalar.",
+        "applicationCategory": "EducationalApplication",
+        "operatingSystem": "Web, Android, iOS, Windows, macOS",
+        "inLanguage": "uz",
+        "image": "https://eavtodrom.uz/icons/icon-512.png",
+        "offers": { "@type": "Offer", "price": "0", "priceCurrency": "UZS" }
+      }
+    </script>
     <link rel="icon" href="icons/icon.svg?v=2" type="image/svg+xml" />
     <link rel="apple-touch-icon" href="icons/icon-180.png?v=2" />
     <link rel="manifest" href="manifest.webmanifest" />
@@ -38,7 +61,11 @@
         <button class="boot-go" id="bootGo" hidden>Boshlash</button>
       </div>
     </div>
-    <noscript><p style="color:#fff;padding:24px;font-family:sans-serif">Simulyator uchun JavaScript yoqilgan bo'lishi kerak.</p></noscript>
+    <noscript><div style="color:#fff;padding:24px;font-family:sans-serif">
+      <h2>eAvtodrom — avtodrom imtihoniga tayyorgarlik simulyatori</h2>
+      <p>B toifa haydovchilik guvohnomasi uchun avtodrom amaliy imtihonini 3D simulyatorda mashq qiling: estakada, parallel to'xtash, ilon izi, boksga kirish, temir yo'l kesishmasi va boshqa mashqlar, rasmiy jarima ballari va o'zbek tilidagi ovozli instruktor bilan.</p>
+      <p>Simulyator uchun JavaScript yoqilgan bo'lishi kerak.</p>
+    </div></noscript>
     <script type="module">
       // the boot screen first, the simulator a moment later: building the 3D world keeps the page busy for a while,
       // and Safari stops the intro's animation meanwhile (boot.done() waits for the intro to finish anyway)

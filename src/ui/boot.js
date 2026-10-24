@@ -50,8 +50,8 @@ export const boot = {
     b.querySelector("#bootText").textContent = text;
     b.querySelector("#bootBar").style.width = Math.round(Math.max(0.05, Math.min(1, f)) * 100) + "%";
   },
-  // ready: the intro plays to its end (about two seconds); on a phone a "Boshlash" button waits for the tap that
-  // may turn the screen on its side and fill it
+  // ready: the intro plays to its end (about two seconds), then a "Boshlash" button (or Enter) waits for the tap
+  // that lets the browser play sound; on a phone the same tap turns the screen on its side and fills it
   done() {
     if (finished) return; finished = true; clearInterval(tipTimer);
     const b = el(); if (!b) return;
@@ -59,10 +59,9 @@ export const boot = {
     const hide = () => { b.classList.add("done"); setTimeout(() => b.remove(), 650); };
     const wait = Math.max(0, 2200 - (performance.now() - t0));
     setTimeout(() => {
-      if (!touch) return hide();
       b.classList.add("ready");
-      const go = b.querySelector("#bootGo"); go.hidden = false;
-      go.onclick = () => { introPlayed = true; if (introClip) introClip.pause(); if (startClip) startClip.play().catch(() => {}); landscape(); hide(); };
+      const go = b.querySelector("#bootGo"); go.hidden = false; go.focus();
+      go.onclick = () => { introPlayed = true; if (introClip) introClip.pause(); if (startClip) startClip.play().catch(() => {}); if (touch) landscape(); hide(); };
     }, wait);
   },
   fail(text) {

@@ -157,7 +157,7 @@ function startNow(m, el) {
   if (touchUi) goFullscreen();
   app.classList.toggle("auto", settings.transmission === "auto");
   // other cars: none, plain boxes, or light copies of the real models (the models load in the background)
-  const trafficMode = settings.traffic || "simple";
+  const trafficMode = settings.traffic === "off" ? "off" : "real";
   setTrafficFleet(trafficMode === "real" ? CARS.map(c => ({ id: c.id, len: c.dims.length, wid: Math.min(1.8, c.dims.width), rOh: c.dims.rOh })) : []);
   if (trafficMode === "real") loadTrafficModels();
   loadTrain();
@@ -494,7 +494,7 @@ let preloaded = false;
 function preloadDrive() {
   if (preloaded) return; preloaded = true;
   const idle = window.requestIdleCallback || (f => setTimeout(f, 1));
-  setTimeout(() => idle(() => { loadTrain(); if ((settings.traffic || "simple") === "real") loadTrafficModels(); }, { timeout: 4000 }), 3000);
+  setTimeout(() => idle(() => { loadTrain(); if (settings.traffic !== "off") loadTrafficModels(); }, { timeout: 4000 }), 3000);
 }
 
 // light models for the traffic, loaded once when they are first needed

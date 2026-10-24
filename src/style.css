@@ -129,6 +129,7 @@ button:focus-visible, select:focus-visible { outline: 2px solid var(--amber); ou
 
 .credit { margin: 18px 0 0; font-size: 12px; color: var(--muted); }
 .credit a { color: var(--muted); }
+.credit summary { cursor: pointer; opacity: .5; width: max-content; }
 
 /* 360 showroom */
 .showbtn { width: 100%; margin-top: 16px; text-align: left; display: grid; gap: 2px; border: 1px solid var(--amber); background: linear-gradient(90deg, rgba(46, 204, 113, .16), rgba(46, 204, 113, .04)); border-radius: 10px; padding: 12px 16px; cursor: pointer; }
