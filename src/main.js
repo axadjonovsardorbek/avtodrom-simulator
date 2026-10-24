@@ -51,7 +51,7 @@ const app = document.getElementById("app");
 // the server's settings (when the build has one): the admin's advertising list, before any car's screen asks for it
 setAdSource(apiOn ? config().then(c => (c && c.ads) || null) : null);
 const hud = new Hud(app, { settings, account: u => onAccount(u), atmosphere: () => applyAtmosphere(), protocolBack: () => lastResult && hud.showResult(...lastResult), start, resume, action: onAction, resultAction, useCar: selectCar, showroom: openShowroom, save: () => saveSettings(), garage: () => openGarage(),
-  setPlate: t => { settings.plate = t; if (view.carView.setPlate) view.carView.setPlate(t); saveSettings(); },
+  setPlate: t => { settings.plate = t; if (view.carView.setPlate) view.carView.setPlate(t); if (garage) for (const cv of [...garage.bays.map(b => b.cv), ...garage.mids]) if (cv && cv.setPlate) cv.setPlate(t); saveSettings(); },
   setColor: id => { settings.color = id; if (view.carView.setPaint) view.carView.setPaint(id); saveSettings(); } });
 const view = new View(hud.canvas);
 setTextureRenderer(view.renderer);
@@ -233,7 +233,7 @@ function garageSharpen() {
   garageSharpen.t = setTimeout(() => {
     if (!inGarage || garage.index !== i || (garage.full && garage.full.i === i) || !garage.mids[i]) return;
     const old = garage.full; garage.full = { i, cv: null };
-    if (old) { if (old.cv) { garage.setModel(old.i, garage.mids[old.i]); freeModel(old.cv); } }
+    if (old && old.cv) garage.setModel(old.i, garage.mids[old.i]).then(() => freeModel(old.cv));      // freed once its light copy is back in its place
     prepareCar(CARS[i]).then(cv => {
       if (!garage.full || garage.full.i !== i) { freeModel(cv); return; }
       garage.full.cv = cv; garage.setModel(i, cv);

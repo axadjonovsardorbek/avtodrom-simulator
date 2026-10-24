@@ -112,10 +112,10 @@ export class Garage {
     });
   }
 
-  // put a loaded car model on its bay (centred on the platform)
+  // put a loaded car model on its bay (centred on the platform); the one there stays until the new one is ready to
+  // draw, so swapping a light copy for the full model (or back) never leaves the bay empty for a moment
   setModel(i, cv) {
     const bay = this.bays[i]; if (!bay) return;
-    if (bay.cv) bay.turn.remove(bay.cv.root);
     bay.cv = cv;
     const d = cv.root.getObjectByName("car")?.userData?.dims || cv.root.userData?.dims;
     const mid = d ? (d.wheelbase + d.fOh - d.rOh) / 2 : 1.4;
@@ -123,8 +123,8 @@ export class Garage {
     cv.root.traverse(o => { if (o.isMesh && !o.name.startsWith("shadow")) o.castShadow = true; });
     cv.setCockpit && cv.setCockpit(false);
     singlePass(cv.root);
-    const show = () => { if (bay.cv === cv) bay.turn.add(cv.root); };
-    if (this.renderer) warmUp(this.renderer, cv.root, this.cam, this.scene).then(show, show); else show();
+    const show = () => { if (bay.cv !== cv) return; for (const c of [...bay.turn.children]) if (c !== cv.root) bay.turn.remove(c); bay.turn.add(cv.root); };
+    return this.renderer ? warmUp(this.renderer, cv.root, this.cam, this.scene).then(show, show) : Promise.resolve(show());
   }
 
   resize(w, h) { this.cam.aspect = w / h; this.cam.updateProjectionMatrix(); }

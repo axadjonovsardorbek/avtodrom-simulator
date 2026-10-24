@@ -36,6 +36,22 @@ function gauge(id, max, step, label, unit, red) {
     <g class="needle"><line x1="-10" y1="0" x2="${R - 6}" y2="0"/><circle r="6"/></g></svg>`;
 }
 
+// the plate field (menu and garage): the region from the list (01..95), then the number typed (six letters and
+// digits, spaced on the plate)
+const plateField = () => `<span class="plate-in"><select class="pl-reg" aria-label="Hudud kodi">${REGION_NAMES.map(([c, n]) => `<option value="${c}" title="${n}">${c}</option>`).join("")}</select><input class="pl-num" maxlength="8" spellcheck="false" autocomplete="off" placeholder="A070BJ" aria-label="Raqam: 6 ta harf va son"><span class="plate-uz" aria-hidden="true"><i></i>UZ</span></span>`;
+function bindPlate(root, plate, set) {
+  const regEl = root.querySelector(".pl-reg"), numEl = root.querySelector(".pl-num"); if (!regEl) return;
+  const [reg0, num0] = plateParts(plate || "01 A 070 BJ");
+  regEl.value = REGIONS.includes(reg0) ? reg0 : "01"; numEl.value = num0;
+  if (!set) return;
+  const change = () => {
+    const raw = numEl.value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 6);
+    if (numEl.value !== raw) numEl.value = raw;
+    if (raw.length) set(regEl.value + " " + formatNumber(raw));
+  };
+  regEl.onchange = change; numEl.oninput = change;
+}
+
 export class Hud {
   constructor(root, handlers) {
     this.root = root;
@@ -177,7 +193,7 @@ export class Hud {
           <h3>Mashina</h3>
           <div class="cars">${CARS.map(c => `<button class="carbtn${carLocked(c) ? " locked" : ""}" data-car="${c.id}">${carLocked(c) ? '<i class="lock" aria-label="Pullik">🔒</i>' : ""}<b>${c.name.replace("Chevrolet ", "")}</b><small>${c.info ? c.info.split(" · ")[0] : "Chevrolet"}</small></button>`).join("")}</div>
           <div class="row"><span class="lbl">Rangi</span><div class="swatches">${COLORS.map(([v, hex, t]) => `<button class="sw" data-color="${v}" title="${t}" style="--c:${hex}"></button>`).join("")}</div></div>
-          <div class="row"><span class="lbl">Davlat raqami</span><span class="plate-in"><select id="optRegion" aria-label="Hudud kodi">${REGION_NAMES.map(([c, n]) => `<option value="${c}" title="${n}">${c}</option>`).join("")}</select><input id="optPlate" maxlength="8" spellcheck="false" autocomplete="off" placeholder="A070BJ" aria-label="Raqam: 6 ta harf va son"><span class="plate-uz" aria-hidden="true"><i></i>UZ</span></span></div>
+          <div class="row"><span class="lbl">Davlat raqami</span>${plateField()}</div>
           ${(() => { const all = shopInfo().products.find(p => p.items.includes("all")); return all && apiOn && shopInfo().enabled && !(getUser() && (getUser().owns || []).includes("all")) ? `<button class="garagebtn tariff" id="tariffBtn"><svg viewBox="0 0 24 24"><path d="m12 3 2.7 5.6 6.1.9-4.4 4.3 1 6.1-5.4-2.9-5.4 2.9 1-6.1-4.4-4.3 6.1-.9z"/></svg><span><b>${all.name}</b><small>Barcha mashinalar va 18+ · ${all.days ? all.days + " kun" : "doimiy"}</small></span><i>›</i></button>` : ""; })()}
           <button class="garagebtn" id="garageBtn"><svg viewBox="0 0 24 24"><path d="M3 21V9l9-5 9 5v12"/><path d="M7 21v-7h10v7M7 17h10"/></svg><span><b>Garaj</b><small>Mashinani ko'rib tanlang</small></span><i>›</i></button>
           <button class="ghost" id="statsBtn">${icon('<path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/>')} Natijalar va xatolar tahlili</button>
@@ -225,15 +241,7 @@ export class Hud {
     const markColor = () => m.querySelectorAll(".sw").forEach(b => b.classList.toggle("on", b.dataset.color === (S.color || "white")));
     markColor();
     m.querySelectorAll(".sw").forEach(b => b.onclick = () => { this.h.setColor && this.h.setColor(b.dataset.color); markColor(); });
-    // the region from the list (01..95), the number typed: six letters and digits, spaced on the plate
-    const [reg0, num0] = plateParts(S.plate || "01 A 070 BJ"), regEl = $("#optRegion", m), numEl = $("#optPlate", m);
-    regEl.value = REGIONS.includes(reg0) ? reg0 : "01"; numEl.value = num0;
-    const setPlate = () => {
-      const raw = numEl.value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 6);
-      if (numEl.value !== raw) numEl.value = raw;
-      if (raw.length && this.h.setPlate) this.h.setPlate(regEl.value + " " + formatNumber(raw));
-    };
-    regEl.onchange = setPlate; numEl.oninput = setPlate;
+    bindPlate(m, S.plate, t => this.h.setPlate && this.h.setPlate(t));
     m.querySelectorAll("[data-mode]").forEach(b => b.onclick = () => this.h.start(b.dataset.mode));
     m.querySelectorAll("[data-el]").forEach(b => b.onclick = () => this.h.start("practice", b.dataset.el));
     const r = $("#resume", m); if (r) r.onclick = () => this.h.resume();
@@ -260,10 +268,12 @@ export class Hud {
         <div class="swatches">${COLS.map(([v, hex, t]) => `<button class="sw${v === color ? " on" : ""}" data-c="${v}" title="${t}" style="--c:${hex}"></button>`).join("")}</div>
         <button class="g-arrow" data-g="next" aria-label="Keyingi">›</button>
       </div>
+      <div class="g-row g-plate">${plateField()}</div>
       <div class="g-row"><button class="btn" data-g="back">Orqaga</button>${carLocked(car) ? '<button class="btn primary" data-g="buy">🔒 Sotib olish</button>' : '<button class="btn primary" data-g="pick">Shu mashinani tanlash</button>'}</div>
       <small class="g-hint">Sudrab aylantiring</small>`;
     el.querySelectorAll("[data-g]").forEach(b => b.onclick = () => act(b.dataset.g));
     el.querySelectorAll("[data-c]").forEach(b => b.onclick = () => act("color", b.dataset.c));
+    bindPlate(el, this.h.settings.plate, t => { this.h.setPlate && this.h.setPlate(t); const m = $("#menu", this.root); if (m) bindPlate(m, t); });
   }
 
   showShowroom(on, handlers) {
